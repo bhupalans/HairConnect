@@ -31,7 +31,7 @@ export function Footer() {
                     <h3 className="font-headline text-lg font-semibold text-primary mb-4">Marketplace</h3>
                     <ul className="space-y-2">
                         {footerLinks.slice(0, 4).map(link => (
-                            <li key={link.href}>
+                            <li key={link.label}>
                                 <Link href={link.href} className="text-muted-foreground hover:text-primary transition-colors">
                                     {link.label}
                                 </Link>
@@ -51,7 +51,7 @@ export function Footer() {
                     <h3 className="font-headline text-lg font-semibold text-primary mb-4">Legal</h3>
                      <ul className="space-y-2">
                         {footerLinks.slice(4).map(link => (
-                            <li key={link.href}>
+                            <li key={link.label}>
                                 <Link href={link.href} className="text-muted-foreground hover:text-primary transition-colors">
                                     {link.label}
                                 </Link>
