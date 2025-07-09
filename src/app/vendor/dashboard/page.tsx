@@ -64,17 +64,29 @@ import type { Product } from "@/lib/types";
 // In a real app, you'd get this from the user's session
 const LOGGED_IN_SELLER_ID = "seller-1";
 
+const initialNewProductState = {
+  name: "",
+  description: "",
+  price: "",
+  category: "",
+  imagePreview: "",
+};
+
 export default function VendorDashboardPage() {
   const { toast } = useToast();
 
   // State for dialogs
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+  const [showAddDialog, setShowAddDialog] = React.useState(false);
   const [showEditDialog, setShowEditDialog] = React.useState(false);
 
   // State for the product being acted upon
   const [selectedProduct, setSelectedProduct] = React.useState<Product | null>(
     null
   );
+  
+  // State for the add form
+  const [newProduct, setNewProduct] = React.useState(initialNewProductState);
 
   // State for the edit form
   const [editProductData, setEditProductData] = React.useState({
@@ -82,11 +94,23 @@ export default function VendorDashboardPage() {
     description: "",
     price: "",
     category: "",
-    imageUrl: "",
+    imagePreview: "",
   });
 
   const seller = getSellerById(LOGGED_IN_SELLER_ID);
   const products = getProductsBySeller(LOGGED_IN_SELLER_ID);
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<any>>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setter((prev: any) => ({ ...prev, imagePreview: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
 
   // Handler to open the Edit dialog and populate it with product data
   const handleEditClick = (product: Product) => {
@@ -96,7 +120,7 @@ export default function VendorDashboardPage() {
       description: product.description,
       price: product.price.toString(),
       category: product.category,
-      imageUrl: product.images[0] || "",
+      imagePreview: product.images[0] || "",
     });
     setShowEditDialog(true);
   };
@@ -110,6 +134,16 @@ export default function VendorDashboardPage() {
     });
     setShowEditDialog(false);
   };
+
+  const handleAddProduct = () => {
+     // In a real app, you would send this data to your backend API to create the product
+    console.log("Adding new product:", newProduct);
+    toast({
+      description: `Product "${newProduct.name}" has been added.`,
+    });
+    setNewProduct(initialNewProductState);
+    setShowAddDialog(false);
+  }
 
   // Handler to open the Delete confirmation dialog
   const handleDeleteClick = (product: Product) => {
@@ -145,7 +179,7 @@ export default function VendorDashboardPage() {
             Manage your products for {seller.companyName}.
           </p>
         </div>
-        <Dialog>
+        <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
           <DialogTrigger asChild>
             <Button>
               <PlusCircle className="mr-2 h-4 w-4" />
@@ -168,6 +202,8 @@ export default function VendorDashboardPage() {
                   id="product-name"
                   className="col-span-3"
                   placeholder="e.g. Premium Wavy Bundles"
+                  value={newProduct.name}
+                  onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
@@ -178,6 +214,8 @@ export default function VendorDashboardPage() {
                   id="product-desc"
                   className="col-span-3"
                   placeholder="Describe your product..."
+                   value={newProduct.description}
+                  onChange={(e) => setNewProduct({...newProduct, description: e.target.value})}
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
@@ -189,13 +227,15 @@ export default function VendorDashboardPage() {
                   type="number"
                   className="col-span-3"
                   placeholder="e.g. 85.00"
+                  value={newProduct.price}
+                  onChange={(e) => setNewProduct({...newProduct, price: e.target.value})}
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="product-category" className="text-right">
                   Category
                 </Label>
-                <Select>
+                <Select value={newProduct.category} onValueChange={(value) => setNewProduct({...newProduct, category: value})}>
                   <SelectTrigger className="col-span-3">
                     <SelectValue placeholder="Select a category" />
                   </SelectTrigger>
@@ -208,19 +248,27 @@ export default function VendorDashboardPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="product-image" className="text-right">
-                  Image URL
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="product-image" className="text-right pt-2">
+                  Image
                 </Label>
-                <Input
-                  id="product-image"
-                  className="col-span-3"
-                  placeholder="https://placehold.co/600x600"
-                />
+                <div className="col-span-3 flex flex-col gap-2">
+                  <Input
+                    id="product-image"
+                    type="file"
+                    className="col-span-3 file:text-primary file:font-medium"
+                    accept="image/png, image/jpeg, image/gif"
+                    onChange={(e) => handleFileChange(e, setNewProduct)}
+                  />
+                  {newProduct.imagePreview && (
+                      <Image src={newProduct.imagePreview} alt="New product preview" width={100} height={100} className="rounded-md object-cover"/>
+                  )}
+                </div>
               </div>
             </div>
             <DialogFooter>
-              <Button type="submit">Add Product</Button>
+              <Button type="button" variant="outline" onClick={() => setShowAddDialog(false)}>Cancel</Button>
+              <Button type="submit" onClick={handleAddProduct}>Add Product</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -375,22 +423,23 @@ export default function VendorDashboardPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-product-image" className="text-right">
-                Image URL
-              </Label>
-              <Input
-                id="edit-product-image"
-                className="col-span-3"
-                value={editProductData.imageUrl}
-                onChange={(e) =>
-                  setEditProductData({
-                    ...editProductData,
-                    imageUrl: e.target.value,
-                  })
-                }
-              />
-            </div>
+             <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="edit-product-image" className="text-right pt-2">
+                  Image
+                </Label>
+                <div className="col-span-3 flex flex-col gap-2">
+                  <Input
+                    id="edit-product-image"
+                    type="file"
+                    className="col-span-3 file:text-primary file:font-medium"
+                    accept="image/png, image/jpeg, image/gif"
+                    onChange={(e) => handleFileChange(e, setEditProductData)}
+                  />
+                  {editProductData.imagePreview && (
+                      <Image src={editProductData.imagePreview} alt="Product preview" width={100} height={100} className="rounded-md object-cover"/>
+                  )}
+                </div>
+              </div>
           </div>
           <DialogFooter>
             <Button
