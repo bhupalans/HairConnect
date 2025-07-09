@@ -23,6 +23,18 @@ export const metadata: Metadata = {
     'virgin hair',
     'hair extensions',
     'wigs',
+    'wholesale wig vendors',
+    'hair factory direct',
+    'private label hair extensions',
+    'dropshipping hair vendors',
+    'hair suppliers for salons',
+    'B2B hair marketplace',
+    'ethical hair suppliers',
+    'raw hair vs virgin hair',
+    'HD lace front wigs',
+    'Vietnamese bone straight bundles',
+    'double drawn hair',
+    'kinky curly clip-ins',
   ],
 };
 
