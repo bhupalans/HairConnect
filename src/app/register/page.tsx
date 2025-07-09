@@ -70,9 +70,15 @@ export default function RegisterPage() {
                     <Input id="password" type="password" required />
                 </div>
               </div>
-               <div className="grid gap-2">
-                <Label htmlFor="location">Location</Label>
-                <Input id="location" placeholder="e.g., Lagos, Nigeria" required />
+               <div className="grid md:grid-cols-2 gap-6">
+                 <div className="grid gap-2">
+                  <Label htmlFor="location">Location</Label>
+                  <Input id="location" placeholder="e.g., Lagos, Nigeria" required />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="phone">Phone Number (Optional)</Label>
+                  <Input id="phone" type="tel" placeholder="e.g., +1 234 567 8900" />
+                </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="bio">About Your Business (Bio)</Label>
