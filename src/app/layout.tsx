@@ -5,8 +5,25 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 
 export const metadata: Metadata = {
-  title: "HairConnect",
-  description: "A marketplace for the human hair trade.",
+  title: "HairConnect - Global Human Hair Marketplace",
+  description: "Your premier global marketplace for buying and selling high-quality human hair. Connect with suppliers, buy in bulk, and grow your hair business online.",
+  keywords: [
+    'buy human hair in bulk',
+    'non-Remy hair bundles wholesale',
+    'Indian hair supplier',
+    'Vietnamese vs Chinese hair',
+    'how to test human hair quality',
+    'sell human hair online',
+    'list my human hair business',
+    'become a hair vendor',
+    'export human hair from India',
+    'start selling hair globally',
+    'human hair marketplace',
+    'raw hair',
+    'virgin hair',
+    'hair extensions',
+    'wigs',
+  ],
 };
 
 export default function RootLayout({
