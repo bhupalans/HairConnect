@@ -23,7 +23,11 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { categories } from "@/lib/data";
+import { categories, getProductById, getSellerById } from "@/lib/data";
+import { useSearchParams } from "next/navigation";
+import React, { useEffect, useState } from "react";
+import type { Product } from "@/lib/types";
+import { Loader2 } from "lucide-react";
 
 const quoteFormSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
@@ -51,27 +55,69 @@ const defaultValues: Partial<QuoteFormValues> = {
 
 export default function QuotePage() {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const [product, setProduct] = useState<Product | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const productId = searchParams.get("productId");
+
   const form = useForm<QuoteFormValues>({
     resolver: zodResolver(quoteFormSchema),
     defaultValues,
   });
 
+  useEffect(() => {
+    if (productId) {
+      const foundProduct = getProductById(productId);
+      if (foundProduct) {
+        setProduct(foundProduct);
+        // Pre-fill form with product specs
+        form.reset({
+          ...defaultValues,
+          hairType: foundProduct.category,
+          length: foundProduct.specs.length.replace(' inches', ''),
+          color: foundProduct.specs.color,
+          texture: foundProduct.specs.texture,
+        })
+      }
+    }
+    setIsLoading(false);
+  }, [productId, form]);
+
   function onSubmit(data: QuoteFormValues) {
-    console.log(data);
+    let toastDescription = "";
+    if (product) {
+      const seller = getSellerById(product.sellerId);
+      toastDescription = `Your request for "${product.name}" has been sent to ${seller?.companyName || 'the vendor'}. They will contact you shortly.`;
+    } else {
+      toastDescription = "Your general inquiry has been sent to our team. A vendor will contact you shortly.";
+    }
+
+    console.log({ quoteData: data, forProduct: product?.id });
+    
     toast({
       title: "Quote Request Sent!",
-      description: "A vendor will contact you shortly. Thank you for using HairConnect.",
+      description: toastDescription,
     });
     form.reset();
+  }
+  
+  if (isLoading) {
+    return <div className="container mx-auto px-4 py-8 md:py-12 flex justify-center items-center h-[50vh]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
   }
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
       <Card className="max-w-3xl mx-auto shadow-lg">
         <CardHeader className="text-center">
-            <CardTitle className="text-4xl md:text-5xl font-headline text-primary">Request a Custom Quote</CardTitle>
+            <CardTitle className="text-4xl md:text-5xl font-headline text-primary">
+              {product ? 'Request Quote for Product' : 'Request a Custom Quote'}
+            </CardTitle>
             <CardDescription className="text-lg">
-                Can't find what you're looking for? Fill out the form below to get a custom quote from our network of vendors.
+                {product 
+                  ? <>Submitting a quote for: <span className="font-semibold text-primary">{product.name}</span></>
+                  : "Can't find what you're looking for? Fill out the form below to get a custom quote from our network of vendors."
+                }
             </CardDescription>
         </CardHeader>
         <CardContent>
