@@ -9,20 +9,12 @@ import { ProductCard } from "@/components/product-card";
 export default function Home() {
   return (
     <div className="flex flex-col">
-      <section className="relative h-[60vh] md:h-[80vh] w-full flex items-center justify-center text-center text-white bg-secondary/30">
-        <Image
-          src="https://placehold.co/1600x900"
-          alt="Woman with beautiful long hair"
-          data-ai-hint="beautiful hair"
-          layout="fill"
-          objectFit="cover"
-          className="z-0 opacity-40"
-        />
-        <div className="relative z-10 p-4 bg-black/30 rounded-lg">
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-headline text-primary-foreground drop-shadow-md">
+      <section className="w-full flex items-center justify-center text-center bg-secondary/30 py-24 md:py-32">
+        <div className="p-4">
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-headline text-primary">
             HairConnect: The Global Marketplace for Premium Hair
           </h1>
-          <p className="mt-4 text-lg md:text-xl max-w-2xl mx-auto text-primary-foreground/90 drop-shadow-sm">
+          <p className="mt-4 text-lg md:text-xl max-w-2xl mx-auto text-muted-foreground">
             Discover, source, and trade the finest quality human hair from trusted vendors around the world.
           </p>
           <div className="mt-8 flex justify-center gap-4">
