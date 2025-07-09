@@ -38,7 +38,16 @@ const quoteFormSchema = z.object({
 
 type QuoteFormValues = z.infer<typeof quoteFormSchema>;
 
-const defaultValues: Partial<QuoteFormValues> = {};
+const defaultValues: Partial<QuoteFormValues> = {
+  name: "",
+  email: "",
+  hairType: "",
+  length: "",
+  color: "",
+  texture: "",
+  quantity: "",
+  details: "",
+};
 
 export default function QuotePage() {
   const { toast } = useToast();
@@ -103,7 +112,7 @@ export default function QuotePage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Hair Type / Category</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select a category" />
@@ -151,7 +160,7 @@ export default function QuotePage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Texture</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select a texture" />
