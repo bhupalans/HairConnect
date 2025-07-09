@@ -1,0 +1,2 @@
+# HairConnect
+Hair Connect website
