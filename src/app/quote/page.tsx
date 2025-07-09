@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -23,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { categories } from "@/lib/data";
 
 const quoteFormSchema = z.object({
@@ -62,9 +61,9 @@ export default function QuotePage() {
       <Card className="max-w-3xl mx-auto shadow-lg">
         <CardHeader className="text-center">
             <CardTitle className="text-4xl md:text-5xl font-headline text-primary">Request a Custom Quote</CardTitle>
-            <FormDescription className="text-lg">
+            <CardDescription className="text-lg">
                 Can't find what you're looking for? Fill out the form below to get a custom quote from our network of vendors.
-            </FormDescription>
+            </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
