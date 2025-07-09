@@ -9,12 +9,21 @@ import { ProductCard } from "@/components/product-card";
 export default function Home() {
   return (
     <div className="flex flex-col">
-      <section className="w-full flex items-center justify-center text-center bg-secondary/30 py-24 md:py-32">
-        <div className="p-4">
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-headline text-primary">
+      <section className="relative w-full flex items-center justify-center text-center bg-secondary/30 py-24 md:py-32">
+        <Image
+          src="https://placehold.co/1920x1080"
+          alt="Various hair extensions and wigs"
+          layout="fill"
+          objectFit="cover"
+          className="absolute inset-0 z-0 h-full w-full object-cover brightness-50"
+          data-ai-hint="hair extensions wigs"
+          priority
+        />
+        <div className="relative z-10 p-4 text-white">
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-headline">
             HairConnect: The Global Marketplace for Premium Hair
           </h1>
-          <p className="mt-4 text-lg md:text-xl max-w-2xl mx-auto text-muted-foreground">
+          <p className="mt-4 text-lg md:text-xl max-w-2xl mx-auto">
             Discover, source, and trade the finest quality human hair from trusted vendors around the world.
           </p>
           <div className="mt-8 flex justify-center gap-4">
