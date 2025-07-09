@@ -66,13 +66,56 @@ const LOGGED_IN_SELLER_ID = "seller-1";
 
 export default function VendorDashboardPage() {
   const { toast } = useToast();
+
+  // State for dialogs
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+  const [showEditDialog, setShowEditDialog] = React.useState(false);
+
+  // State for the product being acted upon
   const [selectedProduct, setSelectedProduct] = React.useState<Product | null>(
     null
   );
 
+  // State for the edit form
+  const [editProductData, setEditProductData] = React.useState({
+    name: "",
+    description: "",
+    price: "",
+    category: "",
+    imageUrl: "",
+  });
+
   const seller = getSellerById(LOGGED_IN_SELLER_ID);
   const products = getProductsBySeller(LOGGED_IN_SELLER_ID);
+
+  // Handler to open the Edit dialog and populate it with product data
+  const handleEditClick = (product: Product) => {
+    setSelectedProduct(product);
+    setEditProductData({
+      name: product.name,
+      description: product.description,
+      price: product.price.toString(),
+      category: product.category,
+      imageUrl: product.images[0] || "",
+    });
+    setShowEditDialog(true);
+  };
+
+  // Handler to submit the updated product data
+  const handleUpdateProduct = () => {
+    // In a real app, you would send this data to your backend API to persist the changes
+    console.log("Updating product:", selectedProduct?.id, editProductData);
+    toast({
+      description: `Product "${editProductData.name}" has been updated.`,
+    });
+    setShowEditDialog(false);
+  };
+
+  // Handler to open the Delete confirmation dialog
+  const handleDeleteClick = (product: Product) => {
+    setSelectedProduct(product);
+    setShowDeleteDialog(true);
+  };
 
   if (!seller) {
     return (
@@ -158,10 +201,7 @@ export default function VendorDashboardPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {categories.map((cat) => (
-                      <SelectItem
-                        key={cat.name}
-                        value={cat.name.toLowerCase()}
-                      >
+                      <SelectItem key={cat.name} value={cat.name}>
                         {cat.name}
                       </SelectItem>
                     ))}
@@ -239,13 +279,14 @@ export default function VendorDashboardPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => handleEditClick(product)}
+                        >
+                          Edit
+                        </DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-destructive"
-                          onSelect={() => {
-                            setSelectedProduct(product);
-                            setShowDeleteDialog(true);
-                          }}
+                          onSelect={() => handleDeleteClick(product)}
                         >
                           Delete
                         </DropdownMenuItem>
@@ -258,6 +299,114 @@ export default function VendorDashboardPage() {
           </Table>
         </CardContent>
       </Card>
+      {/* Edit Product Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="sm:max-w-[625px]">
+          <DialogHeader>
+            <DialogTitle>Edit Product</DialogTitle>
+            <DialogDescription>
+              Update the details for "{selectedProduct?.name}". Make changes and
+              click save.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-product-name" className="text-right">
+                Name
+              </Label>
+              <Input
+                id="edit-product-name"
+                className="col-span-3"
+                value={editProductData.name}
+                onChange={(e) =>
+                  setEditProductData({ ...editProductData, name: e.target.value })
+                }
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-product-desc" className="text-right">
+                Description
+              </Label>
+              <Textarea
+                id="edit-product-desc"
+                className="col-span-3"
+                value={editProductData.description}
+                onChange={(e) =>
+                  setEditProductData({
+                    ...editProductData,
+                    description: e.target.value,
+                  })
+                }
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-product-price" className="text-right">
+                Price ($)
+              </Label>
+              <Input
+                id="edit-product-price"
+                type="number"
+                className="col-span-3"
+                value={editProductData.price}
+                onChange={(e) =>
+                  setEditProductData({ ...editProductData, price: e.target.value })
+                }
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-product-category" className="text-right">
+                Category
+              </Label>
+              <Select
+                value={editProductData.category}
+                onValueChange={(value) =>
+                  setEditProductData({ ...editProductData, category: value })
+                }
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.name} value={cat.name}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-product-image" className="text-right">
+                Image URL
+              </Label>
+              <Input
+                id="edit-product-image"
+                className="col-span-3"
+                value={editProductData.imageUrl}
+                onChange={(e) =>
+                  setEditProductData({
+                    ...editProductData,
+                    imageUrl: e.target.value,
+                  })
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowEditDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" onClick={handleUpdateProduct}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Delete Product Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
