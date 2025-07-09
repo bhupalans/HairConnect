@@ -1,3 +1,5 @@
+"use client";
+
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -34,8 +36,13 @@ import {
 import { products, sellers } from "@/lib/data";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import Image from "next/image";
+import { useState } from "react";
 
 export default function AdminDashboardPage() {
+  const [activeTab, setActiveTab] = useState("products");
+
+  const isProductsTab = activeTab === "products";
+
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
       <header className="mb-8">
@@ -43,7 +50,7 @@ export default function AdminDashboardPage() {
         <p className="text-muted-foreground">Manage products and vendors.</p>
       </header>
 
-      <Tabs defaultValue="products">
+      <Tabs defaultValue="products" onValueChange={setActiveTab}>
         <div className="flex items-center">
           <TabsList>
             <TabsTrigger value="products">Products</TabsTrigger>
@@ -54,26 +61,47 @@ export default function AdminDashboardPage() {
               <DialogTrigger asChild>
                 <Button>
                   <PlusCircle className="mr-2 h-4 w-4" />
-                  Add New
+                  {isProductsTab ? "Add Product" : "Add Vendor"}
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Add New Item</DialogTitle>
+                  <DialogTitle>Add New {isProductsTab ? "Product" : "Vendor"}</DialogTitle>
                   <DialogDescription>
-                    Fill in the details to add a new item.
+                    Fill in the details to add a new {isProductsTab ? "product" : "vendor"}.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="name" className="text-right">Name</Label>
-                    <Input id="name" className="col-span-3" />
+                {isProductsTab ? (
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="name" className="text-right">Name</Label>
+                      <Input id="name" className="col-span-3" placeholder="e.g., Premium Wavy Bundles" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="description" className="text-right">Description</Label>
+                      <Input id="description" className="col-span-3" />
+                    </div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="price" className="text-right">Price</Label>
+                      <Input id="price" type="number" className="col-span-3" />
+                    </div>
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="description" className="text-right">Description</Label>
-                    <Input id="description" className="col-span-3" />
+                ) : (
+                   <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="companyName" className="text-right">Company</Label>
+                      <Input id="companyName" className="col-span-3" placeholder="e.g., Bella Hair Imports" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="contactName" className="text-right">Contact</Label>
+                      <Input id="contactName" className="col-span-3" placeholder="e.g., Aisha Bella"/>
+                    </div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="location" className="text-right">Location</Label>
+                      <Input id="location" className="col-span-3" placeholder="e.g., Lagos, Nigeria"/>
+                    </div>
                   </div>
-                </div>
+                )}
                 <DialogFooter>
                   <Button type="submit">Save changes</Button>
                 </DialogFooter>

@@ -1,0 +1,151 @@
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { getProductsBySeller, getSellerById } from "@/lib/data";
+import { MoreHorizontal, PlusCircle } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { categories } from "@/lib/data";
+
+
+// In a real app, you'd get this from the user's session
+const LOGGED_IN_SELLER_ID = 'seller-1';
+
+export default function VendorDashboardPage() {
+  const seller = getSellerById(LOGGED_IN_SELLER_ID);
+  const products = getProductsBySeller(LOGGED_IN_SELLER_ID);
+
+  if (!seller) {
+    return (
+        <div className="container mx-auto px-4 py-8 md:py-12 text-center">
+            <h1 className="text-2xl font-bold">Could not find seller data.</h1>
+            <p className="text-muted-foreground">Please <Link href="/register" className="text-primary underline">register</Link> or <Link href="/login" className="text-primary underline">log in</Link>.</p>
+        </div>
+    )
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-8 md:py-12">
+      <header className="mb-8 flex justify-between items-center">
+        <div>
+            <h1 className="text-4xl font-headline text-primary">My Dashboard</h1>
+            <p className="text-muted-foreground">Manage your products for {seller.companyName}.</p>
+        </div>
+        <Dialog>
+            <DialogTrigger asChild>
+                <Button>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Product
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[625px]">
+                <DialogHeader>
+                    <DialogTitle>Add New Product</DialogTitle>
+                    <DialogDescription>
+                    Fill in the details to list a new product in your store.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="product-name" className="text-right">Name</Label>
+                        <Input id="product-name" className="col-span-3" placeholder="e.g. Premium Wavy Bundles"/>
+                    </div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="product-desc" className="text-right">Description</Label>
+                        <Textarea id="product-desc" className="col-span-3" placeholder="Describe your product..."/>
+                    </div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="product-price" className="text-right">Price ($)</Label>
+                        <Input id="product-price" type="number" className="col-span-3" placeholder="e.g. 85.00"/>
+                    </div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="product-category" className="text-right">Category</Label>
+                         <Select>
+                            <SelectTrigger className="col-span-3">
+                                <SelectValue placeholder="Select a category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                            {categories.map(cat => (
+                                <SelectItem key={cat.name} value={cat.name.toLowerCase()}>{cat.name}</SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="product-image" className="text-right">Image URL</Label>
+                        <Input id="product-image" className="col-span-3" placeholder="https://placehold.co/600x600"/>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button type="submit">Add Product</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+      </header>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>My Products</CardTitle>
+          <CardDescription>A list of products you are currently selling.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="hidden w-[100px] sm:table-cell">Image</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead className="hidden md:table-cell">Price</TableHead>
+                <TableHead><span className="sr-only">Actions</span></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {products.map((product) => (
+                <TableRow key={product.id}>
+                  <TableCell className="hidden sm:table-cell">
+                    <Image src={product.images[0]} alt={product.name} width={64} height={64} className="rounded-md object-cover" />
+                  </TableCell>
+                  <TableCell className="font-medium">{product.name}</TableCell>
+                  <TableCell>{product.category}</TableCell>
+                  <TableCell className="hidden md:table-cell">${product.price.toFixed(2)}</TableCell>
+                  <TableCell>
+                    <Button aria-haspopup="true" size="icon" variant="ghost">
+                      <MoreHorizontal className="h-4 w-4" />
+                      <span className="sr-only">Toggle menu</span>
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

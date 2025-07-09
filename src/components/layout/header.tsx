@@ -48,7 +48,7 @@ export function Header() {
             <Link href="/quote">Request a Quote</Link>
           </Button>
           <Button variant="outline" asChild>
-            <Link href="/login">Admin Login</Link>
+            <Link href="/login">Login / Register</Link>
           </Button>
         </div>
 
@@ -82,7 +82,7 @@ export function Header() {
                     <Link href="/quote">Request a Quote</Link>
                   </Button>
                    <Button variant="outline" asChild size="lg" onClick={() => setSheetOpen(false)}>
-                    <Link href="/login">Admin Login</Link>
+                    <Link href="/login">Login / Register</Link>
                   </Button>
                 </div>
               </div>
