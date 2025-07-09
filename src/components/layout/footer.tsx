@@ -1,15 +1,6 @@
 import Link from "next/link";
 import { Scissors } from "lucide-react";
 
-const footerLinks = [
-  { href: "/products", label: "Products" },
-  { href: "/sellers", label: "Sellers" },
-  { href: "/buyers", label: "Buyers" },
-  { href: "/quote", label: "Request a Quote" },
-  { href: "#", label: "Terms of Service" },
-  { href: "#", label: "Privacy Policy" },
-];
-
 export function Footer() {
   return (
     <footer className="bg-secondary/40 border-t">
@@ -30,13 +21,10 @@ export function Footer() {
                 <div>
                     <h3 className="font-headline text-lg font-semibold text-primary mb-4">Marketplace</h3>
                     <ul className="space-y-2">
-                        {footerLinks.slice(0, 4).map(link => (
-                            <li key={link.label}>
-                                <Link href={link.href} className="text-muted-foreground hover:text-primary transition-colors">
-                                    {link.label}
-                                </Link>
-                            </li>
-                        ))}
+                        <li><Link href="/products" className="text-muted-foreground hover:text-primary transition-colors">Products</Link></li>
+                        <li><Link href="/sellers" className="text-muted-foreground hover:text-primary transition-colors">Sellers</Link></li>
+                        <li><Link href="/buyers" className="text-muted-foreground hover:text-primary transition-colors">Buyers</Link></li>
+                        <li><Link href="/quote" className="text-muted-foreground hover:text-primary transition-colors">Request a Quote</Link></li>
                     </ul>
                 </div>
                  <div>
@@ -50,13 +38,8 @@ export function Footer() {
                  <div>
                     <h3 className="font-headline text-lg font-semibold text-primary mb-4">Legal</h3>
                      <ul className="space-y-2">
-                        {footerLinks.slice(4).map(link => (
-                            <li key={link.label}>
-                                <Link href={link.href} className="text-muted-foreground hover:text-primary transition-colors">
-                                    {link.label}
-                                </Link>
-                            </li>
-                        ))}
+                        <li><Link href="/company/terms" className="text-muted-foreground hover:text-primary transition-colors">Terms of Service</Link></li>
+                        <li><Link href="/company/privacy" className="text-muted-foreground hover:text-primary transition-colors">Privacy Policy</Link></li>
                     </ul>
                 </div>
             </div>
