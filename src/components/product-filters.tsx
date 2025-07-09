@@ -56,14 +56,14 @@ export function ProductFilters({ categories }: ProductFiltersProps) {
                 </SelectContent>
             </Select>
             <Select
-                onValueChange={(value) => handleFilterChange('sort', value)}
-                defaultValue={searchParams.get('sort') || ''}
+                onValueChange={(value) => handleFilterChange('sort', value === 'default' ? '' : value)}
+                defaultValue={searchParams.get('sort') || 'default'}
             >
                 <SelectTrigger>
                     <SelectValue placeholder="Sort by Price" />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="">Default</SelectItem>
+                    <SelectItem value="default">Default</SelectItem>
                     <SelectItem value="price-asc">Price: Low to High</SelectItem>
                     <SelectItem value="price-desc">Price: High to Low</SelectItem>
                 </SelectContent>
