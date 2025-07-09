@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -102,6 +103,15 @@ export default function QuotePage() {
 
     } else {
       toastDescription = "Your general inquiry has been sent to our team. A vendor will contact you shortly.";
+      // Save the general quote request to our mock "database"
+      addQuoteRequest({
+        buyerName: data.name,
+        buyerEmail: data.email,
+        productId: 'N/A', // Placeholder for general inquiry
+        sellerId: 'N/A', // Placeholder for general inquiry
+        quantity: data.quantity,
+        details: `Category: ${data.hairType}\nLength: ${data.length} inches\nColor: ${data.color}\nTexture: ${data.texture}\n\nAdditional Details: ${data.details || 'None'}`,
+      });
     }
 
     console.log({ quoteData: data, forProduct: product?.id });

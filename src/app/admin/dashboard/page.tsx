@@ -512,21 +512,25 @@ export default function AdminDashboardPage() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          {product ? (
+                          {req.productId === 'N/A' ? (
+                             <span className="text-muted-foreground italic">General Inquiry</span>
+                          ) : product ? (
                              <Link href={`/products/${product.id}`} className="hover:underline">{product.name}</Link>
                           ) : (
                             <span className="text-muted-foreground">Not found</span>
                           )}
                         </TableCell>
                         <TableCell>
-                           {seller ? (
+                           {req.sellerId === 'N/A' ? (
+                             <span className="text-muted-foreground italic">N/A</span>
+                           ) : seller ? (
                              <Link href={`/sellers/${seller.id}`} className="hover:underline">{seller.companyName}</Link>
                           ) : (
                             <span className="text-muted-foreground">Not found</span>
                           )}
                         </TableCell>
                         <TableCell>{req.quantity}</TableCell>
-                        <TableCell className="max-w-[250px] truncate text-sm text-muted-foreground">{req.details || 'N/A'}</TableCell>
+                        <TableCell className="max-w-[300px] text-sm text-muted-foreground whitespace-pre-wrap">{req.details || 'N/A'}</TableCell>
                       </TableRow>
                     );
                   }) : (
