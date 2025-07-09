@@ -49,7 +49,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { categories, products, sellers } from "@/lib/data";
+import { categories, products, sellers, buyers } from "@/lib/data";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
@@ -57,13 +57,24 @@ import { useState } from "react";
 export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState("products");
 
-  const isProductsTab = activeTab === "products";
+  const getTitle = () => {
+    switch (activeTab) {
+      case "products":
+        return "Product";
+      case "vendors":
+        return "Vendor";
+      case "buyers":
+        return "Buyer";
+      default:
+        return "";
+    }
+  };
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
       <header className="mb-8">
         <h1 className="text-4xl font-headline text-primary">Admin Dashboard</h1>
-        <p className="text-muted-foreground">Manage products and vendors.</p>
+        <p className="text-muted-foreground">Manage products, vendors, and buyers.</p>
       </header>
 
       <Tabs defaultValue="products" onValueChange={setActiveTab}>
@@ -71,26 +82,24 @@ export default function AdminDashboardPage() {
           <TabsList>
             <TabsTrigger value="products">Products</TabsTrigger>
             <TabsTrigger value="vendors">Vendors</TabsTrigger>
+            <TabsTrigger value="buyers">Buyers</TabsTrigger>
           </TabsList>
           <div className="ml-auto">
             <Dialog>
               <DialogTrigger asChild>
                 <Button>
                   <PlusCircle className="mr-2 h-4 w-4" />
-                  {isProductsTab ? "Add Product" : "Add Vendor"}
+                  Add {getTitle()}
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle>
-                    Add New {isProductsTab ? "Product" : "Vendor"}
-                  </DialogTitle>
+                  <DialogTitle>Add New {getTitle()}</DialogTitle>
                   <DialogDescription>
-                    Fill in the details to add a new{" "}
-                    {isProductsTab ? "product" : "vendor"}.
+                    Fill in the details to add a new {getTitle().toLowerCase()}.
                   </DialogDescription>
                 </DialogHeader>
-                {isProductsTab ? (
+                {activeTab === "products" && (
                   <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="name" className="text-right">
@@ -153,7 +162,8 @@ export default function AdminDashboardPage() {
                         <Input id="spec-origin" className="col-span-3" placeholder="e.g., Nigeria" />
                     </div>
                   </div>
-                ) : (
+                )}
+                {activeTab === "vendors" && (
                   <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="companyName" className="text-right">
@@ -196,6 +206,52 @@ export default function AdminDashboardPage() {
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="avatar" className="text-right">Avatar</Label>
                       <Input id="avatar" type="file" className="col-span-3" />
+                    </div>
+                  </div>
+                )}
+                 {activeTab === "buyers" && (
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="buyer-companyName" className="text-right">
+                        Company
+                      </Label>
+                      <Input
+                        id="buyer-companyName"
+                        className="col-span-3"
+                        placeholder="e.g., Glamour Locks Salon"
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="buyer-contactName" className="text-right">
+                        Contact Name
+                      </Label>
+                      <Input
+                        id="buyer-contactName"
+                        className="col-span-3"
+                        placeholder="e.g., Chloe Kim"
+                      />
+                    </div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="buyer-email" className="text-right">Email</Label>
+                      <Input id="buyer-email" type="email" className="col-span-3" placeholder="e.g., contact@example.com" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="buyer-location" className="text-right">
+                        Location
+                      </Label>
+                      <Input
+                        id="buyer-location"
+                        className="col-span-3"
+                        placeholder="e.g., Los Angeles, USA"
+                      />
+                    </div>
+                     <div className="grid grid-cols-4 items-start gap-4">
+                      <Label htmlFor="buyer-bio" className="text-right pt-2">Bio</Label>
+                      <Textarea id="buyer-bio" className="col-span-3" placeholder="Describe the buyer's needs..." />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="buyer-avatar" className="text-right">Avatar</Label>
+                      <Input id="buyer-avatar" type="file" className="col-span-3" />
                     </div>
                   </div>
                 )}
@@ -315,6 +371,76 @@ export default function AdminDashboardPage() {
                       <TableCell>{seller.name}</TableCell>
                       <TableCell className="hidden md:table-cell">
                         {seller.location}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              aria-haspopup="true"
+                              size="icon"
+                              variant="ghost"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Toggle menu</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem>Edit</DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive">
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="buyers">
+          <Card>
+            <CardHeader>
+              <CardTitle>Buyers</CardTitle>
+              <CardDescription>Manage your featured buyers.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="hidden w-[100px] sm:table-cell">
+                      Avatar
+                    </TableHead>
+                    <TableHead>Company Name</TableHead>
+                    <TableHead>Contact Name</TableHead>
+                    <TableHead className="hidden md:table-cell">
+                      Location
+                    </TableHead>
+                    <TableHead>
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {buyers.map((buyer) => (
+                    <TableRow key={buyer.id}>
+                      <TableCell className="hidden sm:table-cell">
+                        <Image
+                          src={buyer.avatarUrl}
+                          alt={buyer.name}
+                          width={64}
+                          height={64}
+                          className="rounded-full object-cover"
+                        />
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {buyer.companyName}
+                      </TableCell>
+                      <TableCell>{buyer.name}</TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {buyer.location}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
