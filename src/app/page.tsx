@@ -59,7 +59,7 @@ export default function Home() {
           <h2 className="text-3xl md:text-4xl font-headline text-center text-primary mb-12">Browse by Category</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 text-center">
             {categories.map((category) => (
-              <Link href="/products" key={category.name}>
+              <Link href={`/products?category=${encodeURIComponent(category.name)}`} key={category.name}>
                 <Card className="hover:shadow-lg transition-shadow duration-300 hover:-translate-y-1">
                   <CardContent className="p-6 flex flex-col items-center">
                     <div className="p-4 bg-primary/10 rounded-full mb-4">

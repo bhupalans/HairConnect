@@ -1,10 +1,32 @@
 import { products, categories } from "@/lib/data";
 import { ProductCard } from "@/components/product-card";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search } from "lucide-react";
+import { ProductFilters } from "@/components/product-filters";
 
-export default function ProductsPage() {
+export default function ProductsPage({
+  searchParams,
+}: {
+  searchParams?: {
+    query?: string;
+    category?: string;
+    sort?: string;
+  };
+}) {
+  const query = searchParams?.query || "";
+  const category = searchParams?.category || "";
+  const sort = searchParams?.sort || "";
+
+  let filteredProducts = products.filter((product) => {
+    const matchesCategory = category ? product.category === category : true;
+    const matchesQuery = query ? product.name.toLowerCase().includes(query.toLowerCase()) : true;
+    return matchesCategory && matchesQuery;
+  });
+
+  if (sort === 'price-asc') {
+    filteredProducts.sort((a, b) => a.price - b.price);
+  } else if (sort === 'price-desc') {
+    filteredProducts.sort((a, b) => b.price - a.price);
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
       <header className="mb-8 md:mb-12 text-center">
@@ -14,39 +36,20 @@ export default function ProductsPage() {
         </p>
       </header>
 
-      <div className="mb-8 p-4 border rounded-lg bg-card shadow-sm">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
-          <div className="md:col-span-2 relative">
-             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-             <Input placeholder="Search by name, origin, texture..." className="pl-10" />
-          </div>
-          <Select>
-            <SelectTrigger>
-              <SelectValue placeholder="Filter by Category" />
-            </SelectTrigger>
-            <SelectContent>
-              {categories.map(cat => (
-                <SelectItem key={cat.name} value={cat.name.toLowerCase()}>{cat.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-           <Select>
-            <SelectTrigger>
-              <SelectValue placeholder="Sort by Price" />
-            </SelectTrigger>
-            <SelectContent>
-                <SelectItem value="price-asc">Price: Low to High</SelectItem>
-                <SelectItem value="price-desc">Price: High to Low</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      <ProductFilters categories={categories} />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-        {products.map((product) => (
-          <ProductCard key={product.id} product={product} />
-        ))}
-      </div>
+      {filteredProducts.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+          {filteredProducts.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-16">
+          <h2 className="text-2xl font-headline text-primary">No Products Found</h2>
+          <p className="text-muted-foreground mt-2">Try adjusting your filters to find what you're looking for.</p>
+        </div>
+      )}
     </div>
   );
 }
