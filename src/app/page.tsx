@@ -11,7 +11,7 @@ export default function Home() {
     <div className="flex flex-col">
       <section className="relative w-full flex items-center justify-center text-center bg-secondary/30 py-24 md:py-32">
         <Image
-          src="https://placehold.co/1920x1080"
+          src="https://cdn.pixabay.com/photo/2016/02/14/19/37/person-1200012_1280.jpg"
           alt="Various hair extensions and wigs"
           layout="fill"
           objectFit="cover"
