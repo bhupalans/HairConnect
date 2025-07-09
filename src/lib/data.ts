@@ -1,4 +1,4 @@
-import type { Product, Seller, Buyer } from './types';
+import type { Product, Seller, Buyer, QuoteRequest } from './types';
 
 export const sellers: Seller[] = [
   {
@@ -126,6 +126,8 @@ export const buyers: Buyer[] = [
     },
 ];
 
+export const quoteRequests: QuoteRequest[] = [];
+
 export const featuredProducts = products.slice(0, 4);
 
 export const categories = [
@@ -148,6 +150,19 @@ export function getProductsBySeller(sellerId: string) {
   return products.filter(p => p.sellerId === sellerId);
 }
 
-export function getBuyerById(id: string) {
+export function getBuyerById(id:string) {
     return buyers.find(b => b.id === id);
+}
+
+export function addQuoteRequest(data: Omit<QuoteRequest, 'id' | 'date'>) {
+    const newRequest: QuoteRequest = {
+        id: `quote-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        date: new Date().toISOString(),
+        ...data
+    };
+    quoteRequests.push(newRequest);
+}
+
+export function getQuoteRequests() {
+    return quoteRequests.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }

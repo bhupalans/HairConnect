@@ -49,13 +49,16 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { categories, products, sellers, buyers } from "@/lib/data";
+import { categories, products, sellers, buyers, getQuoteRequests, getProductById, getSellerById } from "@/lib/data";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useState } from "react";
+import { format } from "date-fns";
 
 export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState("products");
+  const quoteRequests = getQuoteRequests();
 
   const getTitle = () => {
     switch (activeTab) {
@@ -83,183 +86,186 @@ export default function AdminDashboardPage() {
             <TabsTrigger value="products">Products</TabsTrigger>
             <TabsTrigger value="vendors">Vendors</TabsTrigger>
             <TabsTrigger value="buyers">Buyers</TabsTrigger>
+            <TabsTrigger value="quote-requests">Quote Requests</TabsTrigger>
           </TabsList>
           <div className="ml-auto">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button>
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Add {getTitle()}
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Add New {getTitle()}</DialogTitle>
-                  <DialogDescription>
-                    Fill in the details to add a new {getTitle().toLowerCase()}.
-                  </DialogDescription>
-                </DialogHeader>
-                {activeTab === "products" && (
-                  <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="name" className="text-right">
-                        Name
-                      </Label>
-                      <Input
-                        id="name"
-                        className="col-span-3"
-                        placeholder="e.g., Premium Wavy Bundles"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-start gap-4">
-                      <Label htmlFor="description" className="text-right pt-2">
-                        Description
-                      </Label>
-                      <Textarea id="description" className="col-span-3" />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="price" className="text-right">
-                        Price
-                      </Label>
-                      <Input id="price" type="number" className="col-span-3" />
-                    </div>
-                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="product-category" className="text-right">
-                        Category
+            {activeTab !== 'quote-requests' && (
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add {getTitle()}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Add New {getTitle()}</DialogTitle>
+                    <DialogDescription>
+                      Fill in the details to add a new {getTitle().toLowerCase()}.
+                    </DialogDescription>
+                  </DialogHeader>
+                  {activeTab === "products" && (
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="name" className="text-right">
+                          Name
                         </Label>
-                        <Select>
-                        <SelectTrigger className="col-span-3">
-                            <SelectValue placeholder="Select a category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {categories.map((cat) => (
-                            <SelectItem key={cat.name} value={cat.name}>
-                                {cat.name}
-                            </SelectItem>
-                            ))}
-                        </SelectContent>
-                        </Select>
+                        <Input
+                          id="name"
+                          className="col-span-3"
+                          placeholder="e.g., Premium Wavy Bundles"
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 items-start gap-4">
+                        <Label htmlFor="description" className="text-right pt-2">
+                          Description
+                        </Label>
+                        <Textarea id="description" className="col-span-3" />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="price" className="text-right">
+                          Price
+                        </Label>
+                        <Input id="price" type="number" className="col-span-3" />
+                      </div>
+                       <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="product-category" className="text-right">
+                          Category
+                          </Label>
+                          <Select>
+                          <SelectTrigger className="col-span-3">
+                              <SelectValue placeholder="Select a category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                              {categories.map((cat) => (
+                              <SelectItem key={cat.name} value={cat.name}>
+                                  {cat.name}
+                              </SelectItem>
+                              ))}
+                          </SelectContent>
+                          </Select>
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="image" className="text-right">Image</Label>
+                        <Input id="image" type="file" className="col-span-3" />
+                      </div>
+                      <h4 className="col-span-4 font-medium text-center text-muted-foreground pt-2">Specifications</h4>
+                       <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="spec-length" className="text-right">Length</Label>
+                          <Input id="spec-length" className="col-span-3" placeholder="e.g., 18 inches" />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="spec-color" className="text-right">Color</Label>
+                          <Input id="spec-color" className="col-span-3" placeholder="e.g., Natural Black (1B)" />
+                      </div>
+                       <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="spec-texture" className="text-right">Texture</Label>
+                          <Input id="spec-texture" className="col-span-3" placeholder="e.g., Natural Wavy" />
+                      </div>
+                       <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="spec-origin" className="text-right">Origin</Label>
+                          <Input id="spec-origin" className="col-span-3" placeholder="e.g., Nigeria" />
+                      </div>
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="image" className="text-right">Image</Label>
-                      <Input id="image" type="file" className="col-span-3" />
+                  )}
+                  {activeTab === "vendors" && (
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="companyName" className="text-right">
+                          Company
+                        </Label>
+                        <Input
+                          id="companyName"
+                          className="col-span-3"
+                          placeholder="e.g., Bella Hair Imports"
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="contactName" className="text-right">
+                          Contact
+                        </Label>
+                        <Input
+                          id="contactName"
+                          className="col-span-3"
+                          placeholder="e.g., Aisha Bella"
+                        />
+                      </div>
+                       <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="email" className="text-right">Email</Label>
+                        <Input id="email" type="email" className="col-span-3" placeholder="e.g., contact@example.com" />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="location" className="text-right">
+                          Location
+                        </Label>
+                        <Input
+                          id="location"
+                          className="col-span-3"
+                          placeholder="e.g., Lagos, Nigeria"
+                        />
+                      </div>
+                       <div className="grid grid-cols-4 items-start gap-4">
+                        <Label htmlFor="bio" className="text-right pt-2">Bio</Label>
+                        <Textarea id="bio" className="col-span-3" placeholder="Tell us about the vendor..." />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="avatar" className="text-right">Avatar</Label>
+                        <Input id="avatar" type="file" className="col-span-3" />
+                      </div>
                     </div>
-                    <h4 className="col-span-4 font-medium text-center text-muted-foreground pt-2">Specifications</h4>
-                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="spec-length" className="text-right">Length</Label>
-                        <Input id="spec-length" className="col-span-3" placeholder="e.g., 18 inches" />
+                  )}
+                   {activeTab === "buyers" && (
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="buyer-companyName" className="text-right">
+                          Company
+                        </Label>
+                        <Input
+                          id="buyer-companyName"
+                          className="col-span-3"
+                          placeholder="e.g., Glamour Locks Salon"
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="buyer-contactName" className="text-right">
+                          Contact Name
+                        </Label>
+                        <Input
+                          id="buyer-contactName"
+                          className="col-span-3"
+                          placeholder="e.g., Chloe Kim"
+                        />
+                      </div>
+                       <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="buyer-email" className="text-right">Email</Label>
+                        <Input id="buyer-email" type="email" className="col-span-3" placeholder="e.g., contact@example.com" />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="buyer-location" className="text-right">
+                          Location
+                        </Label>
+                        <Input
+                          id="buyer-location"
+                          className="col-span-3"
+                          placeholder="e.g., Los Angeles, USA"
+                        />
+                      </div>
+                       <div className="grid grid-cols-4 items-start gap-4">
+                        <Label htmlFor="buyer-bio" className="text-right pt-2">Bio</Label>
+                        <Textarea id="buyer-bio" className="col-span-3" placeholder="Describe the buyer's needs..." />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="buyer-avatar" className="text-right">Avatar</Label>
+                        <Input id="buyer-avatar" type="file" className="col-span-3" />
+                      </div>
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="spec-color" className="text-right">Color</Label>
-                        <Input id="spec-color" className="col-span-3" placeholder="e.g., Natural Black (1B)" />
-                    </div>
-                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="spec-texture" className="text-right">Texture</Label>
-                        <Input id="spec-texture" className="col-span-3" placeholder="e.g., Natural Wavy" />
-                    </div>
-                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="spec-origin" className="text-right">Origin</Label>
-                        <Input id="spec-origin" className="col-span-3" placeholder="e.g., Nigeria" />
-                    </div>
-                  </div>
-                )}
-                {activeTab === "vendors" && (
-                  <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="companyName" className="text-right">
-                        Company
-                      </Label>
-                      <Input
-                        id="companyName"
-                        className="col-span-3"
-                        placeholder="e.g., Bella Hair Imports"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="contactName" className="text-right">
-                        Contact
-                      </Label>
-                      <Input
-                        id="contactName"
-                        className="col-span-3"
-                        placeholder="e.g., Aisha Bella"
-                      />
-                    </div>
-                     <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="email" className="text-right">Email</Label>
-                      <Input id="email" type="email" className="col-span-3" placeholder="e.g., contact@example.com" />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="location" className="text-right">
-                        Location
-                      </Label>
-                      <Input
-                        id="location"
-                        className="col-span-3"
-                        placeholder="e.g., Lagos, Nigeria"
-                      />
-                    </div>
-                     <div className="grid grid-cols-4 items-start gap-4">
-                      <Label htmlFor="bio" className="text-right pt-2">Bio</Label>
-                      <Textarea id="bio" className="col-span-3" placeholder="Tell us about the vendor..." />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="avatar" className="text-right">Avatar</Label>
-                      <Input id="avatar" type="file" className="col-span-3" />
-                    </div>
-                  </div>
-                )}
-                 {activeTab === "buyers" && (
-                  <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="buyer-companyName" className="text-right">
-                        Company
-                      </Label>
-                      <Input
-                        id="buyer-companyName"
-                        className="col-span-3"
-                        placeholder="e.g., Glamour Locks Salon"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="buyer-contactName" className="text-right">
-                        Contact Name
-                      </Label>
-                      <Input
-                        id="buyer-contactName"
-                        className="col-span-3"
-                        placeholder="e.g., Chloe Kim"
-                      />
-                    </div>
-                     <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="buyer-email" className="text-right">Email</Label>
-                      <Input id="buyer-email" type="email" className="col-span-3" placeholder="e.g., contact@example.com" />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="buyer-location" className="text-right">
-                        Location
-                      </Label>
-                      <Input
-                        id="buyer-location"
-                        className="col-span-3"
-                        placeholder="e.g., Los Angeles, USA"
-                      />
-                    </div>
-                     <div className="grid grid-cols-4 items-start gap-4">
-                      <Label htmlFor="buyer-bio" className="text-right pt-2">Bio</Label>
-                      <Textarea id="buyer-bio" className="col-span-3" placeholder="Describe the buyer's needs..." />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="buyer-avatar" className="text-right">Avatar</Label>
-                      <Input id="buyer-avatar" type="file" className="col-span-3" />
-                    </div>
-                  </div>
-                )}
-                <DialogFooter>
-                  <Button type="submit">Save changes</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+                  )}
+                  <DialogFooter>
+                    <Button type="submit">Save changes</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
         </div>
         <TabsContent value="products">
@@ -465,6 +471,69 @@ export default function AdminDashboardPage() {
                       </TableCell>
                     </TableRow>
                   ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="quote-requests">
+          <Card>
+            <CardHeader>
+              <CardTitle>Quote Requests</CardTitle>
+              <CardDescription>
+                A log of all quote requests submitted on the platform.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Buyer</TableHead>
+                    <TableHead>Product</TableHead>
+                    <TableHead>Vendor</TableHead>
+                    <TableHead>Quantity</TableHead>
+                    <TableHead>Details</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {quoteRequests.length > 0 ? quoteRequests.map((req) => {
+                    const product = getProductById(req.productId);
+                    const seller = getSellerById(req.sellerId);
+                    return (
+                      <TableRow key={req.id}>
+                        <TableCell className="text-sm">
+                          {format(new Date(req.date), "PP")}
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium">{req.buyerName}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {req.buyerEmail}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {product ? (
+                             <Link href={`/products/${product.id}`} className="hover:underline">{product.name}</Link>
+                          ) : (
+                            <span className="text-muted-foreground">Not found</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                           {seller ? (
+                             <Link href={`/sellers/${seller.id}`} className="hover:underline">{seller.companyName}</Link>
+                          ) : (
+                            <span className="text-muted-foreground">Not found</span>
+                          )}
+                        </TableCell>
+                        <TableCell>{req.quantity}</TableCell>
+                        <TableCell className="max-w-[250px] truncate text-sm text-muted-foreground">{req.details || 'N/A'}</TableCell>
+                      </TableRow>
+                    );
+                  }) : (
+                    <TableRow>
+                        <TableCell colSpan={6} className="text-center h-24">No quote requests yet.</TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>

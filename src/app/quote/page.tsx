@@ -23,7 +23,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { categories, getProductById, getSellerById } from "@/lib/data";
+import { categories, getProductById, getSellerById, addQuoteRequest } from "@/lib/data";
 import { useSearchParams } from "next/navigation";
 import React, { useEffect, useState } from "react";
 import type { Product } from "@/lib/types";
@@ -89,6 +89,17 @@ export default function QuotePage() {
     if (product) {
       const seller = getSellerById(product.sellerId);
       toastDescription = `Your request for "${product.name}" has been sent to ${seller?.companyName || 'the vendor'}. They will contact you shortly.`;
+      
+      // Save the quote request to our mock "database"
+      addQuoteRequest({
+        buyerName: data.name,
+        buyerEmail: data.email,
+        productId: product.id,
+        sellerId: product.sellerId,
+        quantity: data.quantity,
+        details: data.details,
+      });
+
     } else {
       toastDescription = "Your general inquiry has been sent to our team. A vendor will contact you shortly.";
     }

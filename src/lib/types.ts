@@ -43,3 +43,14 @@ export interface Buyer {
     email: string;
   }
 }
+
+export interface QuoteRequest {
+  id: string;
+  date: string;
+  buyerName: string;
+  buyerEmail: string;
+  productId: string;
+  sellerId: string;
+  quantity: string;
+  details?: string;
+}
