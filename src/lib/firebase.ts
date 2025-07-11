@@ -6,12 +6,12 @@ import { getAuth } from "firebase/auth";
 // You can find this in your Firebase project settings.
 // Go to Project settings > General > Your apps > Web app > SDK setup and configuration
 export const firebaseConfig: FirebaseOptions = {
-  apiKey: "AIzaSyDz3N9D30n-rRh4NkfceK5lhOZVsC3KmyI",
-  authDomain: "hairconnectdb.firebaseapp.com",
-  projectId: "hairconnectdb",
-  storageBucket: "hairconnectdb.appspot.com",
-  messagingSenderId: "718750784623",
-  appId: "1:718750784623:web:c742a98b0f7e6b62fa419a",
+  apiKey: "AIzaSyD0F3XPTpYuwYauK_yRu2q597js3QDmqlU",
+  authDomain: "hairconnect-db.firebaseapp.com",
+  projectId: "hairconnect-db",
+  storageBucket: "hairconnect-db.firebasestorage.app",
+  messagingSenderId: "727090333408",
+  appId: "1:727090333408:web:c4b9ac38e532f213123285",
   // measurementId is optional and may not be in your config
   // measurementId: "PASTE_YOUR_MEASUREMENT_ID_HERE"
 };
