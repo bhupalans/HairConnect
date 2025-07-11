@@ -1,3 +1,4 @@
+
 import { getProductById, getSellerById } from "@/lib/data";
 import { notFound } from "next/navigation";
 import Image from "next/image";
@@ -9,14 +10,14 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { CheckCircle, MessageSquareQuote, User } from "lucide-react";
 
-export default function ProductDetailPage({ params }: { params: { id: string } }) {
-  const product = getProductById(params.id);
+export default async function ProductDetailPage({ params }: { params: { id: string } }) {
+  const product = await getProductById(params.id);
 
   if (!product) {
     notFound();
   }
 
-  const seller = getSellerById(product.sellerId);
+  const seller = await getSellerById(product.sellerId);
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
@@ -73,7 +74,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                 </CardHeader>
                 <CardContent>
                     <div className="flex items-center gap-4">
-                        <Image src={seller.avatarUrl} alt={seller.name} width={60} height={60} className="rounded-full border-2 border-primary/20" data-ai-hint="professional portrait" />
+                        <Image src={seller.avatarUrl || 'https://placehold.co/60x60'} alt={seller.name} width={60} height={60} className="rounded-full border-2 border-primary/20" data-ai-hint="professional portrait" />
                         <div>
                             <Link href={`/sellers/${seller.id}`} className="text-lg font-bold text-primary hover:underline">{seller.companyName}</Link>
                             <p className="text-muted-foreground">{seller.location}</p>

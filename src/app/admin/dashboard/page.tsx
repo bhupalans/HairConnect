@@ -49,16 +49,45 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { categories, products, sellers, buyers, getQuoteRequests, getProductById, getSellerById } from "@/lib/data";
-import { MoreHorizontal, PlusCircle } from "lucide-react";
+import { categories, getProducts, getSellers, getBuyers, getQuoteRequests } from "@/lib/data";
+import { MoreHorizontal, PlusCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
+import type { QuoteRequest, Product, Seller, Buyer } from "@/lib/types";
 
 export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState("products");
-  const quoteRequests = getQuoteRequests();
+  const [quoteRequests, setQuoteRequests] = useState<QuoteRequest[]>([]);
+  const [productsData, setProductsData] = useState<Product[]>([]);
+  const [sellersData, setSellersData] = useState<Seller[]>([]);
+  const [buyersData, setBuyersData] = useState<Buyer[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchData() {
+      setIsLoading(true);
+      if (activeTab === 'quote-requests') {
+        const requests = await getQuoteRequests();
+        setQuoteRequests(requests);
+      }
+      if (activeTab === 'products') {
+        const prods = await getProducts();
+        setProductsData(prods);
+      }
+      if (activeTab === 'vendors') {
+         const sells = await getSellers();
+         setSellersData(sells);
+      }
+      if (activeTab === 'buyers') {
+         const buys = await getBuyers();
+         setBuyersData(buys);
+      }
+      setIsLoading(false);
+    }
+    fetchData();
+  }, [activeTab]);
 
   const getTitle = () => {
     switch (activeTab) {
@@ -72,6 +101,14 @@ export default function AdminDashboardPage() {
         return "";
     }
   };
+  
+  const renderTableContent = (Component: React.ReactNode) => {
+    return isLoading ? (
+      <div className="flex justify-center items-center h-48">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    ) : Component;
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
@@ -275,64 +312,70 @@ export default function AdminDashboardPage() {
               <CardDescription>Manage your product listings.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="hidden w-[100px] sm:table-cell">
-                      Image
-                    </TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead className="hidden md:table-cell">
-                      Price
-                    </TableHead>
-                    <TableHead>
-                      <span className="sr-only">Actions</span>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {products.map((product) => (
-                    <TableRow key={product.id}>
-                      <TableCell className="hidden sm:table-cell">
-                        <Image
-                          src={product.images[0]}
-                          alt={product.name}
-                          width={64}
-                          height={64}
-                          className="rounded-md object-cover"
-                        />
-                      </TableCell>
-                      <TableCell className="font-medium">{product.name}</TableCell>
-                      <TableCell>{product.category}</TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        ${product.price.toFixed(2)}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              aria-haspopup="true"
-                              size="icon"
-                              variant="ghost"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Toggle menu</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem>Edit</DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
+              {renderTableContent(
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="hidden w-[100px] sm:table-cell">
+                        Image
+                      </TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead className="hidden md:table-cell">
+                        Price
+                      </TableHead>
+                      <TableHead>
+                        <span className="sr-only">Actions</span>
+                      </TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {productsData.length > 0 ? productsData.map((product) => (
+                      <TableRow key={product.id}>
+                        <TableCell className="hidden sm:table-cell">
+                          <Image
+                            src={product.images[0] || 'https://placehold.co/64x64'}
+                            alt={product.name}
+                            width={64}
+                            height={64}
+                            className="rounded-md object-cover"
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">{product.name}</TableCell>
+                        <TableCell>{product.category}</TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          ${product.price.toFixed(2)}
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                aria-haspopup="true"
+                                size="icon"
+                                variant="ghost"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Toggle menu</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuItem>Edit</DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive">
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    )) : (
+                       <TableRow>
+                          <TableCell colSpan={5} className="text-center h-24">No products found.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -343,66 +386,72 @@ export default function AdminDashboardPage() {
               <CardDescription>Manage your vendors.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="hidden w-[100px] sm:table-cell">
-                      Avatar
-                    </TableHead>
-                    <TableHead>Company Name</TableHead>
-                    <TableHead>Contact Name</TableHead>
-                    <TableHead className="hidden md:table-cell">
-                      Location
-                    </TableHead>
-                    <TableHead>
-                      <span className="sr-only">Actions</span>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sellers.map((seller) => (
-                    <TableRow key={seller.id}>
-                      <TableCell className="hidden sm:table-cell">
-                        <Image
-                          src={seller.avatarUrl}
-                          alt={seller.name}
-                          width={64}
-                          height={64}
-                          className="rounded-full object-cover"
-                        />
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {seller.companyName}
-                      </TableCell>
-                      <TableCell>{seller.name}</TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        {seller.location}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              aria-haspopup="true"
-                              size="icon"
-                              variant="ghost"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Toggle menu</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem>Edit</DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
+               {renderTableContent(
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="hidden w-[100px] sm:table-cell">
+                        Avatar
+                      </TableHead>
+                      <TableHead>Company Name</TableHead>
+                      <TableHead>Contact Name</TableHead>
+                      <TableHead className="hidden md:table-cell">
+                        Location
+                      </TableHead>
+                      <TableHead>
+                        <span className="sr-only">Actions</span>
+                      </TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {sellersData.length > 0 ? sellersData.map((seller) => (
+                      <TableRow key={seller.id}>
+                        <TableCell className="hidden sm:table-cell">
+                          <Image
+                            src={seller.avatarUrl || 'https://placehold.co/64x64'}
+                            alt={seller.name}
+                            width={64}
+                            height={64}
+                            className="rounded-full object-cover"
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {seller.companyName}
+                        </TableCell>
+                        <TableCell>{seller.name}</TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          {seller.location}
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                aria-haspopup="true"
+                                size="icon"
+                                variant="ghost"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Toggle menu</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuItem>Edit</DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive">
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    )) : (
+                         <TableRow>
+                            <TableCell colSpan={5} className="text-center h-24">No vendors found.</TableCell>
+                        </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -413,66 +462,72 @@ export default function AdminDashboardPage() {
               <CardDescription>Manage your featured buyers.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="hidden w-[100px] sm:table-cell">
-                      Avatar
-                    </TableHead>
-                    <TableHead>Company Name</TableHead>
-                    <TableHead>Contact Name</TableHead>
-                    <TableHead className="hidden md:table-cell">
-                      Location
-                    </TableHead>
-                    <TableHead>
-                      <span className="sr-only">Actions</span>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {buyers.map((buyer) => (
-                    <TableRow key={buyer.id}>
-                      <TableCell className="hidden sm:table-cell">
-                        <Image
-                          src={buyer.avatarUrl}
-                          alt={buyer.name}
-                          width={64}
-                          height={64}
-                          className="rounded-full object-cover"
-                        />
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {buyer.companyName}
-                      </TableCell>
-                      <TableCell>{buyer.name}</TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        {buyer.location}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              aria-haspopup="true"
-                              size="icon"
-                              variant="ghost"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Toggle menu</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem>Edit</DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
+              {renderTableContent(
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="hidden w-[100px] sm:table-cell">
+                        Avatar
+                      </TableHead>
+                      <TableHead>Company Name</TableHead>
+                      <TableHead>Contact Name</TableHead>
+                      <TableHead className="hidden md:table-cell">
+                        Location
+                      </TableHead>
+                      <TableHead>
+                        <span className="sr-only">Actions</span>
+                      </TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {buyersData.length > 0 ? buyersData.map((buyer) => (
+                      <TableRow key={buyer.id}>
+                        <TableCell className="hidden sm:table-cell">
+                          <Image
+                            src={buyer.avatarUrl || 'https://placehold.co/64x64'}
+                            alt={buyer.name}
+                            width={64}
+                            height={64}
+                            className="rounded-full object-cover"
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {buyer.companyName}
+                        </TableCell>
+                        <TableCell>{buyer.name}</TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          {buyer.location}
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                aria-haspopup="true"
+                                size="icon"
+                                variant="ghost"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Toggle menu</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuItem>Edit</DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive">
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    )) : (
+                        <TableRow>
+                            <TableCell colSpan={5} className="text-center h-24">No buyers found.</TableCell>
+                        </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -485,61 +540,43 @@ export default function AdminDashboardPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Buyer</TableHead>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Vendor</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Details</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {quoteRequests.length > 0 ? quoteRequests.map((req) => {
-                    const product = getProductById(req.productId);
-                    const seller = getSellerById(req.sellerId);
-                    return (
-                      <TableRow key={req.id}>
-                        <TableCell className="text-sm">
-                          {format(new Date(req.date), "PP")}
-                        </TableCell>
-                        <TableCell>
-                          <div className="font-medium">{req.buyerName}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {req.buyerEmail}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {req.productId === 'N/A' ? (
-                             <span className="text-muted-foreground italic">General Inquiry</span>
-                          ) : product ? (
-                             <Link href={`/products/${product.id}`} className="hover:underline">{product.name}</Link>
-                          ) : (
-                            <span className="text-muted-foreground">Not found</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                           {req.sellerId === 'N/A' ? (
-                             <span className="text-muted-foreground italic">N/A</span>
-                           ) : seller ? (
-                             <Link href={`/sellers/${seller.id}`} className="hover:underline">{seller.companyName}</Link>
-                          ) : (
-                            <span className="text-muted-foreground">Not found</span>
-                          )}
-                        </TableCell>
-                        <TableCell>{req.quantity}</TableCell>
-                        <TableCell className="max-w-[300px] text-sm text-muted-foreground whitespace-pre-wrap">{req.details || 'N/A'}</TableCell>
-                      </TableRow>
-                    );
-                  }) : (
+              {renderTableContent(
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                        <TableCell colSpan={6} className="text-center h-24">No quote requests yet.</TableCell>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Buyer</TableHead>
+                      <TableHead>Product ID</TableHead>
+                      <TableHead>Vendor ID</TableHead>
+                      <TableHead>Quantity</TableHead>
+                      <TableHead>Details</TableHead>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {quoteRequests.length > 0 ? quoteRequests.map((req) => (
+                        <TableRow key={req.id}>
+                          <TableCell className="text-sm">
+                            {format(new Date(req.date), "PPp")}
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-medium">{req.buyerName}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {req.buyerEmail}
+                            </div>
+                          </TableCell>
+                          <TableCell>{req.productId}</TableCell>
+                          <TableCell>{req.sellerId}</TableCell>
+                          <TableCell>{req.quantity}</TableCell>
+                          <TableCell className="max-w-[300px] text-sm text-muted-foreground whitespace-pre-wrap">{req.details || 'N/A'}</TableCell>
+                        </TableRow>
+                      )) : (
+                      <TableRow>
+                          <TableCell colSpan={6} className="text-center h-24">No quote requests yet.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

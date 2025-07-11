@@ -6,8 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mail, MapPin, CalendarDays } from "lucide-react";
 import { format } from "date-fns";
 
-export default function BuyerProfilePage({ params }: { params: { id: string } }) {
-  const buyer = getBuyerById(params.id);
+export default async function BuyerProfilePage({ params }: { params: { id: string } }) {
+  const buyer = await getBuyerById(params.id);
 
   if (!buyer) {
     notFound();

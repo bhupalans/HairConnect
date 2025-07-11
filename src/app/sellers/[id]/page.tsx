@@ -7,14 +7,14 @@ import { ProductCard } from "@/components/product-card";
 import { Mail, Phone, Globe, MapPin, CalendarDays } from "lucide-react";
 import { format } from "date-fns";
 
-export default function SellerProfilePage({ params }: { params: { id: string } }) {
-  const seller = getSellerById(params.id);
+export default async function SellerProfilePage({ params }: { params: { id: string } }) {
+  const seller = await getSellerById(params.id);
 
   if (!seller) {
     notFound();
   }
 
-  const sellerProducts = getProductsBySeller(seller.id);
+  const sellerProducts = await getProductsBySeller(seller.id);
 
   return (
     <div className="bg-secondary/20">

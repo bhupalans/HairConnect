@@ -1,7 +1,9 @@
-import { sellers } from "@/lib/data";
+import { getSellers } from "@/lib/data";
 import { UserCard } from "@/components/user-card";
 
-export default function SellersPage() {
+export default async function SellersPage() {
+  const sellers = await getSellers();
+
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
       <header className="mb-8 md:mb-12 text-center">

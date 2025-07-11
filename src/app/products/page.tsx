@@ -1,8 +1,8 @@
-import { products, categories } from "@/lib/data";
+import { getProducts, categories } from "@/lib/data";
 import { ProductCard } from "@/components/product-card";
 import { ProductFilters } from "@/components/product-filters";
 
-export default function ProductsPage({
+export default async function ProductsPage({
   searchParams,
 }: {
   searchParams?: {
@@ -14,6 +14,8 @@ export default function ProductsPage({
   const query = searchParams?.query || "";
   const category = searchParams?.category || "";
   const sort = searchParams?.sort || "";
+
+  const products = await getProducts();
 
   let filteredProducts = products.filter((product) => {
     const matchesCategory = category ? product.category === category : true;

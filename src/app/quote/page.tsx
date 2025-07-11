@@ -59,6 +59,7 @@ export default function QuotePage() {
   const searchParams = useSearchParams();
   const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const productId = searchParams.get("productId");
 
@@ -69,58 +70,73 @@ export default function QuotePage() {
 
   useEffect(() => {
     if (productId) {
-      const foundProduct = getProductById(productId);
-      if (foundProduct) {
-        setProduct(foundProduct);
-        // Pre-fill form with product specs
-        form.reset({
-          ...defaultValues,
-          hairType: foundProduct.category,
-          length: foundProduct.specs.length.replace(' inches', ''),
-          color: foundProduct.specs.color,
-          texture: foundProduct.specs.texture,
-        })
-      }
+      // getProductById is now async
+      getProductById(productId).then(foundProduct => {
+        if (foundProduct) {
+          setProduct(foundProduct);
+          // Pre-fill form with product specs
+          form.reset({
+            ...defaultValues,
+            hairType: foundProduct.category,
+            length: foundProduct.specs.length.replace(' inches', ''),
+            color: foundProduct.specs.color,
+            texture: foundProduct.specs.texture,
+          })
+        }
+         setIsLoading(false);
+      });
+    } else {
+       setIsLoading(false);
     }
-    setIsLoading(false);
   }, [productId, form]);
 
-  function onSubmit(data: QuoteFormValues) {
+  async function onSubmit(data: QuoteFormValues) {
+    setIsSubmitting(true);
     let toastDescription = "";
-    if (product) {
-      const seller = getSellerById(product.sellerId);
-      toastDescription = `Your request for "${product.name}" has been sent to ${seller?.companyName || 'the vendor'}. They will contact you shortly.`;
-      
-      // Save the quote request to our mock "database"
-      addQuoteRequest({
-        buyerName: data.name,
-        buyerEmail: data.email,
-        productId: product.id,
-        sellerId: product.sellerId,
-        quantity: data.quantity,
-        details: data.details,
-      });
-
-    } else {
-      toastDescription = "Your general inquiry has been sent to our team. A vendor will contact you shortly.";
-      // Save the general quote request to our mock "database"
-      addQuoteRequest({
-        buyerName: data.name,
-        buyerEmail: data.email,
-        productId: 'N/A', // Placeholder for general inquiry
-        sellerId: 'N/A', // Placeholder for general inquiry
-        quantity: data.quantity,
-        details: `Category: ${data.hairType}\nLength: ${data.length} inches\nColor: ${data.color}\nTexture: ${data.texture}\n\nAdditional Details: ${data.details || 'None'}`,
-      });
-    }
-
-    console.log({ quoteData: data, forProduct: product?.id });
     
-    toast({
-      title: "Quote Request Sent!",
-      description: toastDescription,
-    });
-    form.reset();
+    try {
+      if (product) {
+        const seller = await getSellerById(product.sellerId);
+        toastDescription = `Your request for "${product.name}" has been sent to ${seller?.companyName || 'the vendor'}. They will contact you shortly.`;
+        
+        // Save the quote request to our mock "database"
+        await addQuoteRequest({
+          buyerName: data.name,
+          buyerEmail: data.email,
+          productId: product.id,
+          sellerId: product.sellerId,
+          quantity: data.quantity,
+          details: data.details,
+        });
+
+      } else {
+        toastDescription = "Your general inquiry has been sent to our team. A vendor will contact you shortly.";
+        // Save the general quote request to our mock "database"
+        await addQuoteRequest({
+          buyerName: data.name,
+          buyerEmail: data.email,
+          productId: 'N/A', // Placeholder for general inquiry
+          sellerId: 'N/A', // Placeholder for general inquiry
+          quantity: data.quantity,
+          details: `Category: ${data.hairType}\nLength: ${data.length} inches\nColor: ${data.color}\nTexture: ${data.texture}\n\nAdditional Details: ${data.details || 'None'}`,
+        });
+      }
+
+      toast({
+        title: "Quote Request Sent!",
+        description: toastDescription,
+      });
+      form.reset();
+    } catch (error) {
+       console.error("Failed to submit quote request:", error);
+       toast({
+        title: "Submission Failed",
+        description: "There was an error submitting your request. Please try again.",
+        variant: "destructive"
+       });
+    } finally {
+        setIsSubmitting(false);
+    }
   }
   
   if (isLoading) {
@@ -281,7 +297,10 @@ export default function QuotePage() {
               />
 
               <div className="flex justify-end">
-                <Button type="submit" size="lg">Submit Request</Button>
+                <Button type="submit" size="lg" disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Submit Request
+                </Button>
               </div>
             </form>
           </Form>
