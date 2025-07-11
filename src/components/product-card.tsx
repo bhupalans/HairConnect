@@ -1,3 +1,4 @@
+
 import Link from "next/link";
 import Image from "next/image";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,13 +11,15 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product }: ProductCardProps) {
+  const imageUrl = product.images && product.images.length > 0 ? product.images[0] : 'https://placehold.co/600x600';
+
   return (
     <Card className="flex flex-col h-full overflow-hidden rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
       <Link href={`/products/${product.id}`} className="block">
         <CardHeader className="p-0">
           <div className="relative aspect-square">
             <Image
-              src={product.images[0]}
+              src={imageUrl}
               alt={product.name}
               data-ai-hint={`${product.specs.color} ${product.specs.texture} hair`}
               fill
