@@ -104,6 +104,7 @@ export default function VendorDashboardPage() {
 
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setIsLoading(true);
       if (currentUser) {
         setUser(currentUser);
         const fetchedSeller = await getSellerById(currentUser.uid);

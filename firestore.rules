@@ -29,7 +29,7 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Allow anyone to submit a quote request, but only admins can read them
+    // Allow anyone to submit a quote request, but only admins/logged-in users can read them
     match /quote-requests/{requestId} {
       allow read: if request.auth != null; 
       allow create: if true;
