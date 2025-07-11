@@ -1,6 +1,8 @@
 import type { Product, Seller, Buyer, QuoteRequest } from './types';
 import { firebaseConfig } from './firebase';
 import { cache } from 'react';
+import { db } from './firebase';
+import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp, query, orderBy, Timestamp } from 'firebase/firestore';
 
 // Helper to map a single Firestore document to our application's data types
 const mapFirestoreDoc = (doc: any, mapper: (doc: any) => any) => {
@@ -76,6 +78,23 @@ const mapFirestoreDocToBuyer = (doc: any): Buyer => {
         contact: {
             email: getString(contactFields.email),
         },
+    };
+};
+
+const mapFirestoreDocToQuoteRequest = (docSnapshot: any): QuoteRequest => {
+    const data = docSnapshot.data();
+    // Convert Firestore Timestamp to ISO string for consistency
+    const date = data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : new Date().toISOString();
+    
+    return {
+        id: docSnapshot.id,
+        date: date,
+        buyerName: data.buyerName || '',
+        buyerEmail: data.buyerEmail || '',
+        productId: data.productId || 'N/A',
+        sellerId: data.sellerId || 'N/A',
+        quantity: data.quantity || '',
+        details: data.details || '',
     };
 };
 
@@ -166,9 +185,6 @@ const mockBuyers: Buyer[] = [
     },
 ];
 
-export const quoteRequests: QuoteRequest[] = [];
-
-
 export const categories = [
     { name: 'Raw Hair', icon: 'https://placehold.co/40x40' },
     { name: 'Virgin Hair', icon: 'https://placehold.co/40x40' },
@@ -242,15 +258,27 @@ export async function getBuyerById(id:string): Promise<Buyer | null> {
     return mapFirestoreDoc(doc, mapFirestoreDocToBuyer);
 }
 
-export function addQuoteRequest(data: Omit<QuoteRequest, 'id' | 'date'>) {
-    const newRequest: QuoteRequest = {
-        id: `quote-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-        date: new Date().toISOString(),
-        ...data
-    };
-    quoteRequests.push(newRequest);
+export async function addQuoteRequest(data: Omit<QuoteRequest, 'id' | 'date'>) {
+    try {
+        const quoteCollectionRef = collection(db, 'quote-requests');
+        await addDoc(quoteCollectionRef, {
+            ...data,
+            createdAt: serverTimestamp(), // Use server timestamp for creation date
+        });
+    } catch (error) {
+        console.error("Error adding document: ", error);
+        throw error; // Re-throw the error to be handled by the caller
+    }
 }
 
-export function getQuoteRequests() {
-    return quoteRequests.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+export async function getQuoteRequests(): Promise<QuoteRequest[]> {
+    try {
+        const quoteCollectionRef = collection(db, 'quote-requests');
+        const q = query(quoteCollectionRef, orderBy('createdAt', 'desc'));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(mapFirestoreDocToQuoteRequest);
+    } catch (error) {
+        console.error("Error fetching quote requests:", error);
+        return [];
+    }
 }

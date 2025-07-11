@@ -50,15 +50,39 @@ import {
 } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { categories, products, sellers, buyers, getQuoteRequests, getProductById, getSellerById } from "@/lib/data";
-import { MoreHorizontal, PlusCircle } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
+import type { QuoteRequest, Product, Seller } from "@/lib/types";
 
 export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState("products");
-  const quoteRequests = getQuoteRequests();
+  const [quoteRequests, setQuoteRequests] = useState<QuoteRequest[]>([]);
+  const [productsData, setProductsData] = useState<Product[]>([]);
+  const [sellersData, setSellersData] = useState<Seller[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchData() {
+      setIsLoading(true);
+      if (activeTab === 'quote-requests') {
+        const requests = await getQuoteRequests();
+        setQuoteRequests(requests);
+      }
+      if (activeTab === 'products') {
+        const prods = await Promise.all(products.map(p => getProductById(p.id)));
+        setProductsData(prods.filter(p => p !== null) as Product[]);
+      }
+      if (activeTab === 'vendors') {
+         const sells = await Promise.all(sellers.map(s => getSellerById(s.id)));
+         setSellersData(sells.filter(s => s !== null) as Seller[]);
+      }
+      setIsLoading(false);
+    }
+    fetchData();
+  }, [activeTab]);
 
   const getTitle = () => {
     switch (activeTab) {
@@ -485,61 +509,47 @@ export default function AdminDashboardPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Buyer</TableHead>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Vendor</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Details</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {quoteRequests.length > 0 ? quoteRequests.map((req) => {
-                    const product = getProductById(req.productId);
-                    const seller = getSellerById(req.sellerId);
-                    return (
-                      <TableRow key={req.id}>
-                        <TableCell className="text-sm">
-                          {format(new Date(req.date), "PP")}
-                        </TableCell>
-                        <TableCell>
-                          <div className="font-medium">{req.buyerName}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {req.buyerEmail}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {req.productId === 'N/A' ? (
-                             <span className="text-muted-foreground italic">General Inquiry</span>
-                          ) : product ? (
-                             <Link href={`/products/${product.id}`} className="hover:underline">{product.name}</Link>
-                          ) : (
-                            <span className="text-muted-foreground">Not found</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                           {req.sellerId === 'N/A' ? (
-                             <span className="text-muted-foreground italic">N/A</span>
-                           ) : seller ? (
-                             <Link href={`/sellers/${seller.id}`} className="hover:underline">{seller.companyName}</Link>
-                          ) : (
-                            <span className="text-muted-foreground">Not found</span>
-                          )}
-                        </TableCell>
-                        <TableCell>{req.quantity}</TableCell>
-                        <TableCell className="max-w-[300px] text-sm text-muted-foreground whitespace-pre-wrap">{req.details || 'N/A'}</TableCell>
-                      </TableRow>
-                    );
-                  }) : (
+              {isLoading ? (
+                 <div className="flex justify-center items-center h-24">
+                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                 </div>
+              ) : (
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                        <TableCell colSpan={6} className="text-center h-24">No quote requests yet.</TableCell>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Buyer</TableHead>
+                      <TableHead>Product ID</TableHead>
+                      <TableHead>Vendor ID</TableHead>
+                      <TableHead>Quantity</TableHead>
+                      <TableHead>Details</TableHead>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {quoteRequests.length > 0 ? quoteRequests.map((req) => (
+                        <TableRow key={req.id}>
+                          <TableCell className="text-sm">
+                            {format(new Date(req.date), "PPp")}
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-medium">{req.buyerName}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {req.buyerEmail}
+                            </div>
+                          </TableCell>
+                          <TableCell>{req.productId}</TableCell>
+                          <TableCell>{req.sellerId}</TableCell>
+                          <TableCell>{req.quantity}</TableCell>
+                          <TableCell className="max-w-[300px] text-sm text-muted-foreground whitespace-pre-wrap">{req.details || 'N/A'}</TableCell>
+                        </TableRow>
+                      )) : (
+                      <TableRow>
+                          <TableCell colSpan={6} className="text-center h-24">No quote requests yet.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
