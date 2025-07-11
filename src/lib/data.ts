@@ -30,6 +30,48 @@ const mapFirestoreDocToProduct = (doc: any): Product => {
   };
 };
 
+const mapFirestoreDocToSeller = (doc: any): Seller => {
+    const fields = doc.fields;
+    const contactFields = fields.contact?.mapValue?.fields || {};
+    const getString = (field: any) => field?.stringValue || '';
+    const getArray = (field: any) => field?.arrayValue?.values.map((v: any) => v.stringValue) || [];
+
+    return {
+        id: doc.name.split('/').pop() || '',
+        name: getString(fields.name),
+        companyName: getString(fields.companyName),
+        location: getString(fields.location),
+        avatarUrl: getString(fields.avatarUrl),
+        bio: getString(fields.bio),
+        memberSince: getString(fields.memberSince),
+        productIds: getArray(fields.productIds),
+        contact: {
+            email: getString(contactFields.email),
+            phone: getString(contactFields.phone),
+            website: getString(contactFields.website),
+        },
+    };
+};
+
+const mapFirestoreDocToBuyer = (doc: any): Buyer => {
+    const fields = doc.fields;
+    const contactFields = fields.contact?.mapValue?.fields || {};
+    const getString = (field: any) => field?.stringValue || '';
+
+    return {
+        id: doc.name.split('/').pop() || '',
+        name: getString(fields.name),
+        companyName: getString(fields.companyName),
+        location: getString(fields.location),
+        avatarUrl: getString(fields.avatarUrl),
+        bio: getString(fields.bio),
+        memberSince: getString(fields.memberSince),
+        contact: {
+            email: getString(contactFields.email),
+        },
+    };
+};
+
 
 const getCollection = cache(async (collectionName: string): Promise<any[]> => {
     const projectId = firebaseConfig.projectId;
@@ -54,8 +96,7 @@ const getCollection = cache(async (collectionName: string): Promise<any[]> => {
     }
 });
 
-
-export const sellers: Seller[] = [
+const mockSellers: Seller[] = [
   {
     id: 'seller-1',
     name: 'Aisha Bella',
@@ -66,28 +107,6 @@ export const sellers: Seller[] = [
     memberSince: '2018-05-15',
     productIds: ['prod-1', 'prod-2'],
     contact: { email: 'aisha@bellahair.ng', website: 'bellahair.ng' },
-  },
-  {
-    id: 'seller-2',
-    name: 'Lien Nguyen',
-    companyName: 'Vietnamese Silk Hair',
-    location: 'Hanoi, Vietnam',
-    avatarUrl: 'https://placehold.co/100x100',
-    bio: 'Authentic Vietnamese hair, known for its silky texture and durability. We offer a wide range of lengths and natural colors, direct from local collectors.',
-    memberSince: '2020-01-20',
-    productIds: ['prod-3'],
-    contact: { email: 'lien@vnsilkhair.com' },
-  },
-  {
-    id: 'seller-3',
-    name: 'Isabella Rossi',
-    companyName: 'Euro Weaves Co.',
-    location: 'Milan, Italy',
-    avatarUrl: 'https://placehold.co/100x100',
-    bio: 'Luxury European hair extensions and custom wigs. Our hair is sourced from Eastern Europe and is perfect for high-end styling and coloring.',
-    memberSince: '2019-11-02',
-    productIds: ['prod-4'],
-    contact: { email: 'isabella@euroweaves.it', phone: '+39 123 456 7890' },
   },
 ];
 
@@ -110,7 +129,7 @@ const mockProducts: Product[] = [
   },
 ];
 
-export const buyers: Buyer[] = [
+const mockBuyers: Buyer[] = [
     {
         id: 'buyer-1',
         name: 'Chloe Kim',
@@ -120,16 +139,6 @@ export const buyers: Buyer[] = [
         bio: 'High-end salon in Beverly Hills looking for top-tier virgin and raw hair for our exclusive clientele. We prioritize quality and ethical sourcing.',
         memberSince: '2021-02-10',
         contact: { email: 'chloe@glamourlocks.com' },
-    },
-    {
-        id: 'buyer-2',
-        name: 'Fatou Diallo',
-        companyName: 'Parisian Wigs Boutique',
-        location: 'Paris, France',
-        avatarUrl: 'https://placehold.co/100x100',
-        bio: 'We create custom medical and fashion wigs. Seeking durable, high-density hair that can withstand extensive coloring and styling.',
-        memberSince: '2022-07-01',
-        contact: { email: 'fatou.d@pariswigs.fr' },
     },
 ];
 
@@ -147,11 +156,28 @@ export const categories = [
 export async function getProducts(): Promise<Product[]> {
     const docs = await getCollection('products');
     if (!docs || docs.length === 0) {
-        // Return mock data if firestore is empty for demonstration purposes
         console.log("No products found in Firestore, returning mock data.");
         return mockProducts;
     }
     return docs.map(mapFirestoreDocToProduct);
+}
+
+export async function getSellers(): Promise<Seller[]> {
+    const docs = await getCollection('sellers');
+     if (!docs || docs.length === 0) {
+        console.log("No sellers found in Firestore, returning mock data.");
+        return mockSellers;
+    }
+    return docs.map(mapFirestoreDocToSeller);
+}
+
+export async function getBuyers(): Promise<Buyer[]> {
+    const docs = await getCollection('buyers');
+    if (!docs || docs.length === 0) {
+        console.log("No buyers found in Firestore, returning mock data.");
+        return mockBuyers;
+    }
+    return docs.map(mapFirestoreDocToBuyer);
 }
 
 
@@ -160,7 +186,7 @@ export function getProductById(id: string) {
 }
 
 export function getSellerById(id: string) {
-  return sellers.find(s => s.id === id);
+  return mockSellers.find(s => s.id === id);
 }
 
 export function getProductsBySeller(sellerId: string) {
@@ -168,7 +194,7 @@ export function getProductsBySeller(sellerId: string) {
 }
 
 export function getBuyerById(id:string) {
-    return buyers.find(b => b.id === id);
+    return mockBuyers.find(b => b.id === id);
 }
 
 export function addQuoteRequest(data: Omit<QuoteRequest, 'id' | 'date'>) {
