@@ -46,28 +46,42 @@ export default function LoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // This is a simple check. In a real app, you might use custom claims
-      // to more robustly distinguish user roles.
-      const adminDocRef = doc(db, "admins", user.uid);
-      const adminDoc = await getDoc(adminDocRef);
+      let path = "";
 
-      let path = "/vendor/dashboard";
-      if (adminDoc.exists()) {
-        path = "/admin/dashboard";
+      // Check if the user is a seller first
+      const sellerDocRef = doc(db, "sellers", user.uid);
+      const sellerDoc = await getDoc(sellerDocRef);
+
+      if (sellerDoc.exists()) {
+        path = "/vendor/dashboard";
+      } else {
+        // If not a seller, check if they are an admin
+        const adminDocRef = doc(db, "admins", user.uid);
+        const adminDoc = await getDoc(adminDocRef);
+
+        if (adminDoc.exists()) {
+          path = "/admin/dashboard";
+        }
       }
 
-      toast({
-        title: "Login Successful",
-        description: "Welcome back!",
-      });
-
-      router.push(path);
+      if (path) {
+        toast({
+          title: "Login Successful",
+          description: "Welcome back!",
+        });
+        router.push(path);
+      } else {
+         // This case handles if a user exists in Auth but not in sellers or admins DB.
+         throw new Error("User profile not found.");
+      }
 
     } catch (error: any) {
       console.error("Login error:", error);
       let description = "An unexpected error occurred. Please try again.";
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === "auth/invalid-credential") {
         description = "Invalid email or password. Please check your credentials and try again.";
+      } else if (error.message === "User profile not found.") {
+        description = "Your user account exists, but a corresponding profile could not be found. Please contact support."
       }
       toast({
         title: "Login Failed",

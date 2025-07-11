@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -11,9 +12,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Scissors, ChevronDown } from "lucide-react";
+import { Menu, Scissors, ChevronDown, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { onAuthStateChanged, signOut, type User } from "firebase/auth";
+import { auth, db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
+
 
 const Logo = () => (
   <Link href="/" className="flex items-center gap-2">
@@ -32,25 +37,102 @@ const navLinks = [
 
 export function Header() {
   const [isSheetOpen, setSheetOpen] = useState(false);
-  const [loggedInUser, setLoggedInUser] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [userRole, setUserRole] = useState<'vendor' | 'admin' | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    // This effect runs on the client after hydration, so window.localStorage is available.
-    const user = localStorage.getItem("loggedInUser");
-    if (user) {
-      setLoggedInUser(user);
-    }
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setIsLoading(true);
+      if (currentUser) {
+        setUser(currentUser);
+        // Determine user role
+        const sellerDoc = await getDoc(doc(db, "sellers", currentUser.uid));
+        if (sellerDoc.exists()) {
+          setUserRole("vendor");
+        } else {
+          const adminDoc = await getDoc(doc(db, "admins", currentUser.uid));
+          if (adminDoc.exists()) {
+            setUserRole("admin");
+          } else {
+            setUserRole(null); // Should not happen if DB is consistent
+          }
+        }
+      } else {
+        setUser(null);
+        setUserRole(null);
+      }
+      setIsLoading(false);
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem("loggedInUser");
-    setLoggedInUser(null);
-    setSheetOpen(false); // Close mobile menu on logout
-    router.push("/");
+    signOut(auth).then(() => {
+      setSheetOpen(false); // Close mobile menu on logout
+      router.push("/");
+    });
   };
 
-  const dashboardPath = loggedInUser === "admin" ? "/admin/dashboard" : "/vendor/dashboard";
+  const dashboardPath = userRole === "admin" ? "/admin/dashboard" : "/vendor/dashboard";
+
+  const renderAuthSection = () => {
+    if (isLoading) {
+      return <Loader2 className="h-6 w-6 animate-spin" />;
+    }
+
+    if (user && userRole) {
+       return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                My Account <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Logged in as {userRole === 'admin' ? 'Admin' : 'Vendor'}</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href={dashboardPath}>My Dashboard</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={handleLogout}>Logout</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+    }
+    
+    return (
+       <Button variant="outline" asChild>
+          <Link href="/login">Login / Register</Link>
+        </Button>
+    );
+  }
+  
+  const renderMobileAuthSection = () => {
+      if (isLoading) {
+          return null; // Or a loading indicator
+      }
+      if (user && userRole) {
+          return (
+               <div className="flex flex-col gap-4">
+                  <Button asChild size="lg" onClick={() => setSheetOpen(false)}>
+                    <Link href={dashboardPath}>My Dashboard</Link>
+                  </Button>
+                  <Button variant="outline" size="lg" onClick={handleLogout}>
+                    Logout
+                  </Button>
+               </div>
+          )
+      }
+      return (
+         <Button variant="outline" asChild size="lg" onClick={() => setSheetOpen(false)}>
+            <Link href="/login">Login / Register</Link>
+          </Button>
+      )
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background">
@@ -76,27 +158,7 @@ export function Header() {
           <Button asChild>
             <Link href="/quote">Request a Quote</Link>
           </Button>
-          {loggedInUser ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline">
-                  My Account <ChevronDown className="ml-2 h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Logged in as {loggedInUser === 'admin' ? 'Admin' : 'Vendor'}</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href={dashboardPath}>My Dashboard</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={handleLogout}>Logout</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <Button variant="outline" asChild>
-              <Link href="/login">Login / Register</Link>
-            </Button>
-          )}
+          {renderAuthSection()}
         </div>
 
         {/* Mobile Menu */}
@@ -129,20 +191,7 @@ export function Header() {
                   <Button asChild size="lg" onClick={() => setSheetOpen(false)}>
                     <Link href="/quote">Request a Quote</Link>
                   </Button>
-                  {loggedInUser ? (
-                     <div className="flex flex-col gap-4">
-                        <Button asChild size="lg" onClick={() => setSheetOpen(false)}>
-                          <Link href={dashboardPath}>My Dashboard</Link>
-                        </Button>
-                        <Button variant="outline" size="lg" onClick={handleLogout}>
-                          Logout
-                        </Button>
-                     </div>
-                  ) : (
-                    <Button variant="outline" asChild size="lg" onClick={() => setSheetOpen(false)}>
-                      <Link href="/login">Login / Register</Link>
-                    </Button>
-                  )}
+                  {renderMobileAuthSection()}
                 </div>
               </div>
             </SheetContent>
