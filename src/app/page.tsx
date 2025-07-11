@@ -1,12 +1,15 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { featuredProducts, categories } from "@/lib/data";
+import { getProducts, categories } from "@/lib/data";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Sparkles, Gem, Globe } from "lucide-react";
 import { ProductCard } from "@/components/product-card";
 
-export default function Home() {
+export default async function Home() {
+  const products = await getProducts();
+  const featuredProducts = products.slice(0, 4);
+
   return (
     <div className="flex flex-col">
       <section className="relative w-full flex items-center justify-center text-center bg-secondary/30 py-24 md:py-32">

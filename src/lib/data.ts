@@ -1,4 +1,59 @@
 import type { Product, Seller, Buyer, QuoteRequest } from './types';
+import { firebaseConfig } from './firebase';
+import { cache } from 'react';
+
+// Helper to map Firestore document format to our application's data types
+const mapFirestoreDocToProduct = (doc: any): Product => {
+  const fields = doc.fields;
+  const specFields = fields.specs?.mapValue?.fields || {};
+
+  // Helper to safely extract string values from Firestore's field format
+  const getString = (field: any) => field?.stringValue || '';
+  const getNumber = (field: any) => parseFloat(field?.doubleValue || field?.integerValue || '0');
+  const getArray = (field: any) => field?.arrayValue?.values.map((v: any) => v.stringValue) || [];
+
+  return {
+    id: doc.name.split('/').pop() || '',
+    name: getString(fields.name),
+    description: getString(fields.description),
+    price: getNumber(fields.price),
+    sellerId: getString(fields.sellerId),
+    category: getString(fields.category) as Product['category'],
+    images: getArray(fields.images),
+    specs: {
+      type: getString(specFields.type),
+      length: getString(specFields.length),
+      color: getString(specFields.color),
+      texture: getString(specFields.texture),
+      origin: getString(specFields.origin),
+    },
+  };
+};
+
+
+const getCollection = cache(async (collectionName: string): Promise<any[]> => {
+    const projectId = firebaseConfig.projectId;
+    if (!projectId || projectId.startsWith('PASTE_YOUR')) {
+        console.error("Firebase Project ID is missing from your configuration in 'src/lib/firebase.ts'. Data fetching will fail.");
+        return [];
+    }
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}`;
+
+    try {
+        const response = await fetch(url, { next: { revalidate: 3600 } }); // Revalidate every hour
+        if (!response.ok) {
+            const error = await response.json();
+            console.error(`Error fetching ${collectionName}:`, error.error.message);
+            return [];
+        }
+        const data = await response.json();
+        return data.documents || [];
+    } catch (error) {
+        console.error(`Network error fetching ${collectionName}:`, error);
+        return [];
+    }
+});
+
 
 export const sellers: Seller[] = [
   {
@@ -36,7 +91,7 @@ export const sellers: Seller[] = [
   },
 ];
 
-export const products: Product[] = [
+const mockProducts: Product[] = [
   {
     id: 'prod-1',
     name: 'Premium Nigerian Raw Wavy Bundles',
@@ -51,54 +106,6 @@ export const products: Product[] = [
       color: 'Natural Black (1B)',
       texture: 'Natural Wavy',
       origin: 'Nigeria',
-    },
-  },
-  {
-    id: 'prod-2',
-    name: 'Luxury Deep Wave HD Lace Wig',
-    description: 'A full lace wig made with our finest deep wave bundles. Transparent HD lace for a seamless melt. Pre-plucked hairline and bleached knots.',
-    price: 320.00,
-    sellerId: 'seller-1',
-    category: 'Wigs',
-    images: ['https://placehold.co/600x600', 'https://placehold.co/600x600'],
-    specs: {
-      type: 'Full Lace Wig',
-      length: '22 inches',
-      color: 'Natural Black (1B)',
-      texture: 'Deep Wave',
-      origin: 'Nigeria',
-    },
-  },
-  {
-    id: 'prod-3',
-    name: 'Silky Straight Vietnamese Virgin Hair',
-    description: 'Double drawn virgin hair from Vietnam. Incredibly silky, smooth, and tangle-free. This hair has a natural sheen and can last for years with proper care.',
-    price: 95.00,
-    sellerId: 'seller-2',
-    category: 'Virgin Hair',
-    images: ['https://placehold.co/600x600'],
-    specs: {
-      type: 'Bundle',
-      length: '24 inches',
-      color: 'Natural Brown',
-      texture: 'Silky Straight',
-      origin: 'Vietnam',
-    },
-  },
-  {
-    id: 'prod-4',
-    name: 'Platinum Blonde European Tape-In Extensions',
-    description: 'High-quality tape-in extensions made from sourced Eastern European hair. Thick from root to tip. Pre-taped with strong, yet gentle adhesive.',
-    price: 150.00,
-    sellerId: 'seller-3',
-    category: 'Extensions',
-    images: ['https://placehold.co/600x600', 'https://placehold.co/600x600'],
-    specs: {
-      type: 'Tape-In Extensions (40 pcs)',
-      length: '20 inches',
-      color: 'Platinum Blonde (#60)',
-      texture: 'Straight',
-      origin: 'Eastern Europe',
     },
   },
 ];
@@ -128,7 +135,6 @@ export const buyers: Buyer[] = [
 
 export const quoteRequests: QuoteRequest[] = [];
 
-export const featuredProducts = products.slice(0, 4);
 
 export const categories = [
     { name: 'Raw Hair', icon: 'https://placehold.co/40x40' },
@@ -138,8 +144,19 @@ export const categories = [
     { name: 'Tools', icon: 'https://placehold.co/40x40' },
 ];
 
+export async function getProducts(): Promise<Product[]> {
+    const docs = await getCollection('products');
+    if (!docs || docs.length === 0) {
+        // Return mock data if firestore is empty for demonstration purposes
+        console.log("No products found in Firestore, returning mock data.");
+        return mockProducts;
+    }
+    return docs.map(mapFirestoreDocToProduct);
+}
+
+
 export function getProductById(id: string) {
-  return products.find(p => p.id === id);
+  return mockProducts.find(p => p.id === id);
 }
 
 export function getSellerById(id: string) {
@@ -147,7 +164,7 @@ export function getSellerById(id: string) {
 }
 
 export function getProductsBySeller(sellerId: string) {
-  return products.filter(p => p.sellerId === sellerId);
+  return mockProducts.filter(p => p.sellerId === sellerId);
 }
 
 export function getBuyerById(id:string) {
