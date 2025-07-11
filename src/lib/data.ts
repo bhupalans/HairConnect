@@ -2,6 +2,13 @@ import type { Product, Seller, Buyer, QuoteRequest } from './types';
 import { firebaseConfig } from './firebase';
 import { cache } from 'react';
 
+// Helper to map a single Firestore document to our application's data types
+const mapFirestoreDoc = (doc: any, mapper: (doc: any) => any) => {
+    if (!doc || !doc.fields) return null;
+    return mapper(doc);
+};
+
+
 // Helper to map Firestore document format to our application's data types
 const mapFirestoreDocToProduct = (doc: any): Product => {
   const fields = doc.fields;
@@ -72,13 +79,8 @@ const mapFirestoreDocToBuyer = (doc: any): Buyer => {
     };
 };
 
-
 const getCollection = cache(async (collectionName: string): Promise<any[]> => {
     const projectId = firebaseConfig.projectId;
-    if (!projectId || projectId.startsWith('PASTE_YOUR')) {
-        console.error("Firebase Project ID is missing from your configuration in 'src/lib/firebase.ts'. Data fetching will fail.");
-        return [];
-    }
     const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}`;
 
     try {
@@ -96,6 +98,28 @@ const getCollection = cache(async (collectionName: string): Promise<any[]> => {
     }
 });
 
+const getDocument = cache(async (collectionName: string, docId: string): Promise<any | null> => {
+    const projectId = firebaseConfig.projectId;
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/${docId}`;
+
+    try {
+        const response = await fetch(url, { next: { revalidate: 3600 } }); // Revalidate every hour
+        if (!response.ok) {
+             if (response.status === 404) {
+                return null; // Document not found
+            }
+            const error = await response.json();
+            console.error(`Error fetching document ${collectionName}/${docId}:`, error.error.message);
+            return null;
+        }
+        return await response.json();
+    } catch (error) {
+        console.error(`Network error fetching document ${collectionName}/${docId}:`, error);
+        return null;
+    }
+});
+
+
 const mockSellers: Seller[] = [
   {
     id: 'seller-1',
@@ -105,7 +129,7 @@ const mockSellers: Seller[] = [
     avatarUrl: 'https://placehold.co/100x100',
     bio: 'Specializing in premium, ethically sourced raw Nigerian hair. With over 10 years of experience, we provide the highest quality bundles for wigs and extensions.',
     memberSince: '2018-05-15',
-    productIds: ['prod-1', 'prod-2'],
+    productIds: ['prod-1'],
     contact: { email: 'aisha@bellahair.ng', website: 'bellahair.ng' },
   },
 ];
@@ -181,8 +205,13 @@ export async function getBuyers(): Promise<Buyer[]> {
 }
 
 
-export function getProductById(id: string) {
-  return mockProducts.find(p => p.id === id);
+export async function getProductById(id: string): Promise<Product | null> {
+    const doc = await getDocument('products', id);
+    if (!doc) {
+        console.log(`Product with id ${id} not found in Firestore, checking mock data.`);
+        return mockProducts.find(p => p.id === id) || null;
+    }
+    return mapFirestoreDoc(doc, mapFirestoreDocToProduct);
 }
 
 export function getSellerById(id: string) {

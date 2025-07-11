@@ -9,8 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { CheckCircle, MessageSquareQuote, User } from "lucide-react";
 
-export default function ProductDetailPage({ params }: { params: { id: string } }) {
-  const product = getProductById(params.id);
+export default async function ProductDetailPage({ params }: { params: { id: string } }) {
+  const product = await getProductById(params.id);
 
   if (!product) {
     notFound();
