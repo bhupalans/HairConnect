@@ -209,21 +209,37 @@ export async function getProductById(id: string): Promise<Product | null> {
     const doc = await getDocument('products', id);
     if (!doc) {
         console.log(`Product with id ${id} not found in Firestore, checking mock data.`);
-        return mockProducts.find(p => p.id === id) || null;
+        const mockProduct = mockProducts.find(p => p.id === id) || null;
+        if (!mockProduct) {
+             console.error(`Product with id ${id} not found in mock data either.`);
+             return null;
+        }
+        return mockProduct;
     }
     return mapFirestoreDoc(doc, mapFirestoreDocToProduct);
 }
 
-export function getSellerById(id: string) {
-  return mockSellers.find(s => s.id === id);
+export async function getSellerById(id: string): Promise<Seller | null> {
+    const doc = await getDocument('sellers', id);
+    if (!doc) {
+        console.log(`Seller with id ${id} not found in Firestore, checking mock data.`);
+        return mockSellers.find(s => s.id === id) || null;
+    }
+    return mapFirestoreDoc(doc, mapFirestoreDocToSeller);
 }
 
-export function getProductsBySeller(sellerId: string) {
-  return mockProducts.filter(p => p.sellerId === sellerId);
+export async function getProductsBySeller(sellerId: string): Promise<Product[]> {
+  const allProducts = await getProducts();
+  return allProducts.filter(p => p.sellerId === sellerId);
 }
 
-export function getBuyerById(id:string) {
-    return mockBuyers.find(b => b.id === id);
+export async function getBuyerById(id:string): Promise<Buyer | null> {
+    const doc = await getDocument('buyers', id);
+    if (!doc) {
+        console.log(`Buyer with id ${id} not found in Firestore, checking mock data.`);
+        return mockBuyers.find(b => b.id === id) || null;
+    }
+    return mapFirestoreDoc(doc, mapFirestoreDocToBuyer);
 }
 
 export function addQuoteRequest(data: Omit<QuoteRequest, 'id' | 'date'>) {
