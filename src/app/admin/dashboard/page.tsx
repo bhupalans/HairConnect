@@ -19,6 +19,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -27,13 +37,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -49,10 +52,9 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { categories, getProducts, getSellers, getBuyers, getQuoteRequests, addVendor } from "@/lib/data";
+import { getProducts, getSellers, getBuyers, getQuoteRequests, addVendor, updateVendor, deleteVendor } from "@/lib/data";
 import { MoreHorizontal, PlusCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import type { QuoteRequest, Product, Seller, Buyer } from "@/lib/types";
@@ -77,10 +79,17 @@ export default function AdminDashboardPage() {
   const [buyersData, setBuyersData] = useState<Buyer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedVendor, setSelectedVendor] = useState<Seller | null>(null);
 
-  // State for the "Add Vendor" dialog
-  const [newVendor, setNewVendor] = useState(initialNewVendorState);
+  // State for dialogs
   const [isAddVendorOpen, setIsAddVendorOpen] = useState(false);
+  const [isEditVendorOpen, setIsEditVendorOpen] = useState(false);
+  const [isDeleteVendorOpen, setIsDeleteVendorOpen] = useState(false);
+  
+  // State for forms
+  const [newVendor, setNewVendor] = useState(initialNewVendorState);
+  const [editVendorData, setEditVendorData] = useState<Partial<Seller>>({});
+
 
   useEffect(() => {
     async function fetchData() {
@@ -105,6 +114,11 @@ export default function AdminDashboardPage() {
     }
     fetchData();
   }, [activeTab]);
+  
+  const refetchVendors = async () => {
+    const sells = await getSellers();
+    setSellersData(sells);
+  }
 
   const getTitle = () => {
     switch (activeTab) {
@@ -147,9 +161,7 @@ export default function AdminDashboardPage() {
         });
         setNewVendor(initialNewVendorState); // Reset form
         setIsAddVendorOpen(false); // Close dialog
-        // Refetch vendors to update the list
-        const sells = await getSellers();
-        setSellersData(sells);
+        refetchVendors(); // Refetch vendors to update the list
     } catch (error: any) {
         console.error("Add vendor error:", error);
         let description = "An unexpected error occurred.";
@@ -167,6 +179,68 @@ export default function AdminDashboardPage() {
         setIsSubmitting(false);
     }
   }
+
+  const handleEditVendorClick = (vendor: Seller) => {
+    setSelectedVendor(vendor);
+    setEditVendorData({
+      name: vendor.name,
+      companyName: vendor.companyName,
+      location: vendor.location,
+      bio: vendor.bio,
+    });
+    setIsEditVendorOpen(true);
+  };
+  
+  const handleUpdateVendor = async () => {
+      if (!selectedVendor) return;
+      setIsSubmitting(true);
+      try {
+        await updateVendor(selectedVendor.id, editVendorData);
+        toast({
+            title: "Vendor Updated",
+            description: `${editVendorData.companyName || selectedVendor.companyName} has been updated.`,
+        });
+        setIsEditVendorOpen(false);
+        refetchVendors();
+      } catch (error) {
+        console.error("Update vendor error:", error);
+         toast({
+            title: "Update Failed",
+            description: "Could not update the vendor's details. Please try again.",
+            variant: "destructive"
+        });
+      } finally {
+        setIsSubmitting(false);
+      }
+  };
+  
+  const handleDeleteVendorClick = (vendor: Seller) => {
+      setSelectedVendor(vendor);
+      setIsDeleteVendorOpen(true);
+  }
+  
+  const handleDeleteVendor = async () => {
+      if (!selectedVendor) return;
+      setIsSubmitting(true);
+       try {
+        await deleteVendor(selectedVendor.id);
+         toast({
+            title: "Vendor Deleted",
+            description: `The vendor ${selectedVendor.companyName} has been deleted. Note: The user account and products still exist.`,
+        });
+        setIsDeleteVendorOpen(false);
+        refetchVendors();
+      } catch (error) {
+         console.error("Delete vendor error:", error);
+         toast({
+            title: "Delete Failed",
+            description: "Could not delete the vendor. Please try again.",
+            variant: "destructive"
+        });
+      } finally {
+        setIsSubmitting(false);
+      }
+  }
   
   const renderTableContent = (Component: React.ReactNode) => {
     return isLoading ? (
@@ -176,24 +250,10 @@ export default function AdminDashboardPage() {
     ) : Component;
   }
 
-  return (
-    <div className="container mx-auto px-4 py-8 md:py-12">
-      <header className="mb-8">
-        <h1 className="text-4xl font-headline text-primary">Admin Dashboard</h1>
-        <p className="text-muted-foreground">Manage products, vendors, and buyers.</p>
-      </header>
-
-      <Tabs defaultValue="products" onValueChange={setActiveTab}>
-        <div className="flex items-center">
-          <TabsList>
-            <TabsTrigger value="products">Products</TabsTrigger>
-            <TabsTrigger value="vendors">Vendors</TabsTrigger>
-            <TabsTrigger value="buyers">Buyers</TabsTrigger>
-            <TabsTrigger value="quote-requests">Quote Requests</TabsTrigger>
-          </TabsList>
-          <div className="ml-auto">
-            {activeTab !== 'quote-requests' && (
-              <Dialog open={isAddVendorOpen && activeTab === 'vendors'} onOpenChange={setIsAddVendorOpen}>
+  const renderAddDialog = () => {
+    if (activeTab === 'vendors') {
+        return (
+             <Dialog open={isAddVendorOpen} onOpenChange={setIsAddVendorOpen}>
                 <DialogTrigger asChild>
                   <Button>
                     <PlusCircle className="mr-2 h-4 w-4" />
@@ -207,13 +267,6 @@ export default function AdminDashboardPage() {
                       Fill in the details to add a new {getTitle().toLowerCase()}.
                     </DialogDescription>
                   </DialogHeader>
-                  {activeTab === "products" && (
-                    // Product form remains unchanged for now
-                     <div className="grid gap-4 py-4">
-                        <p className="text-center text-muted-foreground">Adding products from the admin dashboard is not yet supported.</p>
-                     </div>
-                  )}
-                  {activeTab === "vendors" && (
                     <div className="grid gap-4 py-4">
                       <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="companyName" className="text-right">
@@ -268,23 +321,42 @@ export default function AdminDashboardPage() {
                         <Input id="avatar" type="file" className="col-span-3" disabled title="Feature not available yet"/>
                       </div>
                     </div>
-                  )}
-                   {activeTab === "buyers" && (
-                     <div className="grid gap-4 py-4">
-                        <p className="text-center text-muted-foreground">Adding buyers from the admin dashboard is not yet supported.</p>
-                     </div>
-                  )}
                   <DialogFooter>
-                    {activeTab === "vendors" && (
-                         <Button type="submit" onClick={handleAddVendor} disabled={isSubmitting}>
-                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                            Save changes
-                        </Button>
-                    )}
+                     <Button type="submit" onClick={handleAddVendor} disabled={isSubmitting}>
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                        Save changes
+                    </Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
-            )}
+        )
+    }
+    // Logic for other tabs can go here
+    return (
+         <Button disabled>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add {getTitle()}
+        </Button>
+    )
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-8 md:py-12">
+      <header className="mb-8">
+        <h1 className="text-4xl font-headline text-primary">Admin Dashboard</h1>
+        <p className="text-muted-foreground">Manage products, vendors, and buyers.</p>
+      </header>
+
+      <Tabs defaultValue="products" onValueChange={setActiveTab}>
+        <div className="flex items-center">
+          <TabsList>
+            <TabsTrigger value="products">Products</TabsTrigger>
+            <TabsTrigger value="vendors">Vendors</TabsTrigger>
+            <TabsTrigger value="buyers">Buyers</TabsTrigger>
+            <TabsTrigger value="quote-requests">Quote Requests</TabsTrigger>
+          </TabsList>
+          <div className="ml-auto">
+            {activeTab !== 'quote-requests' && renderAddDialog()}
           </div>
         </div>
         <TabsContent value="products">
@@ -418,8 +490,8 @@ export default function AdminDashboardPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem>Edit</DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive">
+                              <DropdownMenuItem onSelect={() => handleEditVendorClick(seller)}>Edit</DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive" onSelect={() => handleDeleteVendorClick(seller)}>
                                 Delete
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -563,6 +635,84 @@ export default function AdminDashboardPage() {
           </Card>
         </TabsContent>
       </Tabs>
+      
+       {/* Edit Vendor Dialog */}
+      <Dialog open={isEditVendorOpen} onOpenChange={setIsEditVendorOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Vendor</DialogTitle>
+            <DialogDescription>
+              Update the details for "{selectedVendor?.companyName}".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-companyName" className="text-right">
+                  Company
+                </Label>
+                <Input
+                  id="edit-companyName"
+                  className="col-span-3"
+                  value={editVendorData.companyName || ''}
+                  onChange={(e) => setEditVendorData({...editVendorData, companyName: e.target.value})}
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-contactName" className="text-right">
+                  Contact
+                </Label>
+                <Input
+                  id="edit-contactName"
+                  className="col-span-3"
+                  value={editVendorData.name || ''}
+                  onChange={(e) => setEditVendorData({...editVendorData, name: e.target.value})}
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-location" className="text-right">
+                  Location
+                </Label>
+                <Input
+                  id="edit-location"
+                  className="col-span-3"
+                  value={editVendorData.location || ''}
+                  onChange={(e) => setEditVendorData({...editVendorData, location: e.target.value})}
+                />
+              </div>
+                <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="edit-bio" className="text-right pt-2">Bio</Label>
+                <Textarea id="edit-bio" className="col-span-3" value={editVendorData.bio || ''} onChange={(e) => setEditVendorData({...editVendorData, bio: e.target.value})} />
+              </div>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setIsEditVendorOpen(false)}>Cancel</Button>
+                <Button type="submit" onClick={handleUpdateVendor} disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                    Save changes
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete Vendor Confirmation */}
+      <AlertDialog open={isDeleteVendorOpen} onOpenChange={setIsDeleteVendorOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the vendor profile for "{selectedVendor?.companyName}". This will not delete their user account or products.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteVendor} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }

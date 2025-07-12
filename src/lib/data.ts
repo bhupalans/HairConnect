@@ -3,7 +3,7 @@ import type { Product, Seller, Buyer, QuoteRequest } from './types';
 import { firebaseConfig } from './firebase';
 import { cache } from 'react';
 import { db, auth } from './firebase';
-import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp, query, orderBy, Timestamp, updateDoc, where, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp, query, orderBy, Timestamp, updateDoc, where, setDoc, deleteDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 
@@ -349,4 +349,24 @@ export async function addVendor({ companyName, name, email, password, location, 
     console.error("Error adding vendor:", error);
     throw error; // Re-throw to be handled by the UI
   }
+}
+
+export async function updateVendor(vendorId: string, data: Partial<Seller>) {
+    const vendorRef = doc(db, "sellers", vendorId);
+    try {
+        await updateDoc(vendorRef, data);
+    } catch (error) {
+        console.error("Error updating vendor:", error);
+        throw error;
+    }
+}
+
+export async function deleteVendor(vendorId: string) {
+    const vendorRef = doc(db, "sellers", vendorId);
+    try {
+        await deleteDoc(vendorRef);
+    } catch (error) {
+        console.error("Error deleting vendor:", error);
+        throw error;
+    }
 }
