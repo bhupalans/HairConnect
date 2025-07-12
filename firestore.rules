@@ -9,15 +9,37 @@ service cloud.firestore {
       return exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
-    // Allow public read access to all collections
-    match /{document=**} {
+    // --- Rules Specific to Collections ---
+
+    // Products: Publicly readable, only writable by the owning seller OR an admin
+    match /products/{productId} {
       allow read: if true;
+      allow create, update, delete: if (request.auth != null && request.auth.uid == resource.data.sellerId) || isAdmin();
     }
 
-    // Allow admins to write, update, and delete in any collection
-    // This includes creating, editing, and deleting vendors.
-    match /{document=**} {
-      allow write, update, delete: if isAdmin();
+    // Sellers: Publicly readable, only writable by the user themselves OR an admin
+    match /sellers/{userId} {
+      allow read: if true;
+      // Note: create is covered by the admin-only rule below.
+      allow update: if (request.auth != null && request.auth.uid == userId) || isAdmin();
+      allow create, delete: if isAdmin();
+    }
+    
+    // Buyers: Publicly readable, only writable by an admin
+    match /buyers/{buyerId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Quote Requests: Writable by anyone, readable by admins
+    match /quote-requests/{requestId} {
+        allow create: if true;
+        allow read, update, delete: if isAdmin();
+    }
+
+    // Admins collection: Readable and Writable only by other admins
+    match /admins/{userId} {
+        allow read, write: if isAdmin();
     }
   }
 }
