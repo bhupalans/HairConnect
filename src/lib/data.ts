@@ -370,3 +370,43 @@ export async function deleteVendor(vendorId: string) {
         throw error;
     }
 }
+
+export async function addBuyer({ companyName, name, email, location, bio }: { companyName?: string; name: string; email: string; location:string, bio: string }) {
+    const buyerCollectionRef = collection(db, 'buyers');
+    try {
+        await addDoc(buyerCollectionRef, {
+            name,
+            companyName: companyName || '',
+            location,
+            bio,
+            avatarUrl: `https://placehold.co/100x100?text=${name.charAt(0)}`,
+            memberSince: new Date().toISOString(),
+            contact: {
+                email: email,
+            },
+        });
+    } catch (error) {
+        console.error("Error adding buyer:", error);
+        throw error;
+    }
+}
+
+export async function updateBuyer(buyerId: string, data: Partial<Buyer>) {
+    const buyerRef = doc(db, "buyers", buyerId);
+    try {
+        await updateDoc(buyerRef, data);
+    } catch (error) {
+        console.error("Error updating buyer:", error);
+        throw error;
+    }
+}
+
+export async function deleteBuyer(buyerId: string) {
+    const buyerRef = doc(db, "buyers", buyerId);
+    try {
+        await deleteDoc(buyerRef);
+    } catch (error) {
+        console.error("Error deleting buyer:", error);
+        throw error;
+    }
+}

@@ -52,7 +52,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { getProducts, getSellers, getBuyers, getQuoteRequests, addVendor, updateVendor, deleteVendor } from "@/lib/data";
+import { getProducts, getSellers, getBuyers, getQuoteRequests, addVendor, updateVendor, deleteVendor, addBuyer, updateBuyer, deleteBuyer } from "@/lib/data";
 import { MoreHorizontal, PlusCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useState, useEffect } from "react";
@@ -60,7 +60,7 @@ import { format } from "date-fns";
 import type { QuoteRequest, Product, Seller, Buyer } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 
-// State structure for the new vendor form
+// State structure for forms
 const initialNewVendorState = {
   companyName: "",
   contactName: "",
@@ -69,6 +69,14 @@ const initialNewVendorState = {
   location: "",
   bio: "",
 };
+
+const initialNewBuyerState = {
+  companyName: "",
+  contactName: "",
+  email: "",
+  location: "",
+  bio: "",
+}
 
 export default function AdminDashboardPage() {
   const { toast } = useToast();
@@ -79,16 +87,24 @@ export default function AdminDashboardPage() {
   const [buyersData, setBuyersData] = useState<Buyer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Generic state for selected items to reduce repetition
   const [selectedVendor, setSelectedVendor] = useState<Seller | null>(null);
+  const [selectedBuyer, setSelectedBuyer] = useState<Buyer | null>(null);
 
   // State for dialogs
   const [isAddVendorOpen, setIsAddVendorOpen] = useState(false);
   const [isEditVendorOpen, setIsEditVendorOpen] = useState(false);
   const [isDeleteVendorOpen, setIsDeleteVendorOpen] = useState(false);
+  const [isAddBuyerOpen, setIsAddBuyerOpen] = useState(false);
+  const [isEditBuyerOpen, setIsEditBuyerOpen] = useState(false);
+  const [isDeleteBuyerOpen, setIsDeleteBuyerOpen] = useState(false);
   
   // State for forms
   const [newVendor, setNewVendor] = useState(initialNewVendorState);
   const [editVendorData, setEditVendorData] = useState<Partial<Seller>>({});
+  const [newBuyer, setNewBuyer] = useState(initialNewBuyerState);
+  const [editBuyerData, setEditBuyerData] = useState<Partial<Buyer>>({});
 
 
   useEffect(() => {
@@ -119,6 +135,10 @@ export default function AdminDashboardPage() {
     const sells = await getSellers();
     setSellersData(sells);
   }
+  const refetchBuyers = async () => {
+    const buys = await getBuyers();
+    setBuyersData(buys);
+  }
 
   const getTitle = () => {
     switch (activeTab) {
@@ -133,9 +153,9 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // --- VENDOR HANDLERS ---
   const handleAddVendor = async () => {
     setIsSubmitting(true);
-    // Basic validation
     if (!newVendor.companyName || !newVendor.contactName || !newVendor.email || !newVendor.password || !newVendor.location || !newVendor.bio) {
        toast({
         title: "Missing Fields",
@@ -159,9 +179,9 @@ export default function AdminDashboardPage() {
             title: "Vendor Added Successfully",
             description: `${newVendor.companyName} can now log in.`
         });
-        setNewVendor(initialNewVendorState); // Reset form
-        setIsAddVendorOpen(false); // Close dialog
-        refetchVendors(); // Refetch vendors to update the list
+        setNewVendor(initialNewVendorState);
+        setIsAddVendorOpen(false);
+        refetchVendors();
     } catch (error: any) {
         console.error("Add vendor error:", error);
         let description = "An unexpected error occurred.";
@@ -241,6 +261,108 @@ export default function AdminDashboardPage() {
         setIsSubmitting(false);
       }
   }
+
+  // --- BUYER HANDLERS ---
+  const handleAddBuyer = async () => {
+    setIsSubmitting(true);
+    if (!newBuyer.contactName || !newBuyer.location || !newBuyer.bio || !newBuyer.email) {
+      toast({
+        title: "Missing Fields",
+        description: "Please fill out all required fields for the new buyer.",
+        variant: "destructive",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+    try {
+      await addBuyer({
+        name: newBuyer.contactName,
+        companyName: newBuyer.companyName,
+        location: newBuyer.location,
+        bio: newBuyer.bio,
+        email: newBuyer.email,
+      });
+      toast({
+        title: "Buyer Added Successfully",
+        description: `${newBuyer.companyName || newBuyer.contactName} has been added.`
+      });
+      setNewBuyer(initialNewBuyerState);
+      setIsAddBuyerOpen(false);
+      refetchBuyers();
+    } catch (error) {
+      console.error("Add buyer error:", error);
+      toast({
+        title: "Failed to Add Buyer",
+        description: "An unexpected error occurred.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditBuyerClick = (buyer: Buyer) => {
+    setSelectedBuyer(buyer);
+    setEditBuyerData({
+      name: buyer.name,
+      companyName: buyer.companyName,
+      location: buyer.location,
+      bio: buyer.bio,
+      contact: buyer.contact
+    });
+    setIsEditBuyerOpen(true);
+  };
+
+  const handleUpdateBuyer = async () => {
+    if (!selectedBuyer) return;
+    setIsSubmitting(true);
+    try {
+      await updateBuyer(selectedBuyer.id, editBuyerData);
+      toast({
+        title: "Buyer Updated",
+        description: `${editBuyerData.companyName || selectedBuyer.companyName} has been updated.`,
+      });
+      setIsEditBuyerOpen(false);
+      refetchBuyers();
+    } catch (error) {
+      console.error("Update buyer error:", error);
+      toast({
+        title: "Update Failed",
+        description: "Could not update the buyer's details. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteBuyerClick = (buyer: Buyer) => {
+    setSelectedBuyer(buyer);
+    setIsDeleteBuyerOpen(true);
+  };
+
+  const handleDeleteBuyer = async () => {
+    if (!selectedBuyer) return;
+    setIsSubmitting(true);
+    try {
+      await deleteBuyer(selectedBuyer.id);
+      toast({
+        title: "Buyer Deleted",
+        description: `The buyer profile for ${selectedBuyer.name} has been deleted.`,
+      });
+      setIsDeleteBuyerOpen(false);
+      refetchBuyers();
+    } catch (error) {
+      console.error("Delete buyer error:", error);
+      toast({
+        title: "Delete Failed",
+        description: "Could not delete the buyer. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
   
   const renderTableContent = (Component: React.ReactNode) => {
     return isLoading ? (
@@ -323,6 +445,56 @@ export default function AdminDashboardPage() {
                     </div>
                   <DialogFooter>
                      <Button type="submit" onClick={handleAddVendor} disabled={isSubmitting}>
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                        Save changes
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+        )
+    }
+    if (activeTab === 'buyers') {
+       return (
+             <Dialog open={isAddBuyerOpen} onOpenChange={setIsAddBuyerOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add {getTitle()}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Add New {getTitle()}</DialogTitle>
+                    <DialogDescription>
+                      Fill in the details for the new featured buyer.
+                    </DialogDescription>
+                  </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="buyer-companyName" className="text-right">
+                          Company (Optional)
+                        </Label>
+                        <Input id="buyer-companyName" className="col-span-3" placeholder="e.g., Glamour Locks Salon" value={newBuyer.companyName} onChange={(e) => setNewBuyer({...newBuyer, companyName: e.target.value})}/>
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="buyer-contactName" className="text-right">Contact</Label>
+                        <Input id="buyer-contactName" className="col-span-3" placeholder="e.g., Chloe Kim" value={newBuyer.contactName} onChange={(e) => setNewBuyer({...newBuyer, contactName: e.target.value})}/>
+                      </div>
+                       <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="buyer-email" className="text-right">Email</Label>
+                        <Input id="buyer-email" type="email" className="col-span-3" placeholder="e.g., chloe@example.com" value={newBuyer.email} onChange={(e) => setNewBuyer({...newBuyer, email: e.target.value})}/>
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="buyer-location" className="text-right">Location</Label>
+                        <Input id="buyer-location" className="col-span-3" placeholder="e.g., Los Angeles, USA" value={newBuyer.location} onChange={(e) => setNewBuyer({...newBuyer, location: e.target.value})}/>
+                      </div>
+                       <div className="grid grid-cols-4 items-start gap-4">
+                        <Label htmlFor="buyer-bio" className="text-right pt-2">Bio</Label>
+                        <Textarea id="buyer-bio" className="col-span-3" placeholder="Tell us about the buyer..." value={newBuyer.bio} onChange={(e) => setNewBuyer({...newBuyer, bio: e.target.value})} />
+                      </div>
+                    </div>
+                  <DialogFooter>
+                     <Button type="submit" onClick={handleAddBuyer} disabled={isSubmitting}>
                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                         Save changes
                     </Button>
@@ -566,8 +738,8 @@ export default function AdminDashboardPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem>Edit</DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive">
+                              <DropdownMenuItem onSelect={() => handleEditBuyerClick(buyer)}>Edit</DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive" onSelect={() => handleDeleteBuyerClick(buyer)}>
                                 Delete
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -706,6 +878,66 @@ export default function AdminDashboardPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteVendor} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit Buyer Dialog */}
+      <Dialog open={isEditBuyerOpen} onOpenChange={setIsEditBuyerOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Buyer</DialogTitle>
+            <DialogDescription>
+              Update the details for "{selectedBuyer?.name}".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-buyer-companyName" className="text-right">Company</Label>
+                <Input id="edit-buyer-companyName" className="col-span-3" value={editBuyerData.companyName || ''} onChange={(e) => setEditBuyerData({...editBuyerData, companyName: e.target.value})}/>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-buyer-contactName" className="text-right">Contact</Label>
+                <Input id="edit-buyer-contactName" className="col-span-3" value={editBuyerData.name || ''} onChange={(e) => setEditBuyerData({...editBuyerData, name: e.target.value})}/>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-buyer-email" className="text-right">Email</Label>
+                <Input id="edit-buyer-email" type="email" className="col-span-3" value={editBuyerData.contact?.email || ''} onChange={(e) => setEditBuyerData({...editBuyerData, contact: { email: e.target.value }})}/>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-buyer-location" className="text-right">Location</Label>
+                <Input id="edit-buyer-location" className="col-span-3" value={editBuyerData.location || ''} onChange={(e) => setEditBuyerData({...editBuyerData, location: e.target.value})}/>
+              </div>
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="edit-buyer-bio" className="text-right pt-2">Bio</Label>
+                <Textarea id="edit-buyer-bio" className="col-span-3" value={editBuyerData.bio || ''} onChange={(e) => setEditBuyerData({...editBuyerData, bio: e.target.value})} />
+              </div>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setIsEditBuyerOpen(false)}>Cancel</Button>
+                <Button type="submit" onClick={handleUpdateBuyer} disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                    Save changes
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Buyer Confirmation */}
+      <AlertDialog open={isDeleteBuyerOpen} onOpenChange={setIsDeleteBuyerOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the buyer profile for "{selectedBuyer?.name}".
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteBuyer} disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
               Continue
             </AlertDialogAction>
