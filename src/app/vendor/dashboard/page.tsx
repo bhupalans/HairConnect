@@ -148,7 +148,7 @@ export default function VendorDashboardPage() {
       description: product.description,
       price: product.price.toString(),
       category: product.category,
-      imagePreview: product.images[0] || "",
+      imagePreview: product.images?.[0] || "",
     });
     setEditImageFile(null); // Reset file input on open
     setShowEditDialog(true);
@@ -368,7 +368,7 @@ export default function VendorDashboardPage() {
                   <TableRow key={product.id}>
                     <TableCell className="hidden sm:table-cell">
                       <Image
-                        src={product.images[0]}
+                        src={product.images?.[0] || 'https://placehold.co/64x64'}
                         alt={product.name}
                         width={64}
                         height={64}
