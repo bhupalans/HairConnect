@@ -124,17 +124,22 @@ export async function updateProduct(productId: string, data: Partial<Omit<Produc
 
   try {
     const storage = getStorage();
+    
+    // Get the existing product to find the sellerId and old image URL
+    const existingProductSnap = await getDoc(productRef);
+    if (!existingProductSnap.exists()) {
+        throw new Error("Product not found to update.");
+    }
+    const existingProductData = existingProductSnap.data() as Product;
+    const sellerId = existingProductData.sellerId;
 
     // If there is a new image file, handle the upload and old image deletion.
     if (newImageFile) {
-      // Get the existing product to find the old image URL for deletion
-      const existingProductSnap = await getDoc(productRef);
-      const existingProductData = existingProductSnap.data() as Product | undefined;
       const oldImageUrl = existingProductData?.images?.[0];
 
-      // Upload the new image to a predictable path
-      const newImageRef = ref(storage, `product-images/${productId}/${newImageFile.name}`);
-      const uploadResult = await uploadBytes(newImageRef, newImageFile);
+      // Upload the new image to the path that matches the security rules: products/{userId}/{fileName}
+      const newImageRef = ref(storage, `products/${sellerId}/${newImageFile.name}`);
+      const uploadResult = await uploadBytes(newImageFile, newImageFile);
       const newImageUrl = await getDownloadURL(uploadResult.ref);
       
       dataToUpdate.images = [newImageUrl];
