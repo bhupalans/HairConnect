@@ -139,7 +139,7 @@ export async function updateProduct(productId: string, data: Partial<Omit<Produc
 
       // Upload the new image to the path that matches the security rules: products/{userId}/{fileName}
       const newImageRef = ref(storage, `products/${sellerId}/${newImageFile.name}`);
-      const uploadResult = await uploadBytes(newImageFile, newImageFile);
+      const uploadResult = await uploadBytes(newImageRef, newImageFile);
       const newImageUrl = await getDownloadURL(uploadResult.ref);
       
       dataToUpdate.images = [newImageUrl];
