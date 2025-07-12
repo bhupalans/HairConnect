@@ -25,13 +25,21 @@ export default async function ProductDetailPage({ params }: { params: { id: stri
         <div>
           <Carousel className="rounded-lg overflow-hidden shadow-lg">
             <CarouselContent>
-              {product.images.map((img, index) => (
-                <CarouselItem key={index}>
+              {product.images && product.images.length > 0 ? (
+                product.images.map((img, index) => (
+                  <CarouselItem key={index}>
+                    <div className="aspect-square relative">
+                      <Image src={img} alt={`${product.name} image ${index + 1}`} fill className="object-cover" data-ai-hint={`${product.specs.color} ${product.specs.texture} hair`}/>
+                    </div>
+                  </CarouselItem>
+                ))
+              ) : (
+                <CarouselItem>
                   <div className="aspect-square relative">
-                    <Image src={img} alt={`${product.name} image ${index + 1}`} fill className="object-cover" data-ai-hint={`${product.specs.color} ${product.specs.texture} hair`}/>
+                    <Image src="https://placehold.co/600x600" alt={product.name} fill className="object-cover" data-ai-hint="placeholder image" />
                   </div>
                 </CarouselItem>
-              ))}
+              )}
             </CarouselContent>
             <CarouselPrevious className="left-4"/>
             <CarouselNext className="right-4"/>
