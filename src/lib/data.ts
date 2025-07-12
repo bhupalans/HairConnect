@@ -3,7 +3,9 @@ import type { Product, Seller, Buyer, QuoteRequest } from './types';
 import { firebaseConfig } from './firebase';
 import { cache } from 'react';
 import { db } from './firebase';
-import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp, query, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp, query, orderBy, Timestamp, updateDoc, where } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+
 
 // Helper to map a single Firestore document to our application's data types
 const mapFirestoreDoc = (doc: any, mapper: (doc: any) => any) => {
@@ -200,63 +202,59 @@ export async function getProducts(): Promise<Product[]> {
         console.log("No products found in Firestore, returning mock data.");
         return mockProducts;
     }
-    return docs.map(mapFirestoreDocToProduct);
+    const productsCollection = collection(db, 'products');
+    const productSnapshot = await getDocs(productsCollection);
+    return productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
 }
 
 export async function getSellers(): Promise<Seller[]> {
-    const docs = await getCollection('sellers');
-     if (!docs || docs.length === 0) {
-        console.log("No sellers found in Firestore, returning mock data.");
-        return mockSellers;
-    }
-    return docs.map(mapFirestoreDocToSeller);
+    const sellersCollection = collection(db, 'sellers');
+    const sellerSnapshot = await getDocs(sellersCollection);
+    return sellerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Seller));
 }
 
 export async function getBuyers(): Promise<Buyer[]> {
-    const docs = await getCollection('buyers');
-    if (!docs || docs.length === 0) {
-        console.log("No buyers found in Firestore, returning mock data.");
-        return mockBuyers;
-    }
-    return docs.map(mapFirestoreDocToBuyer);
+    const buyersCollection = collection(db, 'buyers');
+    const buyerSnapshot = await getDocs(buyersCollection);
+    return buyerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Buyer));
 }
 
 
 export async function getProductById(id: string): Promise<Product | null> {
-    const doc = await getDocument('products', id);
-    if (!doc) {
-        console.log(`Product with id ${id} not found in Firestore, checking mock data.`);
-        const mockProduct = mockProducts.find(p => p.id === id) || null;
-        if (!mockProduct) {
-             console.error(`Product with id ${id} not found in mock data either.`);
-             return null;
-        }
-        return mockProduct;
+    const docRef = doc(db, 'products', id);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+        return { id: docSnap.id, ...docSnap.data() } as Product;
     }
-    return mapFirestoreDoc(doc, mapFirestoreDocToProduct);
+    console.log(`Product with id ${id} not found in Firestore.`);
+    return null;
 }
 
 export async function getSellerById(id: string): Promise<Seller | null> {
-    const doc = await getDocument('sellers', id);
-    if (!doc) {
-        console.log(`Seller with id ${id} not found in Firestore, checking mock data.`);
-        return mockSellers.find(s => s.id === id) || null;
+    const docRef = doc(db, 'sellers', id);
+    const docSnap = await getDoc(docRef);
+     if (docSnap.exists()) {
+        return { id: docSnap.id, ...docSnap.data() } as Seller;
     }
-    return mapFirestoreDoc(doc, mapFirestoreDocToSeller);
+    console.log(`Seller with id ${id} not found in Firestore.`);
+    return null;
 }
 
 export async function getProductsBySeller(sellerId: string): Promise<Product[]> {
-  const allProducts = await getProducts();
-  return allProducts.filter(p => p.sellerId === sellerId);
+  const productsCollection = collection(db, 'products');
+  const q = query(productsCollection, where("sellerId", "==", sellerId));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
 }
 
 export async function getBuyerById(id:string): Promise<Buyer | null> {
-    const doc = await getDocument('buyers', id);
-    if (!doc) {
-        console.log(`Buyer with id ${id} not found in Firestore, checking mock data.`);
-        return mockBuyers.find(b => b.id === id) || null;
+    const docRef = doc(db, 'buyers', id);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+        return { id: docSnap.id, ...docSnap.data() } as Buyer;
     }
-    return mapFirestoreDoc(doc, mapFirestoreDocToBuyer);
+    console.log(`Buyer with id ${id} not found in Firestore.`);
+    return null;
 }
 
 export async function addQuoteRequest(data: Omit<QuoteRequest, 'id' | 'date'>) {
@@ -282,4 +280,48 @@ export async function getQuoteRequests(): Promise<QuoteRequest[]> {
         console.error("Error fetching quote requests:", error);
         return [];
     }
+}
+
+
+export async function updateProduct(productId: string, data: Partial<Omit<Product, 'id' | 'images'>>, newImageFile: File | null) {
+  const productRef = doc(db, "products", productId);
+
+  try {
+    // If there is a new image file, handle the upload process.
+    if (newImageFile) {
+      const storage = getStorage();
+      
+      // Get the existing product to find the old image URL for deletion
+      const existingProductSnap = await getDoc(productRef);
+      const existingProduct = existingProductSnap.data() as Product | undefined;
+      const oldImageUrl = existingProduct?.images?.[0];
+
+      // Upload the new image
+      const newImageRef = ref(storage, `product-images/${productId}/${newImageFile.name}`);
+      const uploadResult = await uploadBytes(newImageRef, newImageFile);
+      const newImageUrl = await getDownloadURL(uploadResult.ref);
+
+      // Update the product document with the new data AND the new image URL.
+      await updateDoc(productRef, {
+        ...data,
+        images: [newImageUrl],
+      });
+
+      // If there was an old image, delete it from storage after the new one is uploaded and saved.
+      if (oldImageUrl) {
+        try {
+          const oldImageStorageRef = ref(storage, oldImageUrl);
+          await deleteObject(oldImageStorageRef);
+        } catch (deleteError) {
+           console.error("Failed to delete old image, it might not exist or there was a permissions issue:", deleteError);
+        }
+      }
+    } else {
+      // If there's no new image, just update the text fields.
+      await updateDoc(productRef, data);
+    }
+  } catch (error) {
+    console.error("Error updating product:", error);
+    throw error;
+  }
 }

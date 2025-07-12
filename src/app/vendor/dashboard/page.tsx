@@ -46,7 +46,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getProductsBySeller, getSellerById } from "@/lib/data";
+import { getProductsBySeller, getSellerById, updateProduct } from "@/lib/data";
 import { MoreHorizontal, PlusCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -79,6 +79,7 @@ export default function VendorDashboardPage() {
   const [seller, setSeller] = React.useState<Seller | null>(null);
   const [products, setProducts] = React.useState<Product[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   // State for dialogs
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
@@ -101,6 +102,8 @@ export default function VendorDashboardPage() {
     category: "",
     imagePreview: "",
   });
+  
+  const [editImageFile, setEditImageFile] = React.useState<File | null>(null);
 
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -124,12 +127,13 @@ export default function VendorDashboardPage() {
     return () => unsubscribe();
   }, []);
   
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<any>>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setData: React.Dispatch<React.SetStateAction<any>>, setFile: React.Dispatch<React.SetStateAction<File | null>>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setter((prev: any) => ({ ...prev, imagePreview: reader.result as string }));
+        setData((prev: any) => ({ ...prev, imagePreview: reader.result as string }));
       };
       reader.readAsDataURL(file);
     }
@@ -146,27 +150,56 @@ export default function VendorDashboardPage() {
       category: product.category,
       imagePreview: product.images[0] || "",
     });
+    setEditImageFile(null); // Reset file input on open
     setShowEditDialog(true);
   };
 
   // Handler to submit the updated product data
-  const handleUpdateProduct = () => {
-    // In a real app, you would send this data to your backend API to persist the changes
-    console.log("Updating product:", selectedProduct?.id, editProductData);
-    toast({
-      description: `Product "${editProductData.name}" has been updated.`,
-    });
-    setShowEditDialog(false);
+  const handleUpdateProduct = async () => {
+    if (!selectedProduct) return;
+    setIsSubmitting(true);
+    
+    try {
+      await updateProduct(selectedProduct.id, {
+        name: editProductData.name,
+        description: editProductData.description,
+        price: parseFloat(editProductData.price),
+        category: editProductData.category as Product['category'],
+      }, editImageFile);
+
+      // Refresh products list after update
+      if (seller) {
+        const fetchedProducts = await getProductsBySeller(seller.id);
+        setProducts(fetchedProducts);
+      }
+
+      toast({
+        title: "Success!",
+        description: `Product "${editProductData.name}" has been updated.`,
+      });
+      setShowEditDialog(false);
+    } catch (error) {
+       console.error("Update product error:", error);
+       toast({
+        title: "Update Failed",
+        description: "Could not update the product. If you're changing the image, please wait for a fix. Otherwise, please try again.",
+        variant: "destructive"
+       });
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   const handleAddProduct = () => {
      // In a real app, you would send this data to your backend API to create the product
     console.log("Adding new product:", newProduct);
     toast({
-      description: `Product "${newProduct.name}" has been added.`,
+      title: "Feature In Progress",
+      description: `Adding product functionality is temporarily disabled.`,
+      variant: "destructive"
     });
-    setNewProduct(initialNewProductState);
-    setShowAddDialog(false);
+    // setNewProduct(initialNewProductState);
+    // setShowAddDialog(false);
   }
 
   // Handler to open the Delete confirmation dialog
@@ -291,7 +324,7 @@ export default function VendorDashboardPage() {
                     type="file"
                     className="col-span-3 file:text-primary file:font-medium"
                     accept="image/png, image/jpeg, image/gif"
-                    onChange={(e) => handleFileChange(e, setNewProduct)}
+                    onChange={(e) => handleFileChange(e, setNewProduct, () => {})}
                   />
                   {newProduct.imagePreview && (
                       <Image src={newProduct.imagePreview} alt="New product preview" width={100} height={100} className="rounded-md object-cover"/>
@@ -474,7 +507,7 @@ export default function VendorDashboardPage() {
                     type="file"
                     className="col-span-3 file:text-primary file:font-medium"
                     accept="image/png, image/jpeg, image/gif"
-                    onChange={(e) => handleFileChange(e, setEditProductData)}
+                    onChange={(e) => handleFileChange(e, setEditProductData, setEditImageFile)}
                   />
                   {editProductData.imagePreview && (
                       <Image src={editProductData.imagePreview} alt="Product preview" width={100} height={100} className="rounded-md object-cover"/>
@@ -490,7 +523,8 @@ export default function VendorDashboardPage() {
             >
               Cancel
             </Button>
-            <Button type="submit" onClick={handleUpdateProduct}>
+            <Button type="submit" onClick={handleUpdateProduct} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save Changes
             </Button>
           </DialogFooter>
