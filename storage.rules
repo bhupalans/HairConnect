@@ -1,0 +1,13 @@
+
+rules_version = '2';
+
+// Learn more at https://firebase.google.com/docs/storage/security/start
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow read, write, and delete access for all authenticated users.
+    // This is a common starting point for apps where any logged-in user can upload content.
+    match /{allPaths=**} {
+      allow read, write, delete: if request.auth != null;
+    }
+  }
+}
