@@ -38,6 +38,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -52,7 +59,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { getProducts, getSellers, getBuyers, getQuoteRequests, addVendor, updateVendor, deleteVendor, addBuyer, updateBuyer, deleteBuyer } from "@/lib/data";
+import { getProducts, getSellers, getBuyers, getQuoteRequests, addVendor, updateVendor, deleteVendor, addBuyer, updateBuyer, deleteBuyer, updateProduct, deleteProduct, categories } from "@/lib/data";
 import { MoreHorizontal, PlusCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useState, useEffect } from "react";
@@ -78,6 +85,15 @@ const initialNewBuyerState = {
   bio: "",
 }
 
+const initialEditProductState = {
+    name: "",
+    description: "",
+    price: "",
+    category: "",
+    imagePreview: "",
+};
+
+
 export default function AdminDashboardPage() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("products");
@@ -89,6 +105,7 @@ export default function AdminDashboardPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Generic state for selected items to reduce repetition
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedVendor, setSelectedVendor] = useState<Seller | null>(null);
   const [selectedBuyer, setSelectedBuyer] = useState<Buyer | null>(null);
 
@@ -99,38 +116,52 @@ export default function AdminDashboardPage() {
   const [isAddBuyerOpen, setIsAddBuyerOpen] = useState(false);
   const [isEditBuyerOpen, setIsEditBuyerOpen] = useState(false);
   const [isDeleteBuyerOpen, setIsDeleteBuyerOpen] = useState(false);
-  
+  const [isEditProductOpen, setIsEditProductOpen] = useState(false);
+  const [isDeleteProductOpen, setIsDeleteProductOpen] = useState(false);
+
   // State for forms
   const [newVendor, setNewVendor] = useState(initialNewVendorState);
   const [editVendorData, setEditVendorData] = useState<Partial<Seller>>({});
   const [newBuyer, setNewBuyer] = useState(initialNewBuyerState);
   const [editBuyerData, setEditBuyerData] = useState<Partial<Buyer>>({});
+  const [editProductData, setEditProductData] = useState(initialEditProductState);
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
 
 
   useEffect(() => {
     async function fetchData() {
       setIsLoading(true);
-      if (activeTab === 'quote-requests') {
-        const requests = await getQuoteRequests();
-        setQuoteRequests(requests);
+      try {
+        if (activeTab === 'quote-requests') {
+            const requests = await getQuoteRequests();
+            setQuoteRequests(requests);
+        }
+        if (activeTab === 'products') {
+            const prods = await getProducts();
+            setProductsData(prods);
+        }
+        if (activeTab === 'vendors') {
+            const sells = await getSellers();
+            setSellersData(sells);
+        }
+        if (activeTab === 'buyers') {
+            const buys = await getBuyers();
+            setBuyersData(buys);
+        }
+      } catch (error) {
+        console.error("Failed to fetch data:", error);
+        toast({ title: "Error", description: "Could not fetch data for the current tab.", variant: "destructive" });
+      } finally {
+        setIsLoading(false);
       }
-      if (activeTab === 'products') {
-        const prods = await getProducts();
-        setProductsData(prods);
-      }
-      if (activeTab === 'vendors') {
-         const sells = await getSellers();
-         setSellersData(sells);
-      }
-      if (activeTab === 'buyers') {
-         const buys = await getBuyers();
-         setBuyersData(buys);
-      }
-      setIsLoading(false);
     }
     fetchData();
-  }, [activeTab]);
+  }, [activeTab, toast]);
   
+  const refetchProducts = async () => {
+    const prods = await getProducts();
+    setProductsData(prods);
+  }
   const refetchVendors = async () => {
     const sells = await getSellers();
     setSellersData(sells);
@@ -152,6 +183,75 @@ export default function AdminDashboardPage() {
         return "";
     }
   };
+
+  // --- PRODUCT HANDLERS ---
+  const handleEditProductClick = (product: Product) => {
+    setSelectedProduct(product);
+    setEditProductData({
+        name: product.name,
+        description: product.description,
+        price: product.price.toString(),
+        category: product.category,
+        imagePreview: product.images?.[0] || "",
+    });
+    setEditImageFile(null); // Reset file on open
+    setIsEditProductOpen(true);
+  }
+
+  const handleUpdateProduct = async () => {
+    if (!selectedProduct) return;
+    setIsSubmitting(true);
+    try {
+        await updateProduct(selectedProduct.id, {
+            name: editProductData.name,
+            description: editProductData.description,
+            price: parseFloat(editProductData.price),
+            category: editProductData.category as Product['category'],
+        }, editImageFile);
+        toast({ title: "Product Updated", description: `${editProductData.name} has been updated successfully.` });
+        setIsEditProductOpen(false);
+        refetchProducts();
+    } catch(error) {
+        console.error("Update product error:", error);
+        toast({ title: "Update Failed", description: "Could not update the product. Please try again.", variant: "destructive" });
+    } finally {
+        setIsSubmitting(false);
+    }
+  }
+  
+  const handleDeleteProductClick = (product: Product) => {
+    setSelectedProduct(product);
+    setIsDeleteProductOpen(true);
+  }
+
+  const handleDeleteProduct = async () => {
+    if (!selectedProduct) return;
+    setIsSubmitting(true);
+    try {
+        await deleteProduct(selectedProduct.id);
+        toast({ title: "Product Deleted", description: `The product "${selectedProduct.name}" has been permanently deleted.` });
+        setIsDeleteProductOpen(false);
+        refetchProducts();
+    } catch (error) {
+        console.error("Delete product error:", error);
+        toast({ title: "Delete Failed", description: "Could not delete the product. Please try again.", variant: "destructive" });
+    } finally {
+        setIsSubmitting(false);
+    }
+  }
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setEditImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditProductData((prev) => ({ ...prev, imagePreview: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
 
   // --- VENDOR HANDLERS ---
   const handleAddVendor = async () => {
@@ -586,8 +686,8 @@ export default function AdminDashboardPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem>Edit</DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive">
+                              <DropdownMenuItem onSelect={() => handleEditProductClick(product)}>Edit</DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive" onSelect={() => handleDeleteProductClick(product)}>
                                 Delete
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -807,7 +907,79 @@ export default function AdminDashboardPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* DIALOGS */}
       
+      {/* Edit Product Dialog */}
+       <Dialog open={isEditProductOpen} onOpenChange={setIsEditProductOpen}>
+        <DialogContent className="sm:max-w-[625px]">
+          <DialogHeader>
+            <DialogTitle>Edit Product</DialogTitle>
+            <DialogDescription>
+              Update the details for "{selectedProduct?.name}".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-product-name" className="text-right">Name</Label>
+              <Input id="edit-product-name" className="col-span-3" value={editProductData.name} onChange={(e) => setEditProductData({ ...editProductData, name: e.target.value })}/>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-product-desc" className="text-right">Description</Label>
+              <Textarea id="edit-product-desc" className="col-span-3" value={editProductData.description} onChange={(e) => setEditProductData({ ...editProductData, description: e.target.value })}/>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-product-price" className="text-right">Price ($)</Label>
+              <Input id="edit-product-price" type="number" className="col-span-3" value={editProductData.price} onChange={(e) => setEditProductData({ ...editProductData, price: e.target.value })}/>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-product-category" className="text-right">Category</Label>
+              <Select value={editProductData.category} onValueChange={(value) => setEditProductData({ ...editProductData, category: value })}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((cat) => ( <SelectItem key={cat.name} value={cat.name}>{cat.name}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+             <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="edit-product-image" className="text-right pt-2">Image</Label>
+                <div className="col-span-3 flex flex-col gap-2">
+                  <Input id="edit-product-image" type="file" className="file:text-primary file:font-medium" accept="image/png, image/jpeg, image/gif" onChange={handleFileChange}/>
+                  {editProductData.imagePreview && (<Image src={editProductData.imagePreview} alt="Product preview" width={100} height={100} className="rounded-md object-cover"/>)}
+                </div>
+              </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditProductOpen(false)}>Cancel</Button>
+            <Button type="submit" onClick={handleUpdateProduct} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete Product Confirmation */}
+      <AlertDialog open={isDeleteProductOpen} onOpenChange={setIsDeleteProductOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the product "{selectedProduct?.name}" and its associated image from the server.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteProduct} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+       
        {/* Edit Vendor Dialog */}
       <Dialog open={isEditVendorOpen} onOpenChange={setIsEditVendorOpen}>
         <DialogContent className="sm:max-w-2xl">
@@ -948,3 +1120,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    

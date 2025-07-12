@@ -1,89 +1,11 @@
 
 import type { Product, Seller, Buyer, QuoteRequest } from './types';
-import { firebaseConfig } from './firebase';
 import { cache } from 'react';
 import { db, auth } from './firebase';
 import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp, query, orderBy, Timestamp, updateDoc, where, setDoc, deleteDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 
-
-// Helper to map a single Firestore document to our application's data types
-const mapFirestoreDoc = (doc: any, mapper: (doc: any) => any) => {
-    if (!doc || !doc.fields) return null;
-    return mapper(doc);
-};
-
-
-// Helper to map Firestore document format to our application's data types
-const mapFirestoreDocToProduct = (doc: any): Product => {
-  const fields = doc.fields;
-  const specFields = fields.specs?.mapValue?.fields || {};
-
-  // Helper to safely extract string values from Firestore's field format
-  const getString = (field: any) => field?.stringValue || '';
-  const getNumber = (field: any) => parseFloat(field?.doubleValue || field?.integerValue || '0');
-  const getArray = (field: any) => field?.arrayValue?.values?.map((v: any) => v.stringValue) || [];
-
-  return {
-    id: doc.name.split('/').pop() || '',
-    name: getString(fields.name),
-    description: getString(fields.description),
-    price: getNumber(fields.price),
-    sellerId: getString(fields.sellerId),
-    category: getString(fields.category) as Product['category'],
-    images: getArray(fields.images),
-    specs: {
-      type: getString(specFields.type),
-      length: getString(specFields.length),
-      color: getString(specFields.color),
-      texture: getString(specFields.texture),
-      origin: getString(specFields.origin),
-    },
-  };
-};
-
-const mapFirestoreDocToSeller = (doc: any): Seller => {
-    const fields = doc.fields;
-    const contactFields = fields.contact?.mapValue?.fields || {};
-    const getString = (field: any) => field?.stringValue || '';
-    const getArray = (field: any) => field?.arrayValue?.values?.map((v: any) => v.stringValue) || [];
-
-    return {
-        id: doc.name.split('/').pop() || '',
-        name: getString(fields.name),
-        companyName: getString(fields.companyName),
-        location: getString(fields.location),
-        avatarUrl: getString(fields.avatarUrl),
-        bio: getString(fields.bio),
-        memberSince: getString(fields.memberSince),
-        productIds: getArray(fields.productIds),
-        contact: {
-            email: getString(contactFields.email),
-            phone: getString(contactFields.phone),
-            website: getString(contactFields.website),
-        },
-    };
-};
-
-const mapFirestoreDocToBuyer = (doc: any): Buyer => {
-    const fields = doc.fields;
-    const contactFields = fields.contact?.mapValue?.fields || {};
-    const getString = (field: any) => field?.stringValue || '';
-
-    return {
-        id: doc.name.split('/').pop() || '',
-        name: getString(fields.name),
-        companyName: getString(fields.companyName),
-        location: getString(fields.location),
-        avatarUrl: getString(fields.avatarUrl),
-        bio: getString(fields.bio),
-        memberSince: getString(fields.memberSince),
-        contact: {
-            email: getString(contactFields.email),
-        },
-    };
-};
 
 const mapFirestoreDocToQuoteRequest = (docSnapshot: any): QuoteRequest => {
     const data = docSnapshot.data();
@@ -102,93 +24,6 @@ const mapFirestoreDocToQuoteRequest = (docSnapshot: any): QuoteRequest => {
     };
 };
 
-const getCollection = cache(async (collectionName: string): Promise<any[]> => {
-    const projectId = firebaseConfig.projectId;
-    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}`;
-
-    try {
-        const response = await fetch(url, { next: { revalidate: 3600 } }); // Revalidate every hour
-        if (!response.ok) {
-            const error = await response.json();
-            console.error(`Error fetching ${collectionName}:`, error.error.message);
-            return [];
-        }
-        const data = await response.json();
-        return data.documents || [];
-    } catch (error) {
-        console.error(`Network error fetching ${collectionName}:`, error);
-        return [];
-    }
-});
-
-const getDocument = cache(async (collectionName: string, docId: string): Promise<any | null> => {
-    const projectId = firebaseConfig.projectId;
-    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/${docId}`;
-
-    try {
-        const response = await fetch(url, { next: { revalidate: 3600 } }); // Revalidate every hour
-        if (!response.ok) {
-             if (response.status === 404) {
-                return null; // Document not found
-            }
-            const error = await response.json();
-            console.error(`Error fetching document ${collectionName}/${docId}:`, error.error.message);
-            return null;
-        }
-        return await response.json();
-    } catch (error) {
-        console.error(`Network error fetching document ${collectionName}/${docId}:`, error);
-        return null;
-    }
-});
-
-
-const mockSellers: Seller[] = [
-  {
-    id: 'seller-1',
-    name: 'Aisha Bella',
-    companyName: 'Bella Hair Imports',
-    location: 'Lagos, Nigeria',
-    avatarUrl: 'https://placehold.co/100x100',
-    bio: 'Specializing in premium, ethically sourced raw Nigerian hair. With over 10 years of experience, we provide the highest quality bundles for wigs and extensions.',
-    memberSince: '2018-05-15',
-    productIds: ['prod-1'],
-    contact: { email: 'aisha@bellahair.ng', website: 'bellahair.ng' },
-  },
-];
-
-const mockProducts: Product[] = [
-  {
-    id: 'prod-1',
-    name: 'Premium Nigerian Raw Wavy Bundles',
-    description: '100% unprocessed raw hair from Nigeria. Natural wave pattern with a medium luster. Can be bleached to 613 and styled as desired. Each bundle is 100g.',
-    price: 85.00,
-    sellerId: 'seller-1',
-    category: 'Raw Hair',
-    images: ['https://placehold.co/600x600', 'https://placehold.co/600x600', 'https://placehold.co/600x600'],
-    specs: {
-      type: 'Bundle',
-      length: '18 inches',
-      color: 'Natural Black (1B)',
-      texture: 'Natural Wavy',
-      origin: 'Nigeria',
-    },
-  },
-];
-
-const mockBuyers: Buyer[] = [
-    {
-        id: 'buyer-1',
-        name: 'Chloe Kim',
-        companyName: 'Glamour Locks Salon',
-        location: 'Los Angeles, USA',
-        avatarUrl: 'https://placehold.co/100x100',
-        bio: 'High-end salon in Beverly Hills looking for top-tier virgin and raw hair for our exclusive clientele. We prioritize quality and ethical sourcing.',
-        memberSince: '2021-02-10',
-        contact: { email: 'chloe@glamourlocks.com' },
-    },
-];
-
 export const categories = [
     { name: 'Raw Hair', icon: 'https://placehold.co/40x40' },
     { name: 'Virgin Hair', icon: 'https://placehold.co/40x40' },
@@ -197,26 +32,27 @@ export const categories = [
     { name: 'Tools', icon: 'https://placehold.co/40x40' },
 ];
 
-export async function getProducts(): Promise<Product[]> {
+export const getProducts = cache(async (): Promise<Product[]> => {
     const productsCollection = collection(db, 'products');
     const productSnapshot = await getDocs(productsCollection);
     return productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-}
+});
 
-export async function getSellers(): Promise<Seller[]> {
+export const getSellers = cache(async (): Promise<Seller[]> => {
     const sellersCollection = collection(db, 'sellers');
     const sellerSnapshot = await getDocs(sellersCollection);
     return sellerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Seller));
-}
+});
 
-export async function getBuyers(): Promise<Buyer[]> {
+export const getBuyers = cache(async (): Promise<Buyer[]> => {
     const buyersCollection = collection(db, 'buyers');
     const buyerSnapshot = await getDocs(buyersCollection);
     return buyerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Buyer));
-}
+});
 
 
-export async function getProductById(id: string): Promise<Product | null> {
+export const getProductById = cache(async (id: string): Promise<Product | null> => {
+    if (!id) return null;
     const docRef = doc(db, 'products', id);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
@@ -224,9 +60,10 @@ export async function getProductById(id: string): Promise<Product | null> {
     }
     console.log(`Product with id ${id} not found in Firestore.`);
     return null;
-}
+});
 
-export async function getSellerById(id: string): Promise<Seller | null> {
+export const getSellerById = cache(async (id: string): Promise<Seller | null> => {
+    if (!id) return null;
     const docRef = doc(db, 'sellers', id);
     const docSnap = await getDoc(docRef);
      if (docSnap.exists()) {
@@ -234,16 +71,18 @@ export async function getSellerById(id: string): Promise<Seller | null> {
     }
     console.log(`Seller with id ${id} not found in Firestore.`);
     return null;
-}
+});
 
-export async function getProductsBySeller(sellerId: string): Promise<Product[]> {
+export const getProductsBySeller = cache(async (sellerId: string): Promise<Product[]> => {
+  if (!sellerId) return [];
   const productsCollection = collection(db, 'products');
   const q = query(productsCollection, where("sellerId", "==", sellerId));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-}
+});
 
-export async function getBuyerById(id:string): Promise<Buyer | null> {
+export const getBuyerById = cache(async (id:string): Promise<Buyer | null> => {
+    if (!id) return null;
     const docRef = doc(db, 'buyers', id);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
@@ -251,7 +90,7 @@ export async function getBuyerById(id:string): Promise<Buyer | null> {
     }
     console.log(`Buyer with id ${id} not found in Firestore.`);
     return null;
-}
+});
 
 export async function addQuoteRequest(data: Omit<QuoteRequest, 'id' | 'date'>) {
     try {
@@ -281,55 +120,80 @@ export async function getQuoteRequests(): Promise<QuoteRequest[]> {
 
 export async function updateProduct(productId: string, data: Partial<Omit<Product, 'id' | 'images'>>, newImageFile: File | null) {
   const productRef = doc(db, "products", productId);
+  const dataToUpdate: any = { ...data };
 
   try {
-    // If there is a new image file, handle the upload process.
+    const storage = getStorage();
+
+    // If there is a new image file, handle the upload and old image deletion.
     if (newImageFile) {
-      const storage = getStorage();
-      
       // Get the existing product to find the old image URL for deletion
       const existingProductSnap = await getDoc(productRef);
-      const existingProduct = existingProductSnap.data() as Product | undefined;
-      const oldImageUrl = existingProduct?.images?.[0];
+      const existingProductData = existingProductSnap.data() as Product | undefined;
+      const oldImageUrl = existingProductData?.images?.[0];
 
-      // Upload the new image
+      // Upload the new image to a predictable path
       const newImageRef = ref(storage, `product-images/${productId}/${newImageFile.name}`);
       const uploadResult = await uploadBytes(newImageRef, newImageFile);
       const newImageUrl = await getDownloadURL(uploadResult.ref);
+      
+      dataToUpdate.images = [newImageUrl];
 
-      // Update the product document with the new data AND the new image URL.
-      await updateDoc(productRef, {
-        ...data,
-        images: [newImageUrl],
-      });
-
-      // If there was an old image, delete it from storage after the new one is uploaded and saved.
-      if (oldImageUrl && oldImageUrl.startsWith('https://firebasestorage.googleapis.com')) {
-        try {
-          const oldImageStorageRef = ref(storage, oldImageUrl);
-          await deleteObject(oldImageStorageRef);
-        } catch (deleteError) {
-           console.error("Failed to delete old image, it might not exist or there was a permissions issue:", deleteError);
-        }
+      // If there was an old image, and it's a Firebase Storage URL, delete it.
+      if (oldImageUrl && oldImageUrl.includes('firebasestorage.googleapis.com')) {
+          try {
+            // Create a ref from the full URL
+            const oldImageStorageRef = ref(storage, oldImageUrl);
+            await deleteObject(oldImageStorageRef);
+          } catch (deleteError: any) {
+             // It's okay if deletion fails (e.g., file not found); log it and continue.
+             console.warn("Could not delete old image, it may have already been removed:", deleteError.code);
+          }
       }
-    } else {
-      // If there's no new image, just update the text fields.
-      await updateDoc(productRef, data);
     }
+
+    // Update the Firestore document with the new data.
+    await updateDoc(productRef, dataToUpdate);
+
   } catch (error) {
     console.error("Error updating product:", error);
     throw error;
   }
 }
 
+export async function deleteProduct(productId: string) {
+    const productRef = doc(db, "products", productId);
+    const storage = getStorage();
+
+    try {
+        // Get the product document to find the image URL
+        const productSnap = await getDoc(productRef);
+        if (!productSnap.exists()) {
+            throw new Error("Product not found");
+        }
+        const productData = productSnap.data() as Product;
+        const imageUrl = productData.images?.[0];
+
+        // Delete the document from Firestore
+        await deleteDoc(productRef);
+
+        // If an image URL exists, delete the image from Storage
+        if (imageUrl && imageUrl.includes('firebasestorage.googleapis.com')) {
+            const imageRef = ref(storage, imageUrl);
+            await deleteObject(imageRef);
+        }
+    } catch (error) {
+        console.error("Error deleting product and its assets:", error);
+        throw error;
+    }
+}
+
+
 export async function addVendor({ companyName, name, email, password, location, bio }: { companyName: string; name: string; email: string; password: string, location:string, bio: string }) {
   try {
-    // We cannot create a user with the same email in the main auth context.
-    // The createUserWithEmailAndPassword function uses the global `auth` instance.
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Create a corresponding seller document in Firestore
     await setDoc(doc(db, "sellers", user.uid), {
       name: name,
       companyName: companyName,
@@ -340,14 +204,14 @@ export async function addVendor({ companyName, name, email, password, location, 
       productIds: [],
       contact: {
         email: user.email,
-        phone: '', // Phone is optional, can be added later
+        phone: '', 
       },
     });
 
     return { success: true, userId: user.uid };
   } catch (error) {
     console.error("Error adding vendor:", error);
-    throw error; // Re-throw to be handled by the UI
+    throw error;
   }
 }
 
@@ -410,3 +274,5 @@ export async function deleteBuyer(buyerId: string) {
         throw error;
     }
 }
+
+    
