@@ -1,3 +1,4 @@
+
 import type { Product, Seller, Buyer, QuoteRequest } from './types';
 import { firebaseConfig } from './firebase';
 import { cache } from 'react';
@@ -19,7 +20,7 @@ const mapFirestoreDocToProduct = (doc: any): Product => {
   // Helper to safely extract string values from Firestore's field format
   const getString = (field: any) => field?.stringValue || '';
   const getNumber = (field: any) => parseFloat(field?.doubleValue || field?.integerValue || '0');
-  const getArray = (field: any) => field?.arrayValue?.values.map((v: any) => v.stringValue) || [];
+  const getArray = (field: any) => field?.arrayValue?.values?.map((v: any) => v.stringValue) || [];
 
   return {
     id: doc.name.split('/').pop() || '',
@@ -43,7 +44,7 @@ const mapFirestoreDocToSeller = (doc: any): Seller => {
     const fields = doc.fields;
     const contactFields = fields.contact?.mapValue?.fields || {};
     const getString = (field: any) => field?.stringValue || '';
-    const getArray = (field: any) => field?.arrayValue?.values.map((v: any) => v.stringValue) || [];
+    const getArray = (field: any) => field?.arrayValue?.values?.map((v: any) => v.stringValue) || [];
 
     return {
         id: doc.name.split('/').pop() || '',

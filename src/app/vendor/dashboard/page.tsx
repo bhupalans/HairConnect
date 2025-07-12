@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -46,7 +47,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getProductsBySeller, getSellerById } from "@/lib/data";
-import { MoreHorizontal, PlusCircle } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Textarea } from "@/components/ui/textarea";
@@ -59,10 +60,9 @@ import {
 } from "@/components/ui/select";
 import { categories } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
-import type { Product } from "@/lib/types";
-
-// In a real app, you'd get this from the user's session
-const LOGGED_IN_SELLER_ID = "seller-1";
+import type { Product, Seller } from "@/lib/types";
+import { auth } from "@/lib/firebase";
+import { onAuthStateChanged, type User } from "firebase/auth";
 
 const initialNewProductState = {
   name: "",
@@ -74,6 +74,11 @@ const initialNewProductState = {
 
 export default function VendorDashboardPage() {
   const { toast } = useToast();
+
+  const [user, setUser] = React.useState<User | null>(null);
+  const [seller, setSeller] = React.useState<Seller | null>(null);
+  const [products, setProducts] = React.useState<Product[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
 
   // State for dialogs
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
@@ -97,8 +102,27 @@ export default function VendorDashboardPage() {
     imagePreview: "",
   });
 
-  const seller = getSellerById(LOGGED_IN_SELLER_ID);
-  const products = getProductsBySeller(LOGGED_IN_SELLER_ID);
+  React.useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setIsLoading(true);
+      if (currentUser) {
+        setUser(currentUser);
+        const fetchedSeller = await getSellerById(currentUser.uid);
+        if (fetchedSeller) {
+          setSeller(fetchedSeller);
+          const fetchedProducts = await getProductsBySeller(fetchedSeller.id);
+          setProducts(fetchedProducts);
+        }
+      } else {
+        setUser(null);
+        setSeller(null);
+        setProducts([]);
+      }
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<any>>) => {
     const file = e.target.files?.[0];
@@ -151,7 +175,16 @@ export default function VendorDashboardPage() {
     setShowDeleteDialog(true);
   };
 
-  if (!seller) {
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8 md:py-12 text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+        <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
+      </div>
+    );
+  }
+
+  if (!user || !seller) {
     return (
       <div className="container mx-auto px-4 py-8 md:py-12 text-center">
         <h1 className="text-2xl font-bold">Could not find seller data.</h1>
@@ -297,52 +330,60 @@ export default function VendorDashboardPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {products.map((product) => (
-                <TableRow key={product.id}>
-                  <TableCell className="hidden sm:table-cell">
-                    <Image
-                      src={product.images[0]}
-                      alt={product.name}
-                      width={64}
-                      height={64}
-                      className="rounded-md object-cover"
-                    />
-                  </TableCell>
-                  <TableCell className="font-medium">{product.name}</TableCell>
-                  <TableCell>{product.category}</TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    ${product.price.toFixed(2)}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          aria-haspopup="true"
-                          size="icon"
-                          variant="ghost"
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem
-                          onSelect={() => handleEditClick(product)}
-                        >
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onSelect={() => handleDeleteClick(product)}
-                        >
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+              {products.length > 0 ? (
+                products.map((product) => (
+                  <TableRow key={product.id}>
+                    <TableCell className="hidden sm:table-cell">
+                      <Image
+                        src={product.images[0]}
+                        alt={product.name}
+                        width={64}
+                        height={64}
+                        className="rounded-md object-cover"
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium">{product.name}</TableCell>
+                    <TableCell>{product.category}</TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      ${product.price.toFixed(2)}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            aria-haspopup="true"
+                            size="icon"
+                            variant="ghost"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Toggle menu</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem
+                            onSelect={() => handleEditClick(product)}
+                          >
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onSelect={() => handleDeleteClick(product)}
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center h-24">
+                    You haven't added any products yet.
                   </TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
         </CardContent>

@@ -1,0 +1,44 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.resource.data.sellerId == request.auth.uid;
+      allow update, delete: if request.auth != null && get(/databases/$(database)/documents/products/$(productId)).data.sellerId == request.auth.uid;
+    }
+
+    match /sellers/{sellerId} {
+      allow read: if true;
+      
+      // A user can create their own seller document if the ID matches their UID
+      allow create: if request.auth != null && request.auth.uid == sellerId;
+      
+      // A user can update their own seller document
+      allow update: if request.auth != null && request.auth.uid == sellerId;
+      
+      // For now, nobody can delete a seller document
+      allow delete: if false;
+    }
+
+    match /buyers/{buyerId} {
+      allow read: if true;
+      // Disallow write operations for now
+      allow write: if false;
+    }
+
+    // Allow anyone to submit a quote request, but only admins/logged-in users can read them
+    match /quote-requests/{requestId} {
+      allow read: if request.auth != null; 
+      allow create: if true;
+      allow update, delete: if false;
+    }
+    
+    // Admins have their own collection, and only they can read/write to it
+    match /admins/{adminId} {
+      allow read, write: if request.auth != null && request.auth.uid == adminId;
+    }
+  }
+}
