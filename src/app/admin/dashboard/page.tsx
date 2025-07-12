@@ -49,21 +49,38 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { categories, getProducts, getSellers, getBuyers, getQuoteRequests } from "@/lib/data";
+import { categories, getProducts, getSellers, getBuyers, getQuoteRequests, addVendor } from "@/lib/data";
 import { MoreHorizontal, PlusCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import type { QuoteRequest, Product, Seller, Buyer } from "@/lib/types";
+import { useToast } from "@/hooks/use-toast";
+
+// State structure for the new vendor form
+const initialNewVendorState = {
+  companyName: "",
+  contactName: "",
+  email: "",
+  password: "",
+  location: "",
+  bio: "",
+};
 
 export default function AdminDashboardPage() {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("products");
   const [quoteRequests, setQuoteRequests] = useState<QuoteRequest[]>([]);
   const [productsData, setProductsData] = useState<Product[]>([]);
   const [sellersData, setSellersData] = useState<Seller[]>([]);
   const [buyersData, setBuyersData] = useState<Buyer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // State for the "Add Vendor" dialog
+  const [newVendor, setNewVendor] = useState(initialNewVendorState);
+  const [isAddVendorOpen, setIsAddVendorOpen] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -101,6 +118,55 @@ export default function AdminDashboardPage() {
         return "";
     }
   };
+
+  const handleAddVendor = async () => {
+    setIsSubmitting(true);
+    // Basic validation
+    if (!newVendor.companyName || !newVendor.contactName || !newVendor.email || !newVendor.password || !newVendor.location || !newVendor.bio) {
+       toast({
+        title: "Missing Fields",
+        description: "Please fill out all required fields for the new vendor.",
+        variant: "destructive",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+        await addVendor({
+            companyName: newVendor.companyName,
+            name: newVendor.contactName,
+            email: newVendor.email,
+            password: newVendor.password,
+            location: newVendor.location,
+            bio: newVendor.bio,
+        });
+        toast({
+            title: "Vendor Added Successfully",
+            description: `${newVendor.companyName} can now log in.`
+        });
+        setNewVendor(initialNewVendorState); // Reset form
+        setIsAddVendorOpen(false); // Close dialog
+        // Refetch vendors to update the list
+        const sells = await getSellers();
+        setSellersData(sells);
+    } catch (error: any) {
+        console.error("Add vendor error:", error);
+        let description = "An unexpected error occurred.";
+        if (error.code === 'auth/email-already-in-use') {
+            description = "This email is already registered to another user.";
+        } else if (error.code === 'auth/weak-password') {
+            description = "Password must be at least 6 characters long.";
+        }
+        toast({
+            title: "Failed to Add Vendor",
+            description,
+            variant: "destructive"
+        });
+    } finally {
+        setIsSubmitting(false);
+    }
+  }
   
   const renderTableContent = (Component: React.ReactNode) => {
     return isLoading ? (
@@ -127,7 +193,7 @@ export default function AdminDashboardPage() {
           </TabsList>
           <div className="ml-auto">
             {activeTab !== 'quote-requests' && (
-              <Dialog>
+              <Dialog open={isAddVendorOpen && activeTab === 'vendors'} onOpenChange={setIsAddVendorOpen}>
                 <DialogTrigger asChild>
                   <Button>
                     <PlusCircle className="mr-2 h-4 w-4" />
@@ -142,68 +208,10 @@ export default function AdminDashboardPage() {
                     </DialogDescription>
                   </DialogHeader>
                   {activeTab === "products" && (
-                    <div className="grid gap-4 py-4">
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="name" className="text-right">
-                          Name
-                        </Label>
-                        <Input
-                          id="name"
-                          className="col-span-3"
-                          placeholder="e.g., Premium Wavy Bundles"
-                        />
-                      </div>
-                      <div className="grid grid-cols-4 items-start gap-4">
-                        <Label htmlFor="description" className="text-right pt-2">
-                          Description
-                        </Label>
-                        <Textarea id="description" className="col-span-3" />
-                      </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="price" className="text-right">
-                          Price
-                        </Label>
-                        <Input id="price" type="number" className="col-span-3" />
-                      </div>
-                       <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="product-category" className="text-right">
-                          Category
-                          </Label>
-                          <Select>
-                          <SelectTrigger className="col-span-3">
-                              <SelectValue placeholder="Select a category" />
-                          </SelectTrigger>
-                          <SelectContent>
-                              {categories.map((cat) => (
-                              <SelectItem key={cat.name} value={cat.name}>
-                                  {cat.name}
-                              </SelectItem>
-                              ))}
-                          </SelectContent>
-                          </Select>
-                      </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="image" className="text-right">Image</Label>
-                        <Input id="image" type="file" className="col-span-3" />
-                      </div>
-                      <h4 className="col-span-4 font-medium text-center text-muted-foreground pt-2">Specifications</h4>
-                       <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="spec-length" className="text-right">Length</Label>
-                          <Input id="spec-length" className="col-span-3" placeholder="e.g., 18 inches" />
-                      </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="spec-color" className="text-right">Color</Label>
-                          <Input id="spec-color" className="col-span-3" placeholder="e.g., Natural Black (1B)" />
-                      </div>
-                       <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="spec-texture" className="text-right">Texture</Label>
-                          <Input id="spec-texture" className="col-span-3" placeholder="e.g., Natural Wavy" />
-                      </div>
-                       <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="spec-origin" className="text-right">Origin</Label>
-                          <Input id="spec-origin" className="col-span-3" placeholder="e.g., Nigeria" />
-                      </div>
-                    </div>
+                    // Product form remains unchanged for now
+                     <div className="grid gap-4 py-4">
+                        <p className="text-center text-muted-foreground">Adding products from the admin dashboard is not yet supported.</p>
+                     </div>
                   )}
                   {activeTab === "vendors" && (
                     <div className="grid gap-4 py-4">
@@ -215,6 +223,8 @@ export default function AdminDashboardPage() {
                           id="companyName"
                           className="col-span-3"
                           placeholder="e.g., Bella Hair Imports"
+                          value={newVendor.companyName}
+                          onChange={(e) => setNewVendor({...newVendor, companyName: e.target.value})}
                         />
                       </div>
                       <div className="grid grid-cols-4 items-center gap-4">
@@ -225,11 +235,17 @@ export default function AdminDashboardPage() {
                           id="contactName"
                           className="col-span-3"
                           placeholder="e.g., Aisha Bella"
+                          value={newVendor.contactName}
+                          onChange={(e) => setNewVendor({...newVendor, contactName: e.target.value})}
                         />
                       </div>
                        <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="email" className="text-right">Email</Label>
-                        <Input id="email" type="email" className="col-span-3" placeholder="e.g., contact@example.com" />
+                        <Input id="email" type="email" className="col-span-3" placeholder="e.g., contact@example.com" value={newVendor.email} onChange={(e) => setNewVendor({...newVendor, email: e.target.value})}/>
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="password" className="text-right">Password</Label>
+                        <Input id="password" type="password" className="col-span-3" placeholder="Set an initial password" value={newVendor.password} onChange={(e) => setNewVendor({...newVendor, password: e.target.value})}/>
                       </div>
                       <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="location" className="text-right">
@@ -239,66 +255,32 @@ export default function AdminDashboardPage() {
                           id="location"
                           className="col-span-3"
                           placeholder="e.g., Lagos, Nigeria"
+                          value={newVendor.location}
+                          onChange={(e) => setNewVendor({...newVendor, location: e.target.value})}
                         />
                       </div>
                        <div className="grid grid-cols-4 items-start gap-4">
                         <Label htmlFor="bio" className="text-right pt-2">Bio</Label>
-                        <Textarea id="bio" className="col-span-3" placeholder="Tell us about the vendor..." />
+                        <Textarea id="bio" className="col-span-3" placeholder="Tell us about the vendor..." value={newVendor.bio} onChange={(e) => setNewVendor({...newVendor, bio: e.target.value})} />
                       </div>
                       <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="avatar" className="text-right">Avatar</Label>
-                        <Input id="avatar" type="file" className="col-span-3" />
+                        <Input id="avatar" type="file" className="col-span-3" disabled title="Feature not available yet"/>
                       </div>
                     </div>
                   )}
                    {activeTab === "buyers" && (
-                    <div className="grid gap-4 py-4">
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="buyer-companyName" className="text-right">
-                          Company
-                        </Label>
-                        <Input
-                          id="buyer-companyName"
-                          className="col-span-3"
-                          placeholder="e.g., Glamour Locks Salon"
-                        />
-                      </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="buyer-contactName" className="text-right">
-                          Contact Name
-                        </Label>
-                        <Input
-                          id="buyer-contactName"
-                          className="col-span-3"
-                          placeholder="e.g., Chloe Kim"
-                        />
-                      </div>
-                       <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="buyer-email" className="text-right">Email</Label>
-                        <Input id="buyer-email" type="email" className="col-span-3" placeholder="e.g., contact@example.com" />
-                      </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="buyer-location" className="text-right">
-                          Location
-                        </Label>
-                        <Input
-                          id="buyer-location"
-                          className="col-span-3"
-                          placeholder="e.g., Los Angeles, USA"
-                        />
-                      </div>
-                       <div className="grid grid-cols-4 items-start gap-4">
-                        <Label htmlFor="buyer-bio" className="text-right pt-2">Bio</Label>
-                        <Textarea id="buyer-bio" className="col-span-3" placeholder="Describe the buyer's needs..." />
-                      </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="buyer-avatar" className="text-right">Avatar</Label>
-                        <Input id="buyer-avatar" type="file" className="col-span-3" />
-                      </div>
-                    </div>
+                     <div className="grid gap-4 py-4">
+                        <p className="text-center text-muted-foreground">Adding buyers from the admin dashboard is not yet supported.</p>
+                     </div>
                   )}
                   <DialogFooter>
-                    <Button type="submit">Save changes</Button>
+                    {activeTab === "vendors" && (
+                         <Button type="submit" onClick={handleAddVendor} disabled={isSubmitting}>
+                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                            Save changes
+                        </Button>
+                    )}
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -334,7 +316,7 @@ export default function AdminDashboardPage() {
                       <TableRow key={product.id}>
                         <TableCell className="hidden sm:table-cell">
                           <Image
-                            src={product.images[0] || 'https://placehold.co/64x64'}
+                            src={product.images?.[0] || 'https://placehold.co/64x64'}
                             alt={product.name}
                             width={64}
                             height={64}

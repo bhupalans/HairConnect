@@ -2,9 +2,10 @@
 import type { Product, Seller, Buyer, QuoteRequest } from './types';
 import { firebaseConfig } from './firebase';
 import { cache } from 'react';
-import { db } from './firebase';
-import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp, query, orderBy, Timestamp, updateDoc, where } from 'firebase/firestore';
+import { db, auth } from './firebase';
+import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp, query, orderBy, Timestamp, updateDoc, where, setDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 
 
 // Helper to map a single Firestore document to our application's data types
@@ -197,11 +198,6 @@ export const categories = [
 ];
 
 export async function getProducts(): Promise<Product[]> {
-    const docs = await getCollection('products');
-    if (!docs || docs.length === 0) {
-        console.log("No products found in Firestore, returning mock data.");
-        return mockProducts;
-    }
     const productsCollection = collection(db, 'products');
     const productSnapshot = await getDocs(productsCollection);
     return productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
@@ -308,7 +304,7 @@ export async function updateProduct(productId: string, data: Partial<Omit<Produc
       });
 
       // If there was an old image, delete it from storage after the new one is uploaded and saved.
-      if (oldImageUrl) {
+      if (oldImageUrl && oldImageUrl.startsWith('https://firebasestorage.googleapis.com')) {
         try {
           const oldImageStorageRef = ref(storage, oldImageUrl);
           await deleteObject(oldImageStorageRef);
@@ -323,5 +319,34 @@ export async function updateProduct(productId: string, data: Partial<Omit<Produc
   } catch (error) {
     console.error("Error updating product:", error);
     throw error;
+  }
+}
+
+export async function addVendor({ companyName, name, email, password, location, bio }: { companyName: string; name: string; email: string; password: string, location:string, bio: string }) {
+  try {
+    // We cannot create a user with the same email in the main auth context.
+    // The createUserWithEmailAndPassword function uses the global `auth` instance.
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+
+    // Create a corresponding seller document in Firestore
+    await setDoc(doc(db, "sellers", user.uid), {
+      name: name,
+      companyName: companyName,
+      location: location,
+      bio: bio,
+      avatarUrl: `https://placehold.co/100x100?text=${name.charAt(0)}`,
+      memberSince: new Date().toISOString(),
+      productIds: [],
+      contact: {
+        email: user.email,
+        phone: '', // Phone is optional, can be added later
+      },
+    });
+
+    return { success: true, userId: user.uid };
+  } catch (error) {
+    console.error("Error adding vendor:", error);
+    throw error; // Re-throw to be handled by the UI
   }
 }
