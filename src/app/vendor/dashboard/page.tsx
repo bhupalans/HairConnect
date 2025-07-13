@@ -63,6 +63,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Product, Seller } from "@/lib/types";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, type User } from "firebase/auth";
+import { Separator } from "@/components/ui/separator";
 
 const initialNewProductState = {
   name: "",
@@ -70,6 +71,13 @@ const initialNewProductState = {
   price: "",
   category: "",
   imagePreview: "",
+  specs: {
+    type: "Bundle",
+    length: "18",
+    color: "Natural Black",
+    texture: "Wavy",
+    origin: "",
+  }
 };
 
 export default function VendorDashboardPage() {
@@ -215,6 +223,10 @@ export default function VendorDashboardPage() {
             description: newProduct.description,
             price: parseFloat(newProduct.price),
             category: newProduct.category as Product['category'],
+            specs: {
+              ...newProduct.specs,
+              length: `${newProduct.specs.length} inches`
+            }
         }, newImageFile, user.uid);
         
         toast({
@@ -313,7 +325,7 @@ export default function VendorDashboardPage() {
               Add Product
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[625px]">
+          <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>Add New Product</DialogTitle>
               <DialogDescription>
@@ -391,6 +403,50 @@ export default function VendorDashboardPage() {
                       <Image src={newProduct.imagePreview} alt="New product preview" width={100} height={100} className="rounded-md object-cover"/>
                   )}
                 </div>
+              </div>
+
+              <Separator className="col-span-4 my-2" />
+               <div className="col-span-4">
+                  <h4 className="text-lg font-medium text-center">Product Specifications</h4>
+               </div>
+
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="spec-type" className="text-right">Type</Label>
+                <Select value={newProduct.specs.type} onValueChange={(value) => setNewProduct(p => ({...p, specs: {...p.specs, type: value}}))}>
+                  <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Bundle">Bundle</SelectItem>
+                    <SelectItem value="Wig">Wig</SelectItem>
+                    <SelectItem value="Closure">Closure</SelectItem>
+                    <SelectItem value="Frontal">Frontal</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="spec-length" className="text-right">Length (in)</Label>
+                <Input id="spec-length" type="number" className="col-span-3" value={newProduct.specs.length} onChange={(e) => setNewProduct(p => ({...p, specs: {...p.specs, length: e.target.value}}))} />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="spec-color" className="text-right">Color</Label>
+                <Input id="spec-color" className="col-span-3" value={newProduct.specs.color} onChange={(e) => setNewProduct(p => ({...p, specs: {...p.specs, color: e.target.value}}))} />
+              </div>
+               <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="spec-texture" className="text-right">Texture</Label>
+                 <Select value={newProduct.specs.texture} onValueChange={(value) => setNewProduct(p => ({...p, specs: {...p.specs, texture: value}}))}>
+                  <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Straight">Straight</SelectItem>
+                    <SelectItem value="Wavy">Wavy</SelectItem>
+                    <SelectItem value="Curly">Curly</SelectItem>
+                    <SelectItem value="Kinky-Curly">Kinky Curly</SelectItem>
+                    <SelectItem value="Body-Wave">Body Wave</SelectItem>
+                    <SelectItem value="Deep-Wave">Deep Wave</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+               <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="spec-origin" className="text-right">Origin</Label>
+                <Input id="spec-origin" className="col-span-3" placeholder="e.g. Vietnamese" value={newProduct.specs.origin} onChange={(e) => setNewProduct(p => ({...p, specs: {...p.specs, origin: e.target.value}}))} />
               </div>
             </div>
             <DialogFooter>

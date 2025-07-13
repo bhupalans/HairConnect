@@ -118,7 +118,7 @@ export async function getQuoteRequests(): Promise<QuoteRequest[]> {
 }
 
 export async function addProduct(
-  data: Omit<Product, 'id' | 'images' | 'sellerId' | 'specs'>,
+  data: Omit<Product, 'id' | 'images' | 'sellerId'>,
   imageFile: File,
   sellerId: string
 ) {
@@ -137,19 +137,9 @@ export async function addProduct(
     // Step 2: Prepare the document for Firestore, including sellerId
     const productsCollection = collection(db, 'products');
     const productData = {
-      name: data.name,
-      description: data.description,
-      price: data.price,
-      category: data.category,
+      ...data, // This now includes name, description, price, category, and specs
       sellerId: sellerId,
       images: [imageUrl],
-      specs: {
-        type: "Bundle",
-        length: "18 inches",
-        color: "Natural Black",
-        texture: "Wavy",
-        origin: "Unspecified"
-      }
     };
     
     // Step 3: Write the document to Firestore
