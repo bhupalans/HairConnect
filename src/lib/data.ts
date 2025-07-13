@@ -117,6 +117,35 @@ export async function getQuoteRequests(): Promise<QuoteRequest[]> {
     }
 }
 
+export async function addProduct(
+  data: Omit<Product, 'id' | 'images' | 'sellerId' | 'specs'>,
+  imageFile: File,
+  sellerId: string
+) {
+  const storage = getStorage();
+  let imageUrl = '';
+
+  // 1. Upload image to Firebase Storage
+  const imageRef = ref(storage, `products/${sellerId}/${imageFile.name}`);
+  await uploadBytes(imageRef, imageFile);
+  imageUrl = await getDownloadURL(imageRef);
+
+  // 2. Add product document to Firestore
+  const productsCollection = collection(db, 'products');
+  await addDoc(productsCollection, {
+    ...data,
+    sellerId: sellerId,
+    images: [imageUrl],
+    specs: { // Adding default specs, can be expanded later
+        type: "Bundle",
+        length: "18 inches",
+        color: "Natural Black",
+        texture: "Wavy",
+        origin: "Unspecified"
+    }
+  });
+}
+
 
 export async function updateProduct(productId: string, data: Partial<Omit<Product, 'id' | 'images'>>, newImageFile: File | null) {
   const productRef = doc(db, "products", productId);

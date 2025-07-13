@@ -46,7 +46,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getProductsBySeller, getSellerById, updateProduct } from "@/lib/data";
+import { getProductsBySeller, getSellerById, updateProduct, addProduct } from "@/lib/data";
 import { MoreHorizontal, PlusCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -93,6 +93,7 @@ export default function VendorDashboardPage() {
   
   // State for the add form
   const [newProduct, setNewProduct] = React.useState(initialNewProductState);
+  const [newImageFile, setNewImageFile] = React.useState<File | null>(null);
 
   // State for the edit form
   const [editProductData, setEditProductData] = React.useState({
@@ -105,17 +106,21 @@ export default function VendorDashboardPage() {
   
   const [editImageFile, setEditImageFile] = React.useState<File | null>(null);
 
+  const fetchVendorData = React.useCallback(async (currentUser: User) => {
+    const fetchedSeller = await getSellerById(currentUser.uid);
+    if (fetchedSeller) {
+      setSeller(fetchedSeller);
+      const fetchedProducts = await getProductsBySeller(fetchedSeller.id);
+      setProducts(fetchedProducts);
+    }
+  }, []);
+
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setIsLoading(true);
       if (currentUser) {
         setUser(currentUser);
-        const fetchedSeller = await getSellerById(currentUser.uid);
-        if (fetchedSeller) {
-          setSeller(fetchedSeller);
-          const fetchedProducts = await getProductsBySeller(fetchedSeller.id);
-          setProducts(fetchedProducts);
-        }
+        await fetchVendorData(currentUser);
       } else {
         setUser(null);
         setSeller(null);
@@ -125,7 +130,7 @@ export default function VendorDashboardPage() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [fetchVendorData]);
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setData: React.Dispatch<React.SetStateAction<any>>, setFile: React.Dispatch<React.SetStateAction<File | null>>) => {
     const file = e.target.files?.[0];
@@ -168,9 +173,8 @@ export default function VendorDashboardPage() {
       }, editImageFile);
 
       // Refresh products list after update
-      if (seller) {
-        const fetchedProducts = await getProductsBySeller(seller.id);
-        setProducts(fetchedProducts);
+      if (user) {
+        await fetchVendorData(user);
       }
 
       toast({
@@ -182,7 +186,7 @@ export default function VendorDashboardPage() {
        console.error("Update product error:", error);
        toast({
         title: "Update Failed",
-        description: "Could not update the product. If you're changing the image, please wait for a fix. Otherwise, please try again.",
+        description: "Could not update the product. Please try again.",
         variant: "destructive"
        });
     } finally {
@@ -190,16 +194,41 @@ export default function VendorDashboardPage() {
     }
   };
 
-  const handleAddProduct = () => {
-     // In a real app, you would send this data to your backend API to create the product
-    console.log("Adding new product:", newProduct);
-    toast({
-      title: "Feature In Progress",
-      description: `Adding product functionality is temporarily disabled.`,
-      variant: "destructive"
-    });
-    // setNewProduct(initialNewProductState);
-    // setShowAddDialog(false);
+  const handleAddProduct = async () => {
+    if (!newProduct.name || !newProduct.description || !newProduct.price || !newProduct.category || !newImageFile || !user) {
+        toast({ title: "Missing Fields", description: "Please fill out all fields and select an image.", variant: "destructive"});
+        return;
+    }
+    setIsSubmitting(true);
+    
+    try {
+        await addProduct({
+            name: newProduct.name,
+            description: newProduct.description,
+            price: parseFloat(newProduct.price),
+            category: newProduct.category as Product['category'],
+        }, newImageFile, user.uid);
+        
+        toast({
+          title: "Product Added!",
+          description: `${newProduct.name} is now live in your store.`
+        });
+
+        await fetchVendorData(user); // Refresh list
+        setShowAddDialog(false); // Close dialog
+        setNewProduct(initialNewProductState); // Reset form
+        setNewImageFile(null); // Reset file
+
+    } catch (error) {
+        console.error("Add product error:", error);
+        toast({
+          title: "Add Product Failed",
+          description: "There was an error creating your product. Please try again.",
+          variant: "destructive"
+        });
+    } finally {
+        setIsSubmitting(false);
+    }
   }
 
   // Handler to open the Delete confirmation dialog
@@ -324,7 +353,7 @@ export default function VendorDashboardPage() {
                     type="file"
                     className="col-span-3 file:text-primary file:font-medium"
                     accept="image/png, image/jpeg, image/gif"
-                    onChange={(e) => handleFileChange(e, setNewProduct, () => {})}
+                    onChange={(e) => handleFileChange(e, setNewProduct, setNewImageFile)}
                   />
                   {newProduct.imagePreview && (
                       <Image src={newProduct.imagePreview} alt="New product preview" width={100} height={100} className="rounded-md object-cover"/>
@@ -334,7 +363,10 @@ export default function VendorDashboardPage() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowAddDialog(false)}>Cancel</Button>
-              <Button type="submit" onClick={handleAddProduct}>Add Product</Button>
+              <Button type="submit" onClick={handleAddProduct} disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Add Product
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -557,3 +589,4 @@ export default function VendorDashboardPage() {
     </div>
   );
 }
+
