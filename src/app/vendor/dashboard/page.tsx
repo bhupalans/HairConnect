@@ -46,7 +46,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getProductsBySeller, getSellerById, updateProduct, addProduct } from "@/lib/data";
+import { getProductsBySeller, getSellerById, updateProduct, addProduct, deleteProduct } from "@/lib/data";
 import { MoreHorizontal, PlusCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -107,13 +107,18 @@ export default function VendorDashboardPage() {
   const [editImageFile, setEditImageFile] = React.useState<File | null>(null);
 
   const fetchVendorData = React.useCallback(async (currentUser: User) => {
-    const fetchedSeller = await getSellerById(currentUser.uid);
-    if (fetchedSeller) {
-      setSeller(fetchedSeller);
-      const fetchedProducts = await getProductsBySeller(fetchedSeller.id);
-      setProducts(fetchedProducts);
+    try {
+        const fetchedSeller = await getSellerById(currentUser.uid);
+        if (fetchedSeller) {
+          setSeller(fetchedSeller);
+          const fetchedProducts = await getProductsBySeller(fetchedSeller.id);
+          setProducts(fetchedProducts);
+        }
+    } catch (error) {
+        console.error("Failed to fetch vendor data:", error);
+        toast({ title: "Error", description: "Could not fetch your data. Please refresh the page.", variant: "destructive"});
     }
-  }, []);
+  }, [toast]);
 
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -236,6 +241,30 @@ export default function VendorDashboardPage() {
     setSelectedProduct(product);
     setShowDeleteDialog(true);
   };
+  
+  const handleDeleteProduct = async () => {
+    if (!selectedProduct || !user) return;
+    setIsSubmitting(true);
+
+    try {
+        await deleteProduct(selectedProduct.id);
+        toast({
+          title: "Product Deleted",
+          description: `Product "${selectedProduct.name}" has been deleted.`,
+        });
+        await fetchVendorData(user); // Refresh list
+        setShowDeleteDialog(false);
+    } catch (error) {
+       console.error("Delete product error:", error);
+       toast({
+        title: "Delete Failed",
+        description: "Could not delete the product. Please try again.",
+        variant: "destructive"
+       });
+    } finally {
+        setIsSubmitting(false);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -301,8 +330,8 @@ export default function VendorDashboardPage() {
                   onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="product-desc" className="text-right">
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="product-desc" className="text-right pt-2">
                   Description
                 </Label>
                 <Textarea
@@ -477,8 +506,8 @@ export default function VendorDashboardPage() {
                 }
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-product-desc" className="text-right">
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label htmlFor="edit-product-desc" className="text-right pt-2">
                 Description
               </Label>
               <Textarea
@@ -569,18 +598,16 @@ export default function VendorDashboardPage() {
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the
-              product "{selectedProduct?.name}".
+              product "{selectedProduct?.name}" and its associated image from the server.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setIsSubmitting(false)}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
-                toast({
-                  description: `Product "${selectedProduct?.name}" has been deleted.`,
-                });
-              }}
+              onClick={handleDeleteProduct}
+              disabled={isSubmitting}
             >
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
               Continue
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -589,4 +616,3 @@ export default function VendorDashboardPage() {
     </div>
   );
 }
-
