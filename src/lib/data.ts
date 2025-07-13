@@ -134,14 +134,14 @@ export async function addProduct(
     const uploadResult = await uploadBytes(imageRef, imageFile);
     const imageUrl = await getDownloadURL(uploadResult.ref);
 
-    // Step 2: Prepare the document for Firestore, ENSURING sellerId is included
+    // Step 2: Prepare the document for Firestore, including sellerId
     const productsCollection = collection(db, 'products');
     const productData = {
       name: data.name,
       description: data.description,
       price: data.price,
       category: data.category,
-      sellerId: sellerId, // THIS IS THE CRUCIAL FIX
+      sellerId: sellerId,
       images: [imageUrl],
       specs: {
         type: "Bundle",
