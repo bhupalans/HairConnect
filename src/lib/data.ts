@@ -123,28 +123,33 @@ export async function addProduct(
   sellerId: string
 ) {
   const storage = getStorage();
-  let imageUrl = '';
-
+  
   // 1. Upload image to Firebase Storage
   // This path MUST match the security rules: products/{userId}/{fileName}
   const imageRef = ref(storage, `products/${sellerId}/${imageFile.name}`);
-  const uploadResult = await uploadBytes(imageRef, imageFile);
-  imageUrl = await getDownloadURL(uploadResult.ref);
+  
+  try {
+    const uploadResult = await uploadBytes(imageRef, imageFile);
+    const imageUrl = await getDownloadURL(uploadResult.ref);
 
-  // 2. Add product document to Firestore
-  const productsCollection = collection(db, 'products');
-  await addDoc(productsCollection, {
-    ...data,
-    sellerId: sellerId,
-    images: [imageUrl],
-    specs: { // Adding default specs, can be expanded later
-        type: "Bundle",
-        length: "18 inches",
-        color: "Natural Black",
-        texture: "Wavy",
-        origin: "Unspecified"
-    }
-  });
+    // 2. Add product document to Firestore
+    const productsCollection = collection(db, 'products');
+    await addDoc(productsCollection, {
+      ...data,
+      sellerId: sellerId,
+      images: [imageUrl],
+      specs: { // Adding default specs, can be expanded later
+          type: "Bundle",
+          length: "18 inches",
+          color: "Natural Black",
+          texture: "Wavy",
+          origin: "Unspecified"
+      }
+    });
+  } catch (error) {
+    console.error("Error adding product:", error);
+    throw error;
+  }
 }
 
 
