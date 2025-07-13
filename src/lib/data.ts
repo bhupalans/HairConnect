@@ -308,5 +308,3 @@ export async function deleteBuyer(buyerId: string) {
         throw error;
     }
 }
-
-    
