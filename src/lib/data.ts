@@ -122,35 +122,40 @@ export async function addProduct(
   imageFile: File,
   sellerId: string
 ) {
+  if (!sellerId) {
+    throw new Error("User is not authenticated. Cannot add product.");
+  }
+
   const storage = getStorage();
-  
-  // This path MUST match the security rules: products/{userId}/{fileName}
   const imageRef = ref(storage, `products/${sellerId}/${imageFile.name}`);
   
   try {
+    // Step 1: Upload the image to Firebase Storage
     const uploadResult = await uploadBytes(imageRef, imageFile);
     const imageUrl = await getDownloadURL(uploadResult.ref);
 
-    // 2. Add product document to Firestore
+    // Step 2: Add product document to Firestore, making sure sellerId is included
     const productsCollection = collection(db, 'products');
-    await addDoc(productsCollection, {
+    const productData = {
       ...data,
-      sellerId: sellerId, // Ensure sellerId is saved in the document
+      sellerId: sellerId,
       images: [imageUrl],
-      specs: { // Adding default specs, can be expanded later
-          type: "Bundle",
-          length: "18 inches",
-          color: "Natural Black",
-          texture: "Wavy",
-          origin: "Unspecified"
+      specs: {
+        type: "Bundle",
+        length: "18 inches",
+        color: "Natural Black",
+        texture: "Wavy",
+        origin: "Unspecified"
       }
-    });
+    };
+    await addDoc(productsCollection, productData);
+    
   } catch (error) {
-    console.error("Error adding product:", error);
+    console.error("Error adding product. Check Firestore rules.", error);
+    // This will now throw the specific error to be caught by the frontend.
     throw error;
   }
 }
-
 
 export async function updateProduct(productId: string, data: Partial<Omit<Product, 'id' | 'images'>>, newImageFile: File | null) {
   const productRef = doc(db, "products", productId);
