@@ -1,10 +1,21 @@
+
 rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow read, write, and delete access for any authenticated user
+    // Allow public read access for all files so they can be displayed in the app.
     match /{allPaths=**} {
-      allow read, write, delete: if request.auth != null;
+      allow read;
+    }
+
+    // Allow authenticated users to upload, update, or delete images 
+    // in their specific product folder.
+    // Enforce file size (max 5MB) and content type (image).
+    match /products/{userId}/{fileName} {
+      allow write, delete: if request.auth != null 
+                      && request.auth.uid == userId
+                      && request.resource.size < 5 * 1024 * 1024
+                      && request.resource.contentType.matches('image/.*');
     }
   }
 }

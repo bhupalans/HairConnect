@@ -163,7 +163,7 @@ export async function addProduct(
         await deleteObject(imageRef);
         console.log("Successfully cleaned up orphaned image after Firestore error.");
     } catch (cleanupError) {
-        console.error("CRITICAL: Failed to clean up orphaned image in storage. Manual deletion required.", cleanupError);
+        console.error("CRITICAL: Failed to clean up orphaned image in storage. This might be a permissions issue on 'delete' in storage.rules. Manual deletion may be required.", cleanupError);
     }
     // Re-throw the original error to be handled by the UI.
     throw error;
