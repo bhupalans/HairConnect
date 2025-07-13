@@ -130,14 +130,17 @@ export async function addProduct(
   const imageRef = ref(storage, `products/${sellerId}/${imageFile.name}`);
   
   try {
-    // Step 1: Upload the image to Firebase Storage
     const uploadResult = await uploadBytes(imageRef, imageFile);
     const imageUrl = await getDownloadURL(uploadResult.ref);
 
-    // Step 2: Add product document to Firestore, making sure sellerId is included
     const productsCollection = collection(db, 'products');
+    
+    // This is the corrected data object. It explicitly includes all required fields.
     const productData = {
-      ...data,
+      name: data.name,
+      description: data.description,
+      price: data.price,
+      category: data.category,
       sellerId: sellerId,
       images: [imageUrl],
       specs: {
@@ -148,11 +151,11 @@ export async function addProduct(
         origin: "Unspecified"
       }
     };
+    
     await addDoc(productsCollection, productData);
     
   } catch (error) {
     console.error("Error adding product. Check Firestore rules.", error);
-    // This will now throw the specific error to be caught by the frontend.
     throw error;
   }
 }
@@ -164,7 +167,6 @@ export async function updateProduct(productId: string, data: Partial<Omit<Produc
   try {
     const storage = getStorage();
     
-    // Get the existing product to find the sellerId and old image URL
     const existingProductSnap = await getDoc(productRef);
     if (!existingProductSnap.exists()) {
         throw new Error("Product not found to update.");
@@ -172,31 +174,25 @@ export async function updateProduct(productId: string, data: Partial<Omit<Produc
     const existingProductData = existingProductSnap.data() as Product;
     const sellerId = existingProductData.sellerId;
 
-    // If there is a new image file, handle the upload and old image deletion.
     if (newImageFile) {
       const oldImageUrl = existingProductData?.images?.[0];
 
-      // Upload the new image to the path that matches the security rules: products/{userId}/{fileName}
       const newImageRef = ref(storage, `products/${sellerId}/${newImageFile.name}`);
       const uploadResult = await uploadBytes(newImageRef, newImageFile);
       const newImageUrl = await getDownloadURL(uploadResult.ref);
       
       dataToUpdate.images = [newImageUrl];
 
-      // If there was an old image, and it's a Firebase Storage URL, delete it.
       if (oldImageUrl && oldImageUrl.includes('firebasestorage.googleapis.com')) {
           try {
-            // Create a ref from the full URL
             const oldImageStorageRef = ref(storage, oldImageUrl);
             await deleteObject(oldImageStorageRef);
           } catch (deleteError: any) {
-             // It's okay if deletion fails (e.g., file not found); log it and continue.
              console.warn("Could not delete old image, it may have already been removed:", deleteError.code);
           }
       }
     }
 
-    // Update the Firestore document with the new data.
     await updateDoc(productRef, dataToUpdate);
 
   } catch (error) {
@@ -210,7 +206,6 @@ export async function deleteProduct(productId: string) {
     const storage = getStorage();
 
     try {
-        // Get the product document to find the image URL
         const productSnap = await getDoc(productRef);
         if (!productSnap.exists()) {
             throw new Error("Product not found");
@@ -218,10 +213,8 @@ export async function deleteProduct(productId: string) {
         const productData = productSnap.data() as Product;
         const imageUrl = productData.images?.[0];
 
-        // Delete the document from Firestore
         await deleteDoc(productRef);
 
-        // If an image URL exists, delete the image from Storage
         if (imageUrl && imageUrl.includes('firebasestorage.googleapis.com')) {
             const imageRef = ref(storage, imageUrl);
             await deleteObject(imageRef);
