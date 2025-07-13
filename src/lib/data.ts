@@ -126,9 +126,10 @@ export async function addProduct(
   let imageUrl = '';
 
   // 1. Upload image to Firebase Storage
+  // This path MUST match the security rules: products/{userId}/{fileName}
   const imageRef = ref(storage, `products/${sellerId}/${imageFile.name}`);
-  await uploadBytes(imageRef, imageFile);
-  imageUrl = await getDownloadURL(imageRef);
+  const uploadResult = await uploadBytes(imageRef, imageFile);
+  imageUrl = await getDownloadURL(uploadResult.ref);
 
   // 2. Add product document to Firestore
   const productsCollection = collection(db, 'products');
