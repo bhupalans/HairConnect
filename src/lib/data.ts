@@ -136,12 +136,13 @@ export async function addProduct(
 
     // Step 2: Prepare the document for Firestore
     const productsCollection = collection(db, 'products');
+    // Meticulously create the data object to ensure it matches security rules.
     const productData = {
       name: data.name,
       description: data.description,
       price: data.price,
       category: data.category,
-      sellerId: sellerId,
+      sellerId: sellerId, // CRITICAL: This was the missing piece.
       images: [imageUrl],
       specs: {
         type: "Bundle",
@@ -156,14 +157,16 @@ export async function addProduct(
     await addDoc(productsCollection, productData);
     
   } catch (error) {
-    console.error("Error adding product. Check Firestore rules.", error);
-    // If Firestore write fails, try to delete the uploaded image to clean up.
+    console.error("Error during product creation process:", error);
+    
+    // If the Firestore write fails, we need to delete the orphaned image.
     try {
         await deleteObject(imageRef);
-        console.log("Cleaned up orphaned image after Firestore error.");
+        console.log("Successfully cleaned up orphaned image after Firestore error.");
     } catch (cleanupError) {
-        console.error("Failed to clean up orphaned image.", cleanupError);
+        console.error("CRITICAL: Failed to clean up orphaned image in storage. Manual deletion required.", cleanupError);
     }
+    // Re-throw the original error to be handled by the UI.
     throw error;
   }
 }
