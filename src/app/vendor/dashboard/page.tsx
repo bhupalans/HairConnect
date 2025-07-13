@@ -107,22 +107,26 @@ export default function VendorDashboardPage() {
   const [editImageFile, setEditImageFile] = React.useState<File | null>(null);
 
   const fetchVendorData = React.useCallback(async (currentUser: User) => {
+    setIsLoading(true);
     try {
         const fetchedSeller = await getSellerById(currentUser.uid);
         if (fetchedSeller) {
           setSeller(fetchedSeller);
           const fetchedProducts = await getProductsBySeller(fetchedSeller.id);
           setProducts(fetchedProducts);
+        } else {
+          toast({ title: "Seller Profile Not Found", description: "We couldn't find your seller profile. Please contact support.", variant: "destructive"});
         }
     } catch (error) {
         console.error("Failed to fetch vendor data:", error);
         toast({ title: "Error", description: "Could not fetch your data. Please refresh the page.", variant: "destructive"});
+    } finally {
+        setIsLoading(false);
     }
   }, [toast]);
 
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setIsLoading(true);
       if (currentUser) {
         setUser(currentUser);
         await fetchVendorData(currentUser);
@@ -130,8 +134,8 @@ export default function VendorDashboardPage() {
         setUser(null);
         setSeller(null);
         setProducts([]);
+        setIsLoading(false);
       }
-      setIsLoading(false);
     });
 
     return () => unsubscribe();
@@ -177,7 +181,6 @@ export default function VendorDashboardPage() {
         category: editProductData.category as Product['category'],
       }, editImageFile);
 
-      // Refresh products list after update
       if (user) {
         await fetchVendorData(user);
       }
@@ -219,10 +222,10 @@ export default function VendorDashboardPage() {
           description: `${newProduct.name} is now live in your store.`
         });
 
-        await fetchVendorData(user); // Refresh list
-        setShowAddDialog(false); // Close dialog
-        setNewProduct(initialNewProductState); // Reset form
-        setNewImageFile(null); // Reset file
+        await fetchVendorData(user);
+        setShowAddDialog(false);
+        setNewProduct(initialNewProductState);
+        setNewImageFile(null);
 
     } catch (error) {
         console.error("Add product error:", error);

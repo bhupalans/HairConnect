@@ -130,12 +130,12 @@ export async function addProduct(
   const imageRef = ref(storage, `products/${sellerId}/${imageFile.name}`);
   
   try {
+    // Step 1: Upload image to Storage
     const uploadResult = await uploadBytes(imageRef, imageFile);
     const imageUrl = await getDownloadURL(uploadResult.ref);
 
+    // Step 2: Prepare the document for Firestore
     const productsCollection = collection(db, 'products');
-    
-    // This is the corrected data object. It explicitly includes all required fields.
     const productData = {
       name: data.name,
       description: data.description,
@@ -152,13 +152,22 @@ export async function addProduct(
       }
     };
     
+    // Step 3: Write the document to Firestore
     await addDoc(productsCollection, productData);
     
   } catch (error) {
     console.error("Error adding product. Check Firestore rules.", error);
+    // If Firestore write fails, try to delete the uploaded image to clean up.
+    try {
+        await deleteObject(imageRef);
+        console.log("Cleaned up orphaned image after Firestore error.");
+    } catch (cleanupError) {
+        console.error("Failed to clean up orphaned image.", cleanupError);
+    }
     throw error;
   }
 }
+
 
 export async function updateProduct(productId: string, data: Partial<Omit<Product, 'id' | 'images'>>, newImageFile: File | null) {
   const productRef = doc(db, "products", productId);
