@@ -134,15 +134,14 @@ export async function addProduct(
     const uploadResult = await uploadBytes(imageRef, imageFile);
     const imageUrl = await getDownloadURL(uploadResult.ref);
 
-    // Step 2: Prepare the document for Firestore
+    // Step 2: Prepare the document for Firestore, ENSURING sellerId is included
     const productsCollection = collection(db, 'products');
-    // Meticulously create the data object to ensure it matches security rules.
     const productData = {
       name: data.name,
       description: data.description,
       price: data.price,
       category: data.category,
-      sellerId: sellerId, // CRITICAL: This was the missing piece.
+      sellerId: sellerId, // THIS IS THE CRUCIAL FIX
       images: [imageUrl],
       specs: {
         type: "Bundle",
@@ -159,7 +158,7 @@ export async function addProduct(
   } catch (error) {
     console.error("Error during product creation process:", error);
     
-    // If the Firestore write fails, we need to delete the orphaned image.
+    // If the Firestore write fails, we should try to delete the orphaned image.
     try {
         await deleteObject(imageRef);
         console.log("Successfully cleaned up orphaned image after Firestore error.");
