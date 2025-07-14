@@ -2,6 +2,7 @@
 "use client";
 
 import * as React from "react";
+import { useFormState, useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -46,7 +47,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getProductsBySeller, getSellerById, updateProduct, addProduct, deleteProduct } from "@/lib/data";
+import { getProductsBySeller, getSellerById, updateProduct, deleteProduct } from "@/lib/data";
 import { MoreHorizontal, PlusCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -64,20 +65,7 @@ import type { Product, Seller } from "@/lib/types";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { Separator } from "@/components/ui/separator";
-
-const initialNewProductState: Omit<Product, 'id' | 'images' | 'sellerId' | 'price'> & { price: string } = {
-  name: "",
-  description: "",
-  price: "",
-  category: "Wigs",
-  specs: {
-    type: "Bundle",
-    length: "18",
-    color: "Natural Black",
-    texture: "Wavy",
-    origin: "",
-  }
-};
+import { addProductAction } from "@/app/actions";
 
 const initialEditProductState: Omit<Product, 'id' | 'sellerId' | 'images'> & { imagePreview: string } = {
     name: "",
@@ -93,6 +81,136 @@ const initialEditProductState: Omit<Product, 'id' | 'sellerId' | 'images'> & { i
         origin: "",
     }
 };
+
+function AddProductForm() {
+  const initialState = { message: null, errors: {}, success: false };
+  const [state, dispatch] = useFormState(addProductAction, initialState);
+  const { toast } = useToast();
+  const formRef = React.useRef<HTMLFormElement>(null);
+  const [imagePreview, setImagePreview] = React.useState<string>('');
+
+  React.useEffect(() => {
+    if (state.message && !state.success) {
+      toast({ title: "Error Adding Product", description: state.message, variant: "destructive" });
+    }
+    if (state.success) {
+      toast({ title: "Success!", description: state.message });
+      formRef.current?.reset();
+      setImagePreview('');
+      // We can't close the dialog from here directly, this should be handled by parent component.
+    }
+  }, [state, toast]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+        setImagePreview('');
+    }
+  };
+
+  const { pending } = useFormStatus();
+
+  return (
+    <form action={dispatch} ref={formRef} className="max-h-[70vh] overflow-y-auto px-6">
+      <div className="grid gap-6 py-4">
+        <div className="grid md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label htmlFor="product-name">Name</Label>
+            <Input id="product-name" name="name" placeholder="e.g. Premium Wavy Bundles" required />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="product-price">Price ($)</Label>
+            <Input id="product-price" name="price" type="number" placeholder="e.g. 85.00" step="0.01" required />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="product-desc">Description</Label>
+          <Textarea id="product-desc" name="description" placeholder="Describe your product..." required />
+        </div>
+        <div className="grid md:grid-cols-2 gap-6 items-start">
+          <div className="space-y-2">
+            <Label htmlFor="product-category">Category</Label>
+            <Select name="category" defaultValue="Wigs">
+              <SelectTrigger id="product-category">
+                <SelectValue placeholder="Select a category" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((cat) => (
+                  <SelectItem key={cat.name} value={cat.name}>
+                    {cat.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="product-image">Image</Label>
+            <Input id="product-image" name="image" type="file" className="file:text-primary file:font-medium" accept="image/png, image/jpeg, image/gif" onChange={handleFileChange} required/>
+            {imagePreview && (<Image src={imagePreview} alt="New product preview" width={100} height={100} className="rounded-md object-cover mt-2"/>)}
+          </div>
+        </div>
+        <Separator className="my-2" />
+        <h4 className="text-lg font-medium text-center">Product Specifications</h4>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="space-y-2">
+            <Label htmlFor="spec-type">Type</Label>
+            <Select name="type" defaultValue="Bundle">
+              <SelectTrigger id="spec-type"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Bundle">Bundle</SelectItem>
+                <SelectItem value="Wig">Wig</SelectItem>
+                <SelectItem value="Closure">Closure</SelectItem>
+                <SelectItem value="Frontal">Frontal</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="spec-length">Length (in)</Label>
+            <Input id="spec-length" name="length" type="number" defaultValue="18" required/>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="spec-texture">Texture</Label>
+            <Select name="texture" defaultValue="Wavy">
+              <SelectTrigger id="spec-texture"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Straight">Straight</SelectItem>
+                <SelectItem value="Wavy">Wavy</SelectItem>
+                <SelectItem value="Curly">Curly</SelectItem>
+                <SelectItem value="Kinky-Curly">Kinky Curly</SelectItem>
+                <SelectItem value="Body-Wave">Body Wave</SelectItem>
+                <SelectItem value="Deep-Wave">Deep Wave</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="spec-color">Color</Label>
+            <Input id="spec-color" name="color" defaultValue="Natural Black" required/>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="spec-origin">Origin</Label>
+            <Input id="spec-origin" name="origin" placeholder="e.g. Vietnamese" required/>
+          </div>
+        </div>
+      </div>
+       <DialogFooter className="p-6 pt-4 border-t bg-background sticky bottom-0">
+          <DialogTrigger asChild>
+            <Button type="button" variant="outline">Cancel</Button>
+          </DialogTrigger>
+          <Button type="submit" disabled={pending}>
+            {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Add Product
+          </Button>
+        </DialogFooter>
+    </form>
+  )
+}
+
 
 export default function VendorDashboardPage() {
   const { toast } = useToast();
@@ -113,11 +231,6 @@ export default function VendorDashboardPage() {
     null
   );
   
-  // State for the add form
-  const [newProduct, setNewProduct] = React.useState(initialNewProductState);
-  const [newProductImagePreview, setNewProductImagePreview] = React.useState<string>('');
-  const [newImageFile, setNewImageFile] = React.useState<File | null>(null);
-
   // State for the edit form
   const [editProductData, setEditProductData] = React.useState(initialEditProductState);
   
@@ -157,18 +270,6 @@ export default function VendorDashboardPage() {
 
     return () => unsubscribe();
   }, [fetchVendorData]);
-  
-  const handleAddFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setNewImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setNewProductImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
   
   const handleEditFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -235,46 +336,6 @@ export default function VendorDashboardPage() {
         setIsSubmitting(false);
     }
   };
-
-  const handleAddProduct = async () => {
-    if (!newProduct.name || !newProduct.description || !newProduct.price || !newProduct.category || !newImageFile || !user) {
-        toast({ title: "Missing Fields", description: "Please fill out all fields and select an image.", variant: "destructive"});
-        return;
-    }
-    setIsSubmitting(true);
-    
-    try {
-        await addProduct({
-            ...newProduct,
-            price: parseFloat(newProduct.price),
-            specs: {
-              ...newProduct.specs,
-              length: `${newProduct.specs.length} inches`
-            }
-        }, newImageFile, user.uid);
-        
-        toast({
-          title: "Product Added!",
-          description: `${newProduct.name} is now live in your store.`
-        });
-
-        await fetchVendorData(user);
-        setShowAddDialog(false);
-        setNewProduct(initialNewProductState);
-        setNewProductImagePreview('');
-        setNewImageFile(null);
-
-    } catch (error) {
-        console.error("Add product error:", error);
-        toast({
-          title: "Add Product Failed",
-          description: "There was an error creating your product. Please try again.",
-          variant: "destructive"
-        });
-    } finally {
-        setIsSubmitting(false);
-    }
-  }
 
   // Handler to open the Delete confirmation dialog
   const handleDeleteClick = (product: Product) => {
@@ -357,97 +418,7 @@ export default function VendorDashboardPage() {
                 Fill in the details to list a new product in your store.
               </DialogDescription>
             </DialogHeader>
-            <div className="max-h-[70vh] overflow-y-auto px-6">
-              <div className="grid gap-6 py-4">
-                 <div className="grid md:grid-cols-2 gap-6">
-                   <div className="space-y-2">
-                      <Label htmlFor="product-name">Name</Label>
-                      <Input id="product-name" placeholder="e.g. Premium Wavy Bundles" value={newProduct.name} onChange={(e) => setNewProduct({...newProduct, name: e.target.value})} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="product-price">Price ($)</Label>
-                      <Input id="product-price" type="number" placeholder="e.g. 85.00" value={newProduct.price} onChange={(e) => setNewProduct({...newProduct, price: e.target.value})} />
-                    </div>
-                 </div>
-                  <div className="space-y-2">
-                      <Label htmlFor="product-desc">Description</Label>
-                      <Textarea id="product-desc" placeholder="Describe your product..." value={newProduct.description} onChange={(e) => setNewProduct({...newProduct, description: e.target.value})}/>
-                  </div>
-                <div className="grid md:grid-cols-2 gap-6 items-start">
-                   <div className="space-y-2">
-                      <Label htmlFor="product-category">Category</Label>
-                      <Select value={newProduct.category} onValueChange={(value) => setNewProduct({...newProduct, category: value as Product['category']})}>
-                      <SelectTrigger>
-                          <SelectValue placeholder="Select a category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                          {categories.map((cat) => (
-                          <SelectItem key={cat.name} value={cat.name}>
-                              {cat.name}
-                          </SelectItem>
-                          ))}
-                      </SelectContent>
-                      </Select>
-                   </div>
-                   <div className="space-y-2">
-                      <Label htmlFor="product-image">Image</Label>
-                      <Input id="product-image" type="file" className="file:text-primary file:font-medium" accept="image/png, image/jpeg, image/gif" onChange={handleAddFileChange} />
-                      {newProductImagePreview && (<Image src={newProductImagePreview} alt="New product preview" width={100} height={100} className="rounded-md object-cover mt-2"/>)}
-                  </div>
-                </div>
-
-                <Separator className="my-2" />
-                <h4 className="text-lg font-medium text-center">Product Specifications</h4>
-                
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <div className="space-y-2">
-                      <Label htmlFor="spec-type">Type</Label>
-                      <Select value={newProduct.specs.type} onValueChange={(value) => setNewProduct(p => ({...p, specs: {...p.specs, type: value}}))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                          <SelectItem value="Bundle">Bundle</SelectItem>
-                          <SelectItem value="Wig">Wig</SelectItem>
-                          <SelectItem value="Closure">Closure</SelectItem>
-                          <SelectItem value="Frontal">Frontal</SelectItem>
-                      </SelectContent>
-                      </Select>
-                  </div>
-                  <div className="space-y-2">
-                      <Label htmlFor="spec-length">Length (in)</Label>
-                      <Input id="spec-length" type="number" value={newProduct.specs.length} onChange={(e) => setNewProduct(p => ({...p, specs: {...p.specs, length: e.target.value}}))} />
-                  </div>
-                  <div className="space-y-2">
-                      <Label htmlFor="spec-texture">Texture</Label>
-                      <Select value={newProduct.specs.texture} onValueChange={(value) => setNewProduct(p => ({...p, specs: {...p.specs, texture: value}}))}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                              <SelectItem value="Straight">Straight</SelectItem>
-                              <SelectItem value="Wavy">Wavy</SelectItem>
-                              <SelectItem value="Curly">Curly</SelectItem>
-                              <SelectItem value="Kinky-Curly">Kinky Curly</SelectItem>
-                              <SelectItem value="Body-Wave">Body Wave</SelectItem>
-                              <SelectItem value="Deep-Wave">Deep Wave</SelectItem>
-                          </SelectContent>
-                      </Select>
-                  </div>
-                  <div className="space-y-2">
-                      <Label htmlFor="spec-color">Color</Label>
-                      <Input id="spec-color" value={newProduct.specs.color} onChange={(e) => setNewProduct(p => ({...p, specs: {...p.specs, color: e.target.value}}))} />
-                  </div>
-                  <div className="space-y-2">
-                      <Label htmlFor="spec-origin">Origin</Label>
-                      <Input id="spec-origin" placeholder="e.g. Vietnamese" value={newProduct.specs.origin} onChange={(e) => setNewProduct(p => ({...p, specs: {...p.specs, origin: e.target.value}}))} />
-                  </div>
-                </div>
-              </div>
-            </div>
-            <DialogFooter className="p-6 pt-4 border-t">
-              <Button type="button" variant="outline" onClick={() => setShowAddDialog(false)}>Cancel</Button>
-              <Button type="submit" onClick={handleAddProduct} disabled={isSubmitting}>
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Add Product
-              </Button>
-            </DialogFooter>
+            <AddProductForm />
           </DialogContent>
         </Dialog>
       </header>
