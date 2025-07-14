@@ -3,42 +3,44 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to check if the requesting user is an admin
+
+    // Helper function to check for Admin role
     function isAdmin() {
       return exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
-    // --- Rules Specific to Collections ---
-
-    // Products: Publicly readable, only writable by the owning seller OR an admin
+    // Products can be read by anyone, but only created/modified by the seller or an admin.
     match /products/{productId} {
       allow read: if true;
-      allow create, update, delete: if (request.auth != null && request.auth.uid == resource.data.sellerId) || isAdmin();
+      allow create: if request.auth != null && request.resource.data.sellerId == request.auth.uid;
+      allow update, delete: if request.auth != null && (resource.data.sellerId == request.auth.uid || isAdmin());
     }
 
-    // Sellers: Publicly readable, only writable by the user themselves OR an admin
+    // Sellers profiles can be read by anyone.
+    // A user can create their own seller profile during registration.
+    // A user can update their own profile, or an admin can update any profile.
     match /sellers/{userId} {
       allow read: if true;
-      // Note: create is covered by the admin-only rule below.
-      allow update: if (request.auth != null && request.auth.uid == userId) || isAdmin();
-      allow create, delete: if isAdmin();
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      // Deletion should only be done by an admin from the dashboard
+      allow delete: if isAdmin();
     }
-    
-    // Buyers: Publicly readable, only writable by an admin
+
+    // Buyers can be read by anyone, but only managed by admins.
     match /buyers/{buyerId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
     }
     
-    // Quote Requests: Writable by anyone, readable by admins
+    // Quote requests can be created by anyone. Only admins can read them all.
     match /quote-requests/{requestId} {
-        allow create: if true;
-        allow read, update, delete: if isAdmin();
+      allow read: if isAdmin();
+      allow create: if true;
     }
 
-    // Admins collection: Readable and Writable only by other admins
-    match /admins/{userId} {
+    // Admins collection can only be accessed by other admins.
+    match /admins/{adminId} {
         allow read, write: if isAdmin();
     }
   }

@@ -3,19 +3,15 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow public read access for all files so they can be displayed in the app.
-    match /{allPaths=**} {
-      allow read;
-    }
-
-    // Allow authenticated users to upload, update, or delete images 
-    // in their specific product folder.
-    // Enforce file size (max 5MB) and content type (image).
-    match /products/{userId}/{fileName} {
-      allow write, delete: if request.auth != null 
-                      && request.auth.uid == userId
-                      && request.resource.size < 5 * 1024 * 1024
-                      && request.resource.contentType.matches('image/.*');
+    
+    // Rule for product images:
+    // - Path matches the structure: products/{userId}/{allPaths=**}
+    // - Allows read access to anyone (for public viewing of products).
+    // - Allows write access (create, update, delete) only if the requesting user's UID
+    //   matches the {userId} in the path. This ensures vendors can only manage their own images.
+    match /products/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
   }
 }
