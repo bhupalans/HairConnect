@@ -2,8 +2,6 @@
 "use client";
 
 import React from "react";
-import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -48,7 +46,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getProductsBySeller, getSellerById, updateProduct, deleteProduct } from "@/lib/data";
+import { getProductsBySeller, getSellerById, updateProduct, deleteProduct, addProduct } from "@/lib/data";
 import { MoreHorizontal, PlusCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -66,7 +64,6 @@ import type { Product, Seller } from "@/lib/types";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { Separator } from "@/components/ui/separator";
-import { addProductAction } from "@/app/actions";
 
 const initialEditProductState: Omit<Product, 'id' | 'sellerId' | 'images'> & { imagePreview: string } = {
     name: "",
@@ -82,136 +79,6 @@ const initialEditProductState: Omit<Product, 'id' | 'sellerId' | 'images'> & { i
         origin: "",
     }
 };
-
-function AddProductForm() {
-  const initialState = { message: null, errors: {}, success: false };
-  const [state, dispatch] = useActionState(addProductAction, initialState);
-  const { toast } = useToast();
-  const formRef = React.useRef<HTMLFormElement>(null);
-  const [imagePreview, setImagePreview] = React.useState<string>('');
-  
-  const { pending } = useFormStatus();
-
-  React.useEffect(() => {
-    if (state.message && !state.success) {
-      toast({ title: "Error Adding Product", description: state.message, variant: "destructive" });
-    }
-    if (state.success) {
-      toast({ title: "Success!", description: state.message });
-      formRef.current?.reset();
-      setImagePreview('');
-      // We can't close the dialog from here directly, this should be handled by parent component.
-    }
-  }, [state, toast]);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    } else {
-        setImagePreview('');
-    }
-  };
-
-
-  return (
-    <form action={dispatch} ref={formRef} className="max-h-[70vh] overflow-y-auto px-6">
-      <div className="grid gap-6 py-4">
-        <div className="grid md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <Label htmlFor="product-name">Name</Label>
-            <Input id="product-name" name="name" placeholder="e.g. Premium Wavy Bundles" required />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="product-price">Price ($)</Label>
-            <Input id="product-price" name="price" type="number" placeholder="e.g. 85.00" step="0.01" required />
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="product-desc">Description</Label>
-          <Textarea id="product-desc" name="description" placeholder="Describe your product..." required />
-        </div>
-        <div className="grid md:grid-cols-2 gap-6 items-start">
-          <div className="space-y-2">
-            <Label htmlFor="product-category">Category</Label>
-            <Select name="category" defaultValue="Wigs">
-              <SelectTrigger id="product-category">
-                <SelectValue placeholder="Select a category" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((cat) => (
-                  <SelectItem key={cat.name} value={cat.name}>
-                    {cat.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="product-image">Image</Label>
-            <Input id="product-image" name="image" type="file" className="file:text-primary file:font-medium" accept="image/png, image/jpeg, image/gif" onChange={handleFileChange} required/>
-            {imagePreview && (<Image src={imagePreview} alt="New product preview" width={100} height={100} className="rounded-md object-cover mt-2"/>)}
-          </div>
-        </div>
-        <Separator className="my-2" />
-        <h4 className="text-lg font-medium text-center">Product Specifications</h4>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div className="space-y-2">
-            <Label htmlFor="spec-type">Type</Label>
-            <Select name="type" defaultValue="Bundle">
-              <SelectTrigger id="spec-type"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Bundle">Bundle</SelectItem>
-                <SelectItem value="Wig">Wig</SelectItem>
-                <SelectItem value="Closure">Closure</SelectItem>
-                <SelectItem value="Frontal">Frontal</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="spec-length">Length (in)</Label>
-            <Input id="spec-length" name="length" type="number" defaultValue="18" required/>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="spec-texture">Texture</Label>
-            <Select name="texture" defaultValue="Wavy">
-              <SelectTrigger id="spec-texture"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Straight">Straight</SelectItem>
-                <SelectItem value="Wavy">Wavy</SelectItem>
-                <SelectItem value="Curly">Curly</SelectItem>
-                <SelectItem value="Kinky-Curly">Kinky Curly</SelectItem>
-                <SelectItem value="Body-Wave">Body Wave</SelectItem>
-                <SelectItem value="Deep-Wave">Deep Wave</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="spec-color">Color</Label>
-            <Input id="spec-color" name="color" defaultValue="Natural Black" required/>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="spec-origin">Origin</Label>
-            <Input id="spec-origin" name="origin" placeholder="e.g. Vietnamese" required/>
-          </div>
-        </div>
-      </div>
-       <DialogFooter className="p-6 pt-4 border-t bg-background sticky bottom-0">
-          <DialogTrigger asChild>
-            <Button type="button" variant="outline">Cancel</Button>
-          </DialogTrigger>
-          <Button type="submit" disabled={pending}>
-            {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Add Product
-          </Button>
-        </DialogFooter>
-    </form>
-  )
-}
 
 
 export default function VendorDashboardPage() {
@@ -237,6 +104,9 @@ export default function VendorDashboardPage() {
   const [editProductData, setEditProductData] = React.useState(initialEditProductState);
   
   const [editImageFile, setEditImageFile] = React.useState<File | null>(null);
+  
+  const [imagePreview, setImagePreview] = React.useState<string>('');
+
 
   const fetchVendorData = React.useCallback(async (currentUser: User) => {
     setIsLoading(true);
@@ -272,6 +142,19 @@ export default function VendorDashboardPage() {
 
     return () => unsubscribe();
   }, [fetchVendorData]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+        setImagePreview('');
+    }
+  };
   
   const handleEditFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -282,6 +165,53 @@ export default function VendorDashboardPage() {
         setEditProductData((prev) => ({ ...prev, imagePreview: reader.result as string }));
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAddProduct = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!user) {
+      toast({ title: "Authentication Error", description: "You must be logged in to add a product.", variant: "destructive" });
+      return;
+    }
+    setIsSubmitting(true);
+
+    const formData = new FormData(event.currentTarget);
+    const imageFile = formData.get('image') as File;
+    
+    if (!imageFile || imageFile.size === 0) {
+        toast({ title: "Missing Image", description: "Please select an image for your product.", variant: "destructive" });
+        setIsSubmitting(false);
+        return;
+    }
+    
+    const productData = {
+        name: formData.get('name') as string,
+        description: formData.get('description') as string,
+        price: parseFloat(formData.get('price') as string),
+        category: formData.get('category') as Product['category'],
+        specs: {
+            type: formData.get('type') as string,
+            length: `${formData.get('length') as string} inches`,
+            color: formData.get('color') as string,
+            texture: formData.get('texture') as string,
+            origin: formData.get('origin') as string,
+        }
+    };
+    
+    try {
+        await addProduct(productData, imageFile, user.uid);
+        toast({ title: "Success!", description: `Product "${productData.name}" has been added.` });
+        await fetchVendorData(user);
+        setShowAddDialog(false);
+        (event.target as HTMLFormElement).reset();
+        setImagePreview('');
+
+    } catch (error) {
+        console.error("Add product error:", error);
+        toast({ title: "Add Product Failed", description: "Could not add the product. Please try again.", variant: "destructive" });
+    } finally {
+        setIsSubmitting(false);
     }
   };
 
@@ -420,7 +350,97 @@ export default function VendorDashboardPage() {
                 Fill in the details to list a new product in your store.
               </DialogDescription>
             </DialogHeader>
-            <AddProductForm />
+             <form onSubmit={handleAddProduct}>
+              <div className="max-h-[70vh] overflow-y-auto px-6">
+                <div className="grid gap-6 py-4">
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="product-name">Name</Label>
+                      <Input id="product-name" name="name" placeholder="e.g. Premium Wavy Bundles" required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="product-price">Price ($)</Label>
+                      <Input id="product-price" name="price" type="number" placeholder="e.g. 85.00" step="0.01" required />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="product-desc">Description</Label>
+                    <Textarea id="product-desc" name="description" placeholder="Describe your product..." required />
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-6 items-start">
+                    <div className="space-y-2">
+                      <Label htmlFor="product-category">Category</Label>
+                      <Select name="category" defaultValue="Wigs">
+                        <SelectTrigger id="product-category">
+                          <SelectValue placeholder="Select a category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((cat) => (
+                            <SelectItem key={cat.name} value={cat.name}>
+                              {cat.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="product-image">Image</Label>
+                      <Input id="product-image" name="image" type="file" className="file:text-primary file:font-medium" accept="image/png, image/jpeg, image/gif" onChange={handleFileChange} required/>
+                      {imagePreview && (<Image src={imagePreview} alt="New product preview" width={100} height={100} className="rounded-md object-cover mt-2"/>)}
+                    </div>
+                  </div>
+                  <Separator className="my-2" />
+                  <h4 className="text-lg font-medium text-center">Product Specifications</h4>
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="spec-type">Type</Label>
+                      <Select name="type" defaultValue="Bundle">
+                        <SelectTrigger id="spec-type"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Bundle">Bundle</SelectItem>
+                          <SelectItem value="Wig">Wig</SelectItem>
+                          <SelectItem value="Closure">Closure</SelectItem>
+                          <SelectItem value="Frontal">Frontal</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="spec-length">Length (in)</Label>
+                      <Input id="spec-length" name="length" type="number" defaultValue="18" required/>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="spec-texture">Texture</Label>
+                      <Select name="texture" defaultValue="Wavy">
+                        <SelectTrigger id="spec-texture"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Straight">Straight</SelectItem>
+                          <SelectItem value="Wavy">Wavy</SelectItem>
+                          <SelectItem value="Curly">Curly</SelectItem>
+                          <SelectItem value="Kinky-Curly">Kinky Curly</SelectItem>
+                          <SelectItem value="Body-Wave">Body Wave</SelectItem>
+                          <SelectItem value="Deep-Wave">Deep Wave</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="spec-color">Color</Label>
+                      <Input id="spec-color" name="color" defaultValue="Natural Black" required/>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="spec-origin">Origin</Label>
+                      <Input id="spec-origin" name="origin" placeholder="e.g. Vietnamese" required/>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter className="p-6 pt-4 border-t bg-background sticky bottom-0">
+                  <Button type="button" variant="outline" onClick={() => setShowAddDialog(false)}>Cancel</Button>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Add Product
+                  </Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </header>
