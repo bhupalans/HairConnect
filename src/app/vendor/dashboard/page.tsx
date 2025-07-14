@@ -65,12 +65,11 @@ import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { Separator } from "@/components/ui/separator";
 
-const initialNewProductState = {
+const initialNewProductState: Omit<Product, 'id' | 'images' | 'sellerId' | 'price'> & { price: string } = {
   name: "",
   description: "",
   price: "",
-  category: "",
-  imagePreview: "",
+  category: "Wigs",
   specs: {
     type: "Bundle",
     length: "18",
@@ -78,6 +77,21 @@ const initialNewProductState = {
     texture: "Wavy",
     origin: "",
   }
+};
+
+const initialEditProductState: Omit<Product, 'id' | 'sellerId' | 'images'> & { imagePreview: string } = {
+    name: "",
+    description: "",
+    price: 0,
+    category: "Wigs",
+    imagePreview: "",
+    specs: {
+        type: "",
+        length: "",
+        color: "",
+        texture: "",
+        origin: "",
+    }
 };
 
 export default function VendorDashboardPage() {
@@ -101,16 +115,11 @@ export default function VendorDashboardPage() {
   
   // State for the add form
   const [newProduct, setNewProduct] = React.useState(initialNewProductState);
+  const [newProductImagePreview, setNewProductImagePreview] = React.useState<string>('');
   const [newImageFile, setNewImageFile] = React.useState<File | null>(null);
 
   // State for the edit form
-  const [editProductData, setEditProductData] = React.useState({
-    name: "",
-    description: "",
-    price: "",
-    category: "",
-    imagePreview: "",
-  });
+  const [editProductData, setEditProductData] = React.useState(initialEditProductState);
   
   const [editImageFile, setEditImageFile] = React.useState<File | null>(null);
 
@@ -149,13 +158,25 @@ export default function VendorDashboardPage() {
     return () => unsubscribe();
   }, [fetchVendorData]);
   
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setData: React.Dispatch<React.SetStateAction<any>>, setFile: React.Dispatch<React.SetStateAction<File | null>>) => {
+  const handleAddFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setFile(file);
+      setNewImageFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setData((prev: any) => ({ ...prev, imagePreview: reader.result as string }));
+        setNewProductImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  
+  const handleEditFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setEditImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditProductData((prev) => ({ ...prev, imagePreview: reader.result as string }));
       };
       reader.readAsDataURL(file);
     }
@@ -168,9 +189,13 @@ export default function VendorDashboardPage() {
     setEditProductData({
       name: product.name,
       description: product.description,
-      price: product.price.toString(),
+      price: product.price,
       category: product.category,
       imagePreview: product.images?.[0] || "",
+      specs: {
+        ...product.specs,
+        length: product.specs.length.replace(' inches', ''), // remove suffix for editing
+      }
     });
     setEditImageFile(null); // Reset file input on open
     setShowEditDialog(true);
@@ -178,20 +203,23 @@ export default function VendorDashboardPage() {
 
   // Handler to submit the updated product data
   const handleUpdateProduct = async () => {
-    if (!selectedProduct) return;
+    if (!selectedProduct || !user) return;
     setIsSubmitting(true);
     
     try {
+      const price = typeof editProductData.price === 'string' ? parseFloat(editProductData.price) : editProductData.price;
       await updateProduct(selectedProduct.id, {
         name: editProductData.name,
         description: editProductData.description,
-        price: parseFloat(editProductData.price),
-        category: editProductData.category as Product['category'],
+        price: price,
+        category: editProductData.category,
+        specs: {
+          ...editProductData.specs,
+          length: `${editProductData.specs.length} inches`
+        }
       }, editImageFile);
 
-      if (user) {
-        await fetchVendorData(user);
-      }
+      await fetchVendorData(user);
 
       toast({
         title: "Success!",
@@ -222,7 +250,7 @@ export default function VendorDashboardPage() {
             name: newProduct.name,
             description: newProduct.description,
             price: parseFloat(newProduct.price),
-            category: newProduct.category as Product['category'],
+            category: newProduct.category,
             specs: {
               ...newProduct.specs,
               length: `${newProduct.specs.length} inches`
@@ -237,6 +265,7 @@ export default function VendorDashboardPage() {
         await fetchVendorData(user);
         setShowAddDialog(false);
         setNewProduct(initialNewProductState);
+        setNewProductImagePreview('');
         setNewImageFile(null);
 
     } catch (error) {
@@ -374,7 +403,7 @@ export default function VendorDashboardPage() {
                 <Label htmlFor="product-category" className="text-right">
                   Category
                 </Label>
-                <Select value={newProduct.category} onValueChange={(value) => setNewProduct({...newProduct, category: value})}>
+                <Select value={newProduct.category} onValueChange={(value) => setNewProduct({...newProduct, category: value as Product['category']})}>
                   <SelectTrigger className="col-span-3">
                     <SelectValue placeholder="Select a category" />
                   </SelectTrigger>
@@ -397,17 +426,17 @@ export default function VendorDashboardPage() {
                     type="file"
                     className="col-span-3 file:text-primary file:font-medium"
                     accept="image/png, image/jpeg, image/gif"
-                    onChange={(e) => handleFileChange(e, setNewProduct, setNewImageFile)}
+                    onChange={handleAddFileChange}
                   />
-                  {newProduct.imagePreview && (
-                      <Image src={newProduct.imagePreview} alt="New product preview" width={100} height={100} className="rounded-md object-cover"/>
+                  {newProductImagePreview && (
+                      <Image src={newProductImagePreview} alt="New product preview" width={100} height={100} className="rounded-md object-cover"/>
                   )}
                 </div>
               </div>
 
               <Separator className="col-span-4 my-2" />
                <div className="col-span-4">
-                  <h4 className="text-lg font-medium text-center">Product Specifications</h4>
+                  <h4 className="text-lg font-medium text-center mb-4">Product Specifications</h4>
                </div>
 
               <div className="grid grid-cols-4 items-center gap-4">
@@ -543,7 +572,7 @@ export default function VendorDashboardPage() {
       </Card>
       {/* Edit Product Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="sm:max-w-[625px]">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Edit Product</DialogTitle>
             <DialogDescription>
@@ -591,7 +620,7 @@ export default function VendorDashboardPage() {
                 className="col-span-3"
                 value={editProductData.price}
                 onChange={(e) =>
-                  setEditProductData({ ...editProductData, price: e.target.value })
+                  setEditProductData({ ...editProductData, price: parseFloat(e.target.value) || 0 })
                 }
               />
             </div>
@@ -602,7 +631,7 @@ export default function VendorDashboardPage() {
               <Select
                 value={editProductData.category}
                 onValueChange={(value) =>
-                  setEditProductData({ ...editProductData, category: value })
+                  setEditProductData({ ...editProductData, category: value as Product['category'] })
                 }
               >
                 <SelectTrigger className="col-span-3">
@@ -627,13 +656,55 @@ export default function VendorDashboardPage() {
                     type="file"
                     className="col-span-3 file:text-primary file:font-medium"
                     accept="image/png, image/jpeg, image/gif"
-                    onChange={(e) => handleFileChange(e, setEditProductData, setEditImageFile)}
+                    onChange={handleEditFileChange}
                   />
                   {editProductData.imagePreview && (
                       <Image src={editProductData.imagePreview} alt="Product preview" width={100} height={100} className="rounded-md object-cover"/>
                   )}
                 </div>
               </div>
+            <Separator className="col-span-4 my-2" />
+            <div className="col-span-4">
+              <h4 className="text-lg font-medium text-center mb-4">Product Specifications</h4>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-spec-type" className="text-right">Type</Label>
+              <Select value={editProductData.specs.type} onValueChange={(value) => setEditProductData(p => ({...p, specs: {...p.specs, type: value}}))}>
+                <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Bundle">Bundle</SelectItem>
+                  <SelectItem value="Wig">Wig</SelectItem>
+                  <SelectItem value="Closure">Closure</SelectItem>
+                  <SelectItem value="Frontal">Frontal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-spec-length" className="text-right">Length (in)</Label>
+              <Input id="edit-spec-length" type="number" className="col-span-3" value={editProductData.specs.length} onChange={(e) => setEditProductData(p => ({...p, specs: {...p.specs, length: e.target.value}}))} />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-spec-color" className="text-right">Color</Label>
+              <Input id="edit-spec-color" className="col-span-3" value={editProductData.specs.color} onChange={(e) => setEditProductData(p => ({...p, specs: {...p.specs, color: e.target.value}}))} />
+            </div>
+             <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-spec-texture" className="text-right">Texture</Label>
+               <Select value={editProductData.specs.texture} onValueChange={(value) => setEditProductData(p => ({...p, specs: {...p.specs, texture: value}}))}>
+                <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Straight">Straight</SelectItem>
+                  <SelectItem value="Wavy">Wavy</SelectItem>
+                  <SelectItem value="Curly">Curly</SelectItem>
+                  <SelectItem value="Kinky-Curly">Kinky Curly</SelectItem>
+                  <SelectItem value="Body-Wave">Body Wave</SelectItem>
+                  <SelectItem value="Deep-Wave">Deep Wave</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+             <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-spec-origin" className="text-right">Origin</Label>
+              <Input id="edit-spec-origin" className="col-span-3" placeholder="e.g. Vietnamese" value={editProductData.specs.origin} onChange={(e) => setEditProductData(p => ({...p, specs: {...p.specs, origin: e.target.value}}))} />
+            </div>
           </div>
           <DialogFooter>
             <Button
@@ -675,3 +746,5 @@ export default function VendorDashboardPage() {
     </div>
   );
 }
+
+    

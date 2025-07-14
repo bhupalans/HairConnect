@@ -66,6 +66,7 @@ import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import type { QuoteRequest, Product, Seller, Buyer } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
+import { Separator } from "@/components/ui/separator";
 
 // State structure for forms
 const initialNewVendorState = {
@@ -85,12 +86,19 @@ const initialNewBuyerState = {
   bio: "",
 }
 
-const initialEditProductState = {
+const initialEditProductState: Omit<Product, 'id' | 'sellerId' | 'images'> & { imagePreview: string } = {
     name: "",
     description: "",
-    price: "",
-    category: "",
+    price: 0,
+    category: "Wigs",
     imagePreview: "",
+    specs: {
+        type: "",
+        length: "",
+        color: "",
+        texture: "",
+        origin: "",
+    }
 };
 
 
@@ -190,9 +198,13 @@ export default function AdminDashboardPage() {
     setEditProductData({
         name: product.name,
         description: product.description,
-        price: product.price.toString(),
+        price: product.price,
         category: product.category,
         imagePreview: product.images?.[0] || "",
+        specs: {
+            ...product.specs,
+            length: product.specs.length.replace(' inches', ''), // remove suffix for editing
+        }
     });
     setEditImageFile(null); // Reset file on open
     setIsEditProductOpen(true);
@@ -202,11 +214,16 @@ export default function AdminDashboardPage() {
     if (!selectedProduct) return;
     setIsSubmitting(true);
     try {
+        const price = typeof editProductData.price === 'string' ? parseFloat(editProductData.price) : editProductData.price;
         await updateProduct(selectedProduct.id, {
             name: editProductData.name,
             description: editProductData.description,
-            price: parseFloat(editProductData.price),
-            category: editProductData.category as Product['category'],
+            price: price,
+            category: editProductData.category,
+            specs: {
+                ...editProductData.specs,
+                length: `${editProductData.specs.length} inches`
+            }
         }, editImageFile);
         toast({ title: "Product Updated", description: `${editProductData.name} has been updated successfully.` });
         setIsEditProductOpen(false);
@@ -912,7 +929,7 @@ export default function AdminDashboardPage() {
       
       {/* Edit Product Dialog */}
        <Dialog open={isEditProductOpen} onOpenChange={setIsEditProductOpen}>
-        <DialogContent className="sm:max-w-[625px]">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Edit Product</DialogTitle>
             <DialogDescription>
@@ -924,17 +941,17 @@ export default function AdminDashboardPage() {
               <Label htmlFor="edit-product-name" className="text-right">Name</Label>
               <Input id="edit-product-name" className="col-span-3" value={editProductData.name} onChange={(e) => setEditProductData({ ...editProductData, name: e.target.value })}/>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
+            <div className="grid grid-cols-4 items-start gap-4">
               <Label htmlFor="edit-product-desc" className="text-right">Description</Label>
               <Textarea id="edit-product-desc" className="col-span-3" value={editProductData.description} onChange={(e) => setEditProductData({ ...editProductData, description: e.target.value })}/>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-product-price" className="text-right">Price ($)</Label>
-              <Input id="edit-product-price" type="number" className="col-span-3" value={editProductData.price} onChange={(e) => setEditProductData({ ...editProductData, price: e.target.value })}/>
+              <Input id="edit-product-price" type="number" className="col-span-3" value={editProductData.price} onChange={(e) => setEditProductData({ ...editProductData, price: parseFloat(e.target.value) || 0 })}/>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-product-category" className="text-right">Category</Label>
-              <Select value={editProductData.category} onValueChange={(value) => setEditProductData({ ...editProductData, category: value })}>
+              <Select value={editProductData.category} onValueChange={(value) => setEditProductData({ ...editProductData, category: value as Product['category'] })}>
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Select a category" />
                 </SelectTrigger>
@@ -950,6 +967,48 @@ export default function AdminDashboardPage() {
                   {editProductData.imagePreview && (<Image src={editProductData.imagePreview} alt="Product preview" width={100} height={100} className="rounded-md object-cover"/>)}
                 </div>
               </div>
+            <Separator className="col-span-4 my-2" />
+            <div className="col-span-4">
+              <h4 className="text-lg font-medium text-center mb-4">Product Specifications</h4>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-spec-type" className="text-right">Type</Label>
+              <Select value={editProductData.specs.type} onValueChange={(value) => setEditProductData(p => ({...p, specs: {...p.specs, type: value}}))}>
+                <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Bundle">Bundle</SelectItem>
+                  <SelectItem value="Wig">Wig</SelectItem>
+                  <SelectItem value="Closure">Closure</SelectItem>
+                  <SelectItem value="Frontal">Frontal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-spec-length" className="text-right">Length (in)</Label>
+              <Input id="edit-spec-length" type="number" className="col-span-3" value={editProductData.specs.length} onChange={(e) => setEditProductData(p => ({...p, specs: {...p.specs, length: e.target.value}}))} />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-spec-color" className="text-right">Color</Label>
+              <Input id="edit-spec-color" className="col-span-3" value={editProductData.specs.color} onChange={(e) => setEditProductData(p => ({...p, specs: {...p.specs, color: e.target.value}}))} />
+            </div>
+             <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-spec-texture" className="text-right">Texture</Label>
+               <Select value={editProductData.specs.texture} onValueChange={(value) => setEditProductData(p => ({...p, specs: {...p.specs, texture: value}}))}>
+                <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Straight">Straight</SelectItem>
+                  <SelectItem value="Wavy">Wavy</SelectItem>
+                  <SelectItem value="Curly">Curly</SelectItem>
+                  <SelectItem value="Kinky-Curly">Kinky Curly</SelectItem>
+                  <SelectItem value="Body-Wave">Body Wave</SelectItem>
+                  <SelectItem value="Deep-Wave">Deep Wave</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+             <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-spec-origin" className="text-right">Origin</Label>
+              <Input id="edit-spec-origin" className="col-span-3" placeholder="e.g. Vietnamese" value={editProductData.specs.origin} onChange={(e) => setEditProductData(p => ({...p, specs: {...p.specs, origin: e.target.value}}))} />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditProductOpen(false)}>Cancel</Button>
