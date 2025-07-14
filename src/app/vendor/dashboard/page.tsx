@@ -209,10 +209,8 @@ export default function VendorDashboardPage() {
     try {
       const price = typeof editProductData.price === 'string' ? parseFloat(editProductData.price) : editProductData.price;
       await updateProduct(selectedProduct.id, {
-        name: editProductData.name,
-        description: editProductData.description,
+        ...editProductData,
         price: price,
-        category: editProductData.category,
         specs: {
           ...editProductData.specs,
           length: `${editProductData.specs.length} inches`
@@ -247,10 +245,8 @@ export default function VendorDashboardPage() {
     
     try {
         await addProduct({
-            name: newProduct.name,
-            description: newProduct.description,
+            ...newProduct,
             price: parseFloat(newProduct.price),
-            category: newProduct.category,
             specs: {
               ...newProduct.specs,
               length: `${newProduct.specs.length} inches`
@@ -354,128 +350,96 @@ export default function VendorDashboardPage() {
               Add Product
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-2xl">
+          <DialogContent className="sm:max-w-3xl">
             <DialogHeader>
               <DialogTitle>Add New Product</DialogTitle>
               <DialogDescription>
                 Fill in the details to list a new product in your store.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="product-name" className="text-right">
-                  Name
-                </Label>
-                <Input
-                  id="product-name"
-                  className="col-span-3"
-                  placeholder="e.g. Premium Wavy Bundles"
-                  value={newProduct.name}
-                  onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
-                />
-              </div>
-              <div className="grid grid-cols-4 items-start gap-4">
-                <Label htmlFor="product-desc" className="text-right pt-2">
-                  Description
-                </Label>
-                <Textarea
-                  id="product-desc"
-                  className="col-span-3"
-                  placeholder="Describe your product..."
-                   value={newProduct.description}
-                  onChange={(e) => setNewProduct({...newProduct, description: e.target.value})}
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="product-price" className="text-right">
-                  Price ($)
-                </Label>
-                <Input
-                  id="product-price"
-                  type="number"
-                  className="col-span-3"
-                  placeholder="e.g. 85.00"
-                  value={newProduct.price}
-                  onChange={(e) => setNewProduct({...newProduct, price: e.target.value})}
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="product-category" className="text-right">
-                  Category
-                </Label>
-                <Select value={newProduct.category} onValueChange={(value) => setNewProduct({...newProduct, category: value as Product['category']})}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.name} value={cat.name}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-start gap-4">
-                <Label htmlFor="product-image" className="text-right pt-2">
-                  Image
-                </Label>
-                <div className="col-span-3 flex flex-col gap-2">
-                  <Input
-                    id="product-image"
-                    type="file"
-                    className="col-span-3 file:text-primary file:font-medium"
-                    accept="image/png, image/jpeg, image/gif"
-                    onChange={handleAddFileChange}
-                  />
-                  {newProductImagePreview && (
-                      <Image src={newProductImagePreview} alt="New product preview" width={100} height={100} className="rounded-md object-cover"/>
-                  )}
+            <div className="grid gap-6 py-4">
+               <div className="grid md:grid-cols-2 gap-6">
+                 <div className="space-y-2">
+                    <Label htmlFor="product-name">Name</Label>
+                    <Input id="product-name" placeholder="e.g. Premium Wavy Bundles" value={newProduct.name} onChange={(e) => setNewProduct({...newProduct, name: e.target.value})} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="product-price">Price ($)</Label>
+                    <Input id="product-price" type="number" placeholder="e.g. 85.00" value={newProduct.price} onChange={(e) => setNewProduct({...newProduct, price: e.target.value})} />
+                  </div>
+               </div>
+                <div className="space-y-2">
+                    <Label htmlFor="product-desc">Description</Label>
+                    <Textarea id="product-desc" placeholder="Describe your product..." value={newProduct.description} onChange={(e) => setNewProduct({...newProduct, description: e.target.value})}/>
+                </div>
+              <div className="grid md:grid-cols-2 gap-6 items-start">
+                 <div className="space-y-2">
+                    <Label htmlFor="product-category">Category</Label>
+                    <Select value={newProduct.category} onValueChange={(value) => setNewProduct({...newProduct, category: value as Product['category']})}>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {categories.map((cat) => (
+                        <SelectItem key={cat.name} value={cat.name}>
+                            {cat.name}
+                        </SelectItem>
+                        ))}
+                    </SelectContent>
+                    </Select>
+                 </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="product-image">Image</Label>
+                    <Input id="product-image" type="file" className="file:text-primary file:font-medium" accept="image/png, image/jpeg, image/gif" onChange={handleAddFileChange} />
+                    {newProductImagePreview && (<Image src={newProductImagePreview} alt="New product preview" width={100} height={100} className="rounded-md object-cover mt-2"/>)}
                 </div>
               </div>
 
-              <Separator className="col-span-4 my-2" />
-               <div className="col-span-4">
-                  <h4 className="text-lg font-medium text-center mb-4">Product Specifications</h4>
-               </div>
+              <Separator className="my-2" />
+              <h4 className="text-lg font-medium text-center">Product Specifications</h4>
+              
+              <div className="grid md:grid-cols-3 gap-6">
+                <div className="space-y-2">
+                    <Label htmlFor="spec-type">Type</Label>
+                    <Select value={newProduct.specs.type} onValueChange={(value) => setNewProduct(p => ({...p, specs: {...p.specs, type: value}}))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="Bundle">Bundle</SelectItem>
+                        <SelectItem value="Wig">Wig</SelectItem>
+                        <SelectItem value="Closure">Closure</SelectItem>
+                        <SelectItem value="Frontal">Frontal</SelectItem>
+                    </SelectContent>
+                    </Select>
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="spec-length">Length (in)</Label>
+                    <Input id="spec-length" type="number" value={newProduct.specs.length} onChange={(e) => setNewProduct(p => ({...p, specs: {...p.specs, length: e.target.value}}))} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="spec-texture">Texture</Label>
+                    <Select value={newProduct.specs.texture} onValueChange={(value) => setNewProduct(p => ({...p, specs: {...p.specs, texture: value}}))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Straight">Straight</SelectItem>
+                            <SelectItem value="Wavy">Wavy</SelectItem>
+                            <SelectItem value="Curly">Curly</SelectItem>
+                            <SelectItem value="Kinky-Curly">Kinky Curly</SelectItem>
+                            <SelectItem value="Body-Wave">Body Wave</SelectItem>
+                            <SelectItem value="Deep-Wave">Deep Wave</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+              </div>
 
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="spec-type" className="text-right">Type</Label>
-                <Select value={newProduct.specs.type} onValueChange={(value) => setNewProduct(p => ({...p, specs: {...p.specs, type: value}}))}>
-                  <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Bundle">Bundle</SelectItem>
-                    <SelectItem value="Wig">Wig</SelectItem>
-                    <SelectItem value="Closure">Closure</SelectItem>
-                    <SelectItem value="Frontal">Frontal</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="spec-length" className="text-right">Length (in)</Label>
-                <Input id="spec-length" type="number" className="col-span-3" value={newProduct.specs.length} onChange={(e) => setNewProduct(p => ({...p, specs: {...p.specs, length: e.target.value}}))} />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="spec-color" className="text-right">Color</Label>
-                <Input id="spec-color" className="col-span-3" value={newProduct.specs.color} onChange={(e) => setNewProduct(p => ({...p, specs: {...p.specs, color: e.target.value}}))} />
-              </div>
-               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="spec-texture" className="text-right">Texture</Label>
-                 <Select value={newProduct.specs.texture} onValueChange={(value) => setNewProduct(p => ({...p, specs: {...p.specs, texture: value}}))}>
-                  <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Straight">Straight</SelectItem>
-                    <SelectItem value="Wavy">Wavy</SelectItem>
-                    <SelectItem value="Curly">Curly</SelectItem>
-                    <SelectItem value="Kinky-Curly">Kinky Curly</SelectItem>
-                    <SelectItem value="Body-Wave">Body Wave</SelectItem>
-                    <SelectItem value="Deep-Wave">Deep Wave</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="spec-origin" className="text-right">Origin</Label>
-                <Input id="spec-origin" className="col-span-3" placeholder="e.g. Vietnamese" value={newProduct.specs.origin} onChange={(e) => setNewProduct(p => ({...p, specs: {...p.specs, origin: e.target.value}}))} />
+              <div className="grid md:grid-cols-2 gap-6">
+                 <div className="space-y-2">
+                    <Label htmlFor="spec-color">Color</Label>
+                    <Input id="spec-color" value={newProduct.specs.color} onChange={(e) => setNewProduct(p => ({...p, specs: {...p.specs, color: e.target.value}}))} />
+                 </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="spec-origin">Origin</Label>
+                    <Input id="spec-origin" placeholder="e.g. Vietnamese" value={newProduct.specs.origin} onChange={(e) => setNewProduct(p => ({...p, specs: {...p.specs, origin: e.target.value}}))} />
+                 </div>
               </div>
             </div>
             <DialogFooter>
@@ -572,7 +536,7 @@ export default function VendorDashboardPage() {
       </Card>
       {/* Edit Product Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>Edit Product</DialogTitle>
             <DialogDescription>
@@ -580,131 +544,83 @@ export default function VendorDashboardPage() {
               click save.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-product-name" className="text-right">
-                Name
-              </Label>
-              <Input
-                id="edit-product-name"
-                className="col-span-3"
-                value={editProductData.name}
-                onChange={(e) =>
-                  setEditProductData({ ...editProductData, name: e.target.value })
-                }
-              />
-            </div>
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label htmlFor="edit-product-desc" className="text-right pt-2">
-                Description
-              </Label>
-              <Textarea
-                id="edit-product-desc"
-                className="col-span-3"
-                value={editProductData.description}
-                onChange={(e) =>
-                  setEditProductData({
-                    ...editProductData,
-                    description: e.target.value,
-                  })
-                }
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-product-price" className="text-right">
-                Price ($)
-              </Label>
-              <Input
-                id="edit-product-price"
-                type="number"
-                className="col-span-3"
-                value={editProductData.price}
-                onChange={(e) =>
-                  setEditProductData({ ...editProductData, price: parseFloat(e.target.value) || 0 })
-                }
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-product-category" className="text-right">
-                Category
-              </Label>
-              <Select
-                value={editProductData.category}
-                onValueChange={(value) =>
-                  setEditProductData({ ...editProductData, category: value as Product['category'] })
-                }
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.name} value={cat.name}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-             <div className="grid grid-cols-4 items-start gap-4">
-                <Label htmlFor="edit-product-image" className="text-right pt-2">
-                  Image
-                </Label>
-                <div className="col-span-3 flex flex-col gap-2">
-                  <Input
-                    id="edit-product-image"
-                    type="file"
-                    className="col-span-3 file:text-primary file:font-medium"
-                    accept="image/png, image/jpeg, image/gif"
-                    onChange={handleEditFileChange}
-                  />
-                  {editProductData.imagePreview && (
-                      <Image src={editProductData.imagePreview} alt="Product preview" width={100} height={100} className="rounded-md object-cover"/>
-                  )}
+          <div className="grid gap-6 py-4">
+               <div className="grid md:grid-cols-2 gap-6">
+                 <div className="space-y-2">
+                    <Label htmlFor="edit-product-name-vendor">Name</Label>
+                    <Input id="edit-product-name-vendor" value={editProductData.name} onChange={(e) => setEditProductData({ ...editProductData, name: e.target.value })}/>
+                 </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="edit-product-price-vendor">Price ($)</Label>
+                    <Input id="edit-product-price-vendor" type="number" value={editProductData.price} onChange={(e) => setEditProductData({ ...editProductData, price: parseFloat(e.target.value) || 0 })}/>
                 </div>
               </div>
-            <Separator className="col-span-4 my-2" />
-            <div className="col-span-4">
-              <h4 className="text-lg font-medium text-center mb-4">Product Specifications</h4>
+               <div className="space-y-2">
+                    <Label htmlFor="edit-product-desc-vendor">Description</Label>
+                    <Textarea id="edit-product-desc-vendor" value={editProductData.description} onChange={(e) => setEditProductData({ ...editProductData, description: e.target.value })}/>
+                </div>
+              <div className="grid md:grid-cols-2 gap-6 items-start">
+                <div className="space-y-2">
+                    <Label htmlFor="edit-product-category-vendor">Category</Label>
+                     <Select value={editProductData.category} onValueChange={(value) => setEditProductData({ ...editProductData, category: value as Product['category'] })}>
+                        <SelectTrigger id="edit-product-category-vendor">
+                        <SelectValue placeholder="Select a category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                        {categories.map((cat) => ( <SelectItem key={cat.name} value={cat.name}>{cat.name}</SelectItem>))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="edit-product-image-vendor">Image</Label>
+                    <Input id="edit-product-image-vendor" type="file" className="file:text-primary file:font-medium" accept="image/png, image/jpeg, image/gif" onChange={handleEditFileChange}/>
+                    {editProductData.imagePreview && (<Image src={editProductData.imagePreview} alt="Product preview" width={100} height={100} className="rounded-md object-cover mt-2"/>)}
+                </div>
+              </div>
+            <Separator className="my-2" />
+            <h4 className="text-lg font-medium text-center">Product Specifications</h4>
+            <div className="grid md:grid-cols-3 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-spec-type-vendor">Type</Label>
+                  <Select value={editProductData.specs.type} onValueChange={(value) => setEditProductData(p => ({...p, specs: {...p.specs, type: value}}))}>
+                    <SelectTrigger id="edit-spec-type-vendor"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Bundle">Bundle</SelectItem>
+                      <SelectItem value="Wig">Wig</SelectItem>
+                      <SelectItem value="Closure">Closure</SelectItem>
+                      <SelectItem value="Frontal">Frontal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                   <Label htmlFor="edit-spec-length-vendor">Length (in)</Label>
+                   <Input id="edit-spec-length-vendor" type="number" value={editProductData.specs.length} onChange={(e) => setEditProductData(p => ({...p, specs: {...p.specs, length: e.target.value}}))} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="edit-spec-texture-vendor">Texture</Label>
+                    <Select value={editProductData.specs.texture} onValueChange={(value) => setEditProductData(p => ({...p, specs: {...p.specs, texture: value}}))}>
+                        <SelectTrigger id="edit-spec-texture-vendor"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                        <SelectItem value="Straight">Straight</SelectItem>
+                        <SelectItem value="Wavy">Wavy</SelectItem>
+                        <SelectItem value="Curly">Curly</SelectItem>
+                        <SelectItem value="Kinky-Curly">Kinky Curly</SelectItem>
+                        <SelectItem value="Body-Wave">Body Wave</SelectItem>
+                        <SelectItem value="Deep-Wave">Deep Wave</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-spec-type" className="text-right">Type</Label>
-              <Select value={editProductData.specs.type} onValueChange={(value) => setEditProductData(p => ({...p, specs: {...p.specs, type: value}}))}>
-                <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Bundle">Bundle</SelectItem>
-                  <SelectItem value="Wig">Wig</SelectItem>
-                  <SelectItem value="Closure">Closure</SelectItem>
-                  <SelectItem value="Frontal">Frontal</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-spec-length" className="text-right">Length (in)</Label>
-              <Input id="edit-spec-length" type="number" className="col-span-3" value={editProductData.specs.length} onChange={(e) => setEditProductData(p => ({...p, specs: {...p.specs, length: e.target.value}}))} />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-spec-color" className="text-right">Color</Label>
-              <Input id="edit-spec-color" className="col-span-3" value={editProductData.specs.color} onChange={(e) => setEditProductData(p => ({...p, specs: {...p.specs, color: e.target.value}}))} />
-            </div>
-             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-spec-texture" className="text-right">Texture</Label>
-               <Select value={editProductData.specs.texture} onValueChange={(value) => setEditProductData(p => ({...p, specs: {...p.specs, texture: value}}))}>
-                <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Straight">Straight</SelectItem>
-                  <SelectItem value="Wavy">Wavy</SelectItem>
-                  <SelectItem value="Curly">Curly</SelectItem>
-                  <SelectItem value="Kinky-Curly">Kinky Curly</SelectItem>
-                  <SelectItem value="Body-Wave">Body Wave</SelectItem>
-                  <SelectItem value="Deep-Wave">Deep Wave</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-spec-origin" className="text-right">Origin</Label>
-              <Input id="edit-spec-origin" className="col-span-3" placeholder="e.g. Vietnamese" value={editProductData.specs.origin} onChange={(e) => setEditProductData(p => ({...p, specs: {...p.specs, origin: e.target.value}}))} />
-            </div>
+             <div className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                    <Label htmlFor="edit-spec-color-vendor">Color</Label>
+                    <Input id="edit-spec-color-vendor" value={editProductData.specs.color} onChange={(e) => setEditProductData(p => ({...p, specs: {...p.specs, color: e.target.value}}))} />
+                </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="edit-spec-origin-vendor">Origin</Label>
+                    <Input id="edit-spec-origin-vendor" placeholder="e.g. Vietnamese" value={editProductData.specs.origin} onChange={(e) => setEditProductData(p => ({...p, specs: {...p.specs, origin: e.target.value}}))} />
+                </div>
+             </div>
           </div>
           <DialogFooter>
             <Button
@@ -746,5 +662,3 @@ export default function VendorDashboardPage() {
     </div>
   );
 }
-
-    
