@@ -1,8 +1,9 @@
 
 "use client";
 
-import * as React from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import React from "react";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -84,10 +85,12 @@ const initialEditProductState: Omit<Product, 'id' | 'sellerId' | 'images'> & { i
 
 function AddProductForm() {
   const initialState = { message: null, errors: {}, success: false };
-  const [state, dispatch] = useFormState(addProductAction, initialState);
+  const [state, dispatch] = useActionState(addProductAction, initialState);
   const { toast } = useToast();
   const formRef = React.useRef<HTMLFormElement>(null);
   const [imagePreview, setImagePreview] = React.useState<string>('');
+  
+  const { pending } = useFormStatus();
 
   React.useEffect(() => {
     if (state.message && !state.success) {
@@ -114,7 +117,6 @@ function AddProductForm() {
     }
   };
 
-  const { pending } = useFormStatus();
 
   return (
     <form action={dispatch} ref={formRef} className="max-h-[70vh] overflow-y-auto px-6">
