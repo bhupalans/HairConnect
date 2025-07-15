@@ -242,7 +242,8 @@ export async function addVendor({ companyName, name, email, password, location, 
       productIds: [],
       contact: {
         email: user.email,
-        phone: '', 
+        phone: '',
+        website: '',
       },
     });
 
@@ -261,6 +262,49 @@ export async function updateVendor(vendorId: string, data: Partial<Seller>) {
         console.error("Error updating vendor:", error);
         throw error;
     }
+}
+
+export async function updateSellerProfile(sellerId: string, data: Partial<Seller>, newAvatarFile: File | null) {
+  const sellerRef = doc(db, "sellers", sellerId);
+  const dataToUpdate = { ...data };
+
+  try {
+    if (newAvatarFile) {
+      const storage = getStorage();
+      const existingSellerSnap = await getDoc(sellerRef);
+      if (!existingSellerSnap.exists()) {
+          throw new Error("Seller not found to update.");
+      }
+      const existingSellerData = existingSellerSnap.data() as Seller;
+
+      const oldAvatarUrl = existingSellerData.avatarUrl;
+
+      // Use a consistent name for avatars, like 'avatar.jpg', to prevent clutter
+      const newAvatarRef = ref(storage, `avatars/${sellerId}/avatar`);
+      const uploadResult = await uploadBytes(newAvatarRef, newAvatarFile);
+      const newAvatarUrl = await getDownloadURL(uploadResult.ref);
+      
+      dataToUpdate.avatarUrl = newAvatarUrl;
+
+      // Delete the old avatar if it's a real storage URL and not the placeholder
+      if (oldAvatarUrl && oldAvatarUrl.includes('firebasestorage.googleapis.com')) {
+          try {
+            const oldAvatarStorageRef = ref(storage, oldAvatarUrl);
+            await deleteObject(oldAvatarStorageRef);
+          } catch (deleteError: any) {
+             // It's okay if the old file doesn't exist, log a warning.
+             if (deleteError.code !== 'storage/object-not-found') {
+                console.warn("Could not delete old avatar:", deleteError);
+             }
+          }
+      }
+    }
+
+    await updateDoc(sellerRef, dataToUpdate);
+  } catch (error) {
+    console.error("Error updating seller profile:", error);
+    throw error;
+  }
 }
 
 export async function deleteVendor(vendorId: string) {

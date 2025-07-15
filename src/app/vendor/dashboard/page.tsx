@@ -46,7 +46,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getProductsBySeller, getSellerById, updateProduct, deleteProduct, addProduct } from "@/lib/data";
+import { getProductsBySeller, getSellerById, updateProduct, deleteProduct, addProduct, updateSellerProfile } from "@/lib/data";
 import { MoreHorizontal, PlusCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -58,6 +58,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { categories } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 import type { Product, Seller } from "@/lib/types";
@@ -80,6 +86,14 @@ const initialEditProductState: Omit<Product, 'id' | 'sellerId' | 'images'> & { i
     }
 };
 
+const initialProfileState: Partial<Seller> = {
+    companyName: "",
+    name: "",
+    location: "",
+    bio: "",
+    contact: { email: "", phone: "", website: "" },
+};
+
 
 export default function VendorDashboardPage() {
   const { toast } = useToast();
@@ -89,6 +103,9 @@ export default function VendorDashboardPage() {
   const [products, setProducts] = React.useState<Product[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isSubmittingProfile, setIsSubmittingProfile] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState("products");
+
 
   // State for dialogs
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
@@ -100,12 +117,15 @@ export default function VendorDashboardPage() {
     null
   );
   
-  // State for the edit form
+  // State for forms
   const [editProductData, setEditProductData] = React.useState(initialEditProductState);
+  const [profileData, setProfileData] = React.useState<Partial<Seller>>(initialProfileState);
   
   const [editImageFile, setEditImageFile] = React.useState<File | null>(null);
+  const [newAvatarFile, setNewAvatarFile] = React.useState<File | null>(null);
   
   const [imagePreview, setImagePreview] = React.useState<string>('');
+  const [avatarPreview, setAvatarPreview] = React.useState<string>('');
 
 
   const fetchVendorData = React.useCallback(async (currentUser: User) => {
@@ -114,6 +134,15 @@ export default function VendorDashboardPage() {
         const fetchedSeller = await getSellerById(currentUser.uid);
         if (fetchedSeller) {
           setSeller(fetchedSeller);
+          setProfileData({
+             name: fetchedSeller.name,
+             companyName: fetchedSeller.companyName,
+             location: fetchedSeller.location,
+             bio: fetchedSeller.bio,
+             contact: fetchedSeller.contact,
+          });
+          setAvatarPreview(fetchedSeller.avatarUrl);
+
           const fetchedProducts = await getProductsBySeller(fetchedSeller.id);
           setProducts(fetchedProducts);
         } else {
@@ -167,6 +196,19 @@ export default function VendorDashboardPage() {
       reader.readAsDataURL(file);
     }
   };
+  
+   const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setNewAvatarFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
 
   const handleAddProduct = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -268,6 +310,24 @@ export default function VendorDashboardPage() {
         setIsSubmitting(false);
     }
   };
+  
+  const handleUpdateProfile = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!user) return;
+    setIsSubmittingProfile(true);
+
+    try {
+      await updateSellerProfile(user.uid, profileData, newAvatarFile);
+      toast({ title: "Profile Updated", description: "Your profile has been successfully updated." });
+      // No need to call fetchVendorData here, as the state is already managed locally. 
+      // A full refetch can be done if desired by calling `await fetchVendorData(user)`.
+    } catch (error) {
+      console.error("Update profile error:", error);
+      toast({ title: "Update Failed", description: "Could not update your profile. Please try again.", variant: "destructive"});
+    } finally {
+      setIsSubmittingProfile(false);
+    }
+  }
 
   // Handler to open the Delete confirmation dialog
   const handleDeleteClick = (product: Product) => {
@@ -329,203 +389,283 @@ export default function VendorDashboardPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
-      <header className="mb-8 flex justify-between items-center">
+      <header className="mb-8 flex justify-between items-start">
         <div>
           <h1 className="text-4xl font-headline text-primary">My Dashboard</h1>
           <p className="text-muted-foreground">
-            Manage your products for {seller.companyName}.
+            Manage your products and profile for {seller.companyName}.
           </p>
         </div>
-        <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-          <DialogTrigger asChild>
-            <Button>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Add Product
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-3xl p-0">
-            <DialogHeader className="p-6 pb-0">
-              <DialogTitle>Add New Product</DialogTitle>
-              <DialogDescription>
-                Fill in the details to list a new product in your store.
-              </DialogDescription>
-            </DialogHeader>
-             <form onSubmit={handleAddProduct}>
-              <div className="max-h-[70vh] overflow-y-auto px-6">
-                <div className="grid gap-6 py-4">
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="product-name">Name</Label>
-                      <Input id="product-name" name="name" placeholder="e.g. Premium Wavy Bundles" required />
+        <div>
+        {activeTab === 'products' && (
+            <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+            <DialogTrigger asChild>
+                <Button>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Add Product
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-3xl p-0">
+                <DialogHeader className="p-6 pb-0">
+                <DialogTitle>Add New Product</DialogTitle>
+                <DialogDescription>
+                    Fill in the details to list a new product in your store.
+                </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleAddProduct}>
+                <div className="max-h-[70vh] overflow-y-auto px-6">
+                    <div className="grid gap-6 py-4">
+                    <div className="grid md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                        <Label htmlFor="product-name">Name</Label>
+                        <Input id="product-name" name="name" placeholder="e.g. Premium Wavy Bundles" required />
+                        </div>
+                        <div className="space-y-2">
+                        <Label htmlFor="product-price">Price ($)</Label>
+                        <Input id="product-price" name="price" type="number" placeholder="e.g. 85.00" step="0.01" required />
+                        </div>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="product-price">Price ($)</Label>
-                      <Input id="product-price" name="price" type="number" placeholder="e.g. 85.00" step="0.01" required />
+                        <Label htmlFor="product-desc">Description</Label>
+                        <Textarea id="product-desc" name="description" placeholder="Describe your product..." required />
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="product-desc">Description</Label>
-                    <Textarea id="product-desc" name="description" placeholder="Describe your product..." required />
-                  </div>
-                  <div className="grid md:grid-cols-2 gap-6 items-start">
-                    <div className="space-y-2">
-                      <Label htmlFor="product-category">Category</Label>
-                      <Select name="category" defaultValue="Wigs">
-                        <SelectTrigger id="product-category">
-                          <SelectValue placeholder="Select a category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categories.map((cat) => (
-                            <SelectItem key={cat.name} value={cat.name}>
-                              {cat.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="grid md:grid-cols-2 gap-6 items-start">
+                        <div className="space-y-2">
+                        <Label htmlFor="product-category">Category</Label>
+                        <Select name="category" defaultValue="Wigs">
+                            <SelectTrigger id="product-category">
+                            <SelectValue placeholder="Select a category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                            {categories.map((cat) => (
+                                <SelectItem key={cat.name} value={cat.name}>
+                                {cat.name}
+                                </SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                        </div>
+                        <div className="space-y-2">
+                        <Label htmlFor="product-image">Image</Label>
+                        <Input id="product-image" name="image" type="file" className="file:text-primary file:font-medium" accept="image/png, image/jpeg, image/gif" onChange={handleFileChange} required/>
+                        {imagePreview && (<Image src={imagePreview} alt="New product preview" width={100} height={100} className="rounded-md object-cover mt-2"/>)}
+                        </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="product-image">Image</Label>
-                      <Input id="product-image" name="image" type="file" className="file:text-primary file:font-medium" accept="image/png, image/jpeg, image/gif" onChange={handleFileChange} required/>
-                      {imagePreview && (<Image src={imagePreview} alt="New product preview" width={100} height={100} className="rounded-md object-cover mt-2"/>)}
+                    <Separator className="my-2" />
+                    <h4 className="text-lg font-medium text-center">Product Specifications</h4>
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="space-y-2">
+                        <Label htmlFor="spec-type">Type</Label>
+                        <Select name="type" defaultValue="Bundle">
+                            <SelectTrigger id="spec-type"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                            <SelectItem value="Bundle">Bundle</SelectItem>
+                            <SelectItem value="Wig">Wig</SelectItem>
+                            <SelectItem value="Closure">Closure</SelectItem>
+                            <SelectItem value="Frontal">Frontal</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        </div>
+                        <div className="space-y-2">
+                        <Label htmlFor="spec-length">Length (in)</Label>
+                        <Input id="spec-length" name="length" type="number" defaultValue="18" required/>
+                        </div>
+                        <div className="space-y-2">
+                        <Label htmlFor="spec-texture">Texture</Label>
+                        <Select name="texture" defaultValue="Wavy">
+                            <SelectTrigger id="spec-texture"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                            <SelectItem value="Straight">Straight</SelectItem>
+                            <SelectItem value="Wavy">Wavy</SelectItem>
+                            <SelectItem value="Curly">Curly</SelectItem>
+                            <SelectItem value="Kinky-Curly">Kinky Curly</SelectItem>
+                            <SelectItem value="Body-Wave">Body Wave</SelectItem>
+                            <SelectItem value="Deep-Wave">Deep Wave</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        </div>
+                        <div className="space-y-2">
+                        <Label htmlFor="spec-color">Color</Label>
+                        <Input id="spec-color" name="color" defaultValue="Natural Black" required/>
+                        </div>
+                        <div className="space-y-2">
+                        <Label htmlFor="spec-origin">Origin</Label>
+                        <Input id="spec-origin" name="origin" placeholder="e.g. Vietnamese" required/>
+                        </div>
                     </div>
-                  </div>
-                  <Separator className="my-2" />
-                  <h4 className="text-lg font-medium text-center">Product Specifications</h4>
-                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="spec-type">Type</Label>
-                      <Select name="type" defaultValue="Bundle">
-                        <SelectTrigger id="spec-type"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Bundle">Bundle</SelectItem>
-                          <SelectItem value="Wig">Wig</SelectItem>
-                          <SelectItem value="Closure">Closure</SelectItem>
-                          <SelectItem value="Frontal">Frontal</SelectItem>
-                        </SelectContent>
-                      </Select>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="spec-length">Length (in)</Label>
-                      <Input id="spec-length" name="length" type="number" defaultValue="18" required/>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="spec-texture">Texture</Label>
-                      <Select name="texture" defaultValue="Wavy">
-                        <SelectTrigger id="spec-texture"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Straight">Straight</SelectItem>
-                          <SelectItem value="Wavy">Wavy</SelectItem>
-                          <SelectItem value="Curly">Curly</SelectItem>
-                          <SelectItem value="Kinky-Curly">Kinky Curly</SelectItem>
-                          <SelectItem value="Body-Wave">Body Wave</SelectItem>
-                          <SelectItem value="Deep-Wave">Deep Wave</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="spec-color">Color</Label>
-                      <Input id="spec-color" name="color" defaultValue="Natural Black" required/>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="spec-origin">Origin</Label>
-                      <Input id="spec-origin" name="origin" placeholder="e.g. Vietnamese" required/>
-                    </div>
-                  </div>
                 </div>
-              </div>
-              <DialogFooter className="p-6 pt-4 border-t bg-background sticky bottom-0">
-                  <Button type="button" variant="outline" onClick={() => setShowAddDialog(false)}>Cancel</Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Add Product
-                  </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <DialogFooter className="p-6 pt-4 border-t bg-background sticky bottom-0">
+                    <Button type="button" variant="outline" onClick={() => setShowAddDialog(false)}>Cancel</Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Add Product
+                    </Button>
+                </DialogFooter>
+                </form>
+            </DialogContent>
+            </Dialog>
+        )}
+        </div>
       </header>
+      
+      <Tabs defaultValue="products" onValueChange={setActiveTab}>
+          <TabsList>
+            <TabsTrigger value="products">My Products</TabsTrigger>
+            <TabsTrigger value="profile">Profile Settings</TabsTrigger>
+          </TabsList>
+          <TabsContent value="products">
+            <Card>
+                <CardHeader>
+                <CardTitle>My Products</CardTitle>
+                <CardDescription>
+                    A list of products you are currently selling.
+                </CardDescription>
+                </CardHeader>
+                <CardContent>
+                <Table>
+                    <TableHeader>
+                    <TableRow>
+                        <TableHead className="hidden w-[100px] sm:table-cell">
+                        Image
+                        </TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead className="hidden md:table-cell">Price</TableHead>
+                        <TableHead>
+                        <span className="sr-only">Actions</span>
+                        </TableHead>
+                    </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                    {products.length > 0 ? (
+                        products.map((product) => (
+                        <TableRow key={product.id}>
+                            <TableCell className="hidden sm:table-cell">
+                            <Image
+                                src={product.images?.[0] || 'https://placehold.co/64x64'}
+                                alt={product.name}
+                                width={64}
+                                height={64}
+                                className="rounded-md object-cover"
+                            />
+                            </TableCell>
+                            <TableCell className="font-medium">{product.name}</TableCell>
+                            <TableCell>{product.category}</TableCell>
+                            <TableCell className="hidden md:table-cell">
+                            ${product.price.toFixed(2)}
+                            </TableCell>
+                            <TableCell>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                <Button
+                                    aria-haspopup="true"
+                                    size="icon"
+                                    variant="ghost"
+                                >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    <span className="sr-only">Toggle menu</span>
+                                </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                <DropdownMenuItem
+                                    onSelect={() => handleEditClick(product)}
+                                >
+                                    Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    className="text-destructive"
+                                    onSelect={() => handleDeleteClick(product)}
+                                >
+                                    Delete
+                                </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                            </TableCell>
+                        </TableRow>
+                        ))
+                    ) : (
+                        <TableRow>
+                        <TableCell colSpan={5} className="text-center h-24">
+                            You haven't added any products yet.
+                        </TableCell>
+                        </TableRow>
+                    )}
+                    </TableBody>
+                </Table>
+                </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="profile">
+             <Card>
+                <CardHeader>
+                    <CardTitle>Profile Settings</CardTitle>
+                    <CardDescription>Update your public vendor profile and contact information.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <form onSubmit={handleUpdateProfile} className="space-y-8">
+                        <div className="flex items-start gap-6">
+                            <div className="space-y-2">
+                                <Label>Avatar</Label>
+                                <Image src={avatarPreview || "https://placehold.co/100x100"} alt="Avatar preview" width={100} height={100} className="rounded-full object-cover border"/>
+                                <Input id="avatar-upload" type="file" accept="image/*" onChange={handleAvatarFileChange} className="max-w-[100px] text-xs"/>
+                            </div>
+                            <div className="flex-grow space-y-6">
+                               <div className="grid md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="profile-companyName">Company Name</Label>
+                                        <Input id="profile-companyName" value={profileData.companyName || ''} onChange={e => setProfileData(p => ({...p, companyName: e.target.value}))}/>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="profile-name">Contact Name</Label>
+                                        <Input id="profile-name" value={profileData.name || ''} onChange={e => setProfileData(p => ({...p, name: e.target.value}))}/>
+                                    </div>
+                               </div>
+                               <div className="space-y-2">
+                                    <Label htmlFor="profile-location">Location</Label>
+                                    <Input id="profile-location" value={profileData.location || ''} onChange={e => setProfileData(p => ({...p, location: e.target.value}))}/>
+                                </div>
+                            </div>
+                        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>My Products</CardTitle>
-          <CardDescription>
-            A list of products you are currently selling.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="hidden w-[100px] sm:table-cell">
-                  Image
-                </TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead className="hidden md:table-cell">Price</TableHead>
-                <TableHead>
-                  <span className="sr-only">Actions</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {products.length > 0 ? (
-                products.map((product) => (
-                  <TableRow key={product.id}>
-                    <TableCell className="hidden sm:table-cell">
-                      <Image
-                        src={product.images?.[0] || 'https://placehold.co/64x64'}
-                        alt={product.name}
-                        width={64}
-                        height={64}
-                        className="rounded-md object-cover"
-                      />
-                    </TableCell>
-                    <TableCell className="font-medium">{product.name}</TableCell>
-                    <TableCell>{product.category}</TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      ${product.price.toFixed(2)}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            aria-haspopup="true"
-                            size="icon"
-                            variant="ghost"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">Toggle menu</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem
-                            onSelect={() => handleEditClick(product)}
-                          >
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-destructive"
-                            onSelect={() => handleDeleteClick(product)}
-                          >
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center h-24">
-                    You haven't added any products yet.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                        <div className="space-y-2">
+                            <Label htmlFor="profile-bio">Bio</Label>
+                            <Textarea id="profile-bio" value={profileData.bio || ''} onChange={e => setProfileData(p => ({...p, bio: e.target.value}))} className="min-h-[150px]"/>
+                        </div>
+                        
+                        <Separator />
+
+                        <h3 className="text-lg font-medium">Contact Details</h3>
+                         <div className="grid md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="profile-phone">Phone Number (Optional)</Label>
+                                <Input id="profile-phone" type="tel" value={profileData.contact?.phone || ''} onChange={e => setProfileData(p => ({...p, contact: {...p.contact, phone: e.target.value}} as any))}/>
+                            </div>
+                             <div className="space-y-2">
+                                <Label htmlFor="profile-website">Website (Optional)</Label>
+                                <Input id="profile-website" type="url" placeholder="your-website.com" value={profileData.contact?.website || ''} onChange={e => setProfileData(p => ({...p, contact: {...p.contact, website: e.target.value}} as any))}/>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                           <Label htmlFor="profile-email">Email</Label>
+                           <Input id="profile-email" type="email" value={profileData.contact?.email || ''} disabled/>
+                           <p className="text-xs text-muted-foreground">Your login email cannot be changed here. Contact support if you need to update it.</p>
+                        </div>
+                        
+                        <div className="flex justify-end">
+                            <Button type="submit" disabled={isSubmittingProfile}>
+                                {isSubmittingProfile && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                                Save Changes
+                            </Button>
+                        </div>
+                    </form>
+                </CardContent>
+            </Card>
+          </TabsContent>
+      </Tabs>
+
+
       {/* Edit Product Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent className="sm:max-w-3xl p-0">
