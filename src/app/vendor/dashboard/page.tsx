@@ -415,84 +415,84 @@ export default function VendorDashboardPage() {
                 <form onSubmit={handleAddProduct}>
                 <div className="max-h-[70vh] overflow-y-auto px-6">
                     <div className="grid gap-6 py-4">
-                    <div className="grid md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                        <Label htmlFor="product-name">Name</Label>
-                        <Input id="product-name" name="name" placeholder="e.g. Premium Wavy Bundles" required />
+                        <div className="grid md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                            <Label htmlFor="product-name">Name</Label>
+                            <Input id="product-name" name="name" placeholder="e.g. Premium Wavy Bundles" required />
+                            </div>
+                            <div className="space-y-2">
+                            <Label htmlFor="product-price">Price ($)</Label>
+                            <Input id="product-price" name="price" type="number" placeholder="e.g. 85.00" step="0.01" required />
+                            </div>
                         </div>
                         <div className="space-y-2">
-                        <Label htmlFor="product-price">Price ($)</Label>
-                        <Input id="product-price" name="price" type="number" placeholder="e.g. 85.00" step="0.01" required />
+                            <Label htmlFor="product-desc">Description</Label>
+                            <Textarea id="product-desc" name="description" placeholder="Describe your product..." required />
                         </div>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="product-desc">Description</Label>
-                        <Textarea id="product-desc" name="description" placeholder="Describe your product..." required />
-                    </div>
-                    <div className="grid md:grid-cols-2 gap-6 items-start">
-                        <div className="space-y-2">
-                        <Label htmlFor="product-category">Category</Label>
-                        <Select name="category" defaultValue="Wigs">
-                            <SelectTrigger id="product-category">
-                            <SelectValue placeholder="Select a category" />
-                            </SelectTrigger>
-                            <SelectContent>
-                            {categories.map((cat) => (
-                                <SelectItem key={cat.name} value={cat.name}>
-                                {cat.name}
-                                </SelectItem>
-                            ))}
-                            </SelectContent>
-                        </Select>
+                        <div className="grid md:grid-cols-2 gap-6 items-start">
+                            <div className="space-y-2">
+                            <Label htmlFor="product-category">Category</Label>
+                            <Select name="category" defaultValue="Wigs">
+                                <SelectTrigger id="product-category">
+                                <SelectValue placeholder="Select a category" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                {categories.map((cat) => (
+                                    <SelectItem key={cat.name} value={cat.name}>
+                                    {cat.name}
+                                    </SelectItem>
+                                ))}
+                                </SelectContent>
+                            </Select>
+                            </div>
+                            <div className="space-y-2">
+                            <Label htmlFor="product-image">Image</Label>
+                            <Input id="product-image" name="image" type="file" className="file:text-primary file:font-medium" accept="image/png, image/jpeg, image/gif" onChange={handleFileChange} required/>
+                            {imagePreview && (<Image src={imagePreview} alt="New product preview" width={100} height={100} className="rounded-md object-cover mt-2"/>)}
+                            </div>
                         </div>
-                        <div className="space-y-2">
-                        <Label htmlFor="product-image">Image</Label>
-                        <Input id="product-image" name="image" type="file" className="file:text-primary file:font-medium" accept="image/png, image/jpeg, image/gif" onChange={handleFileChange} required/>
-                        {imagePreview && (<Image src={imagePreview} alt="New product preview" width={100} height={100} className="rounded-md object-cover mt-2"/>)}
+                        <Separator className="my-2" />
+                        <h4 className="text-lg font-medium text-center">Product Specifications</h4>
+                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div className="space-y-2">
+                            <Label htmlFor="spec-type">Type</Label>
+                            <Select name="type" defaultValue="Bundle">
+                                <SelectTrigger id="spec-type"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                <SelectItem value="Bundle">Bundle</SelectItem>
+                                <SelectItem value="Wig">Wig</SelectItem>
+                                <SelectItem value="Closure">Closure</SelectItem>
+                                <SelectItem value="Frontal">Frontal</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            </div>
+                            <div className="space-y-2">
+                            <Label htmlFor="spec-length">Length (in)</Label>
+                            <Input id="spec-length" name="length" type="number" defaultValue="18" required/>
+                            </div>
+                            <div className="space-y-2">
+                            <Label htmlFor="spec-texture">Texture</Label>
+                            <Select name="texture" defaultValue="Wavy">
+                                <SelectTrigger id="spec-texture"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                <SelectItem value="Straight">Straight</SelectItem>
+                                <SelectItem value="Wavy">Wavy</SelectItem>
+                                <SelectItem value="Curly">Curly</SelectItem>
+                                <SelectItem value="Kinky-Curly">Kinky Curly</SelectItem>
+                                <SelectItem value="Body-Wave">Body Wave</SelectItem>
+                                <SelectItem value="Deep-Wave">Deep Wave</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            </div>
+                            <div className="space-y-2">
+                            <Label htmlFor="spec-color">Color</Label>
+                            <Input id="spec-color" name="color" defaultValue="Natural Black" required/>
+                            </div>
+                            <div className="space-y-2">
+                            <Label htmlFor="spec-origin">Origin</Label>
+                            <Input id="spec-origin" name="origin" placeholder="e.g. Vietnamese" required/>
+                            </div>
                         </div>
-                    </div>
-                    <Separator className="my-2" />
-                    <h4 className="text-lg font-medium text-center">Product Specifications</h4>
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <div className="space-y-2">
-                        <Label htmlFor="spec-type">Type</Label>
-                        <Select name="type" defaultValue="Bundle">
-                            <SelectTrigger id="spec-type"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                            <SelectItem value="Bundle">Bundle</SelectItem>
-                            <SelectItem value="Wig">Wig</SelectItem>
-                            <SelectItem value="Closure">Closure</SelectItem>
-                            <SelectItem value="Frontal">Frontal</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        </div>
-                        <div className="space-y-2">
-                        <Label htmlFor="spec-length">Length (in)</Label>
-                        <Input id="spec-length" name="length" type="number" defaultValue="18" required/>
-                        </div>
-                        <div className="space-y-2">
-                        <Label htmlFor="spec-texture">Texture</Label>
-                        <Select name="texture" defaultValue="Wavy">
-                            <SelectTrigger id="spec-texture"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                            <SelectItem value="Straight">Straight</SelectItem>
-                            <SelectItem value="Wavy">Wavy</SelectItem>
-                            <SelectItem value="Curly">Curly</SelectItem>
-                            <SelectItem value="Kinky-Curly">Kinky Curly</SelectItem>
-                            <SelectItem value="Body-Wave">Body Wave</SelectItem>
-                            <SelectItem value="Deep-Wave">Deep Wave</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        </div>
-                        <div className="space-y-2">
-                        <Label htmlFor="spec-color">Color</Label>
-                        <Input id="spec-color" name="color" defaultValue="Natural Black" required/>
-                        </div>
-                        <div className="space-y-2">
-                        <Label htmlFor="spec-origin">Origin</Label>
-                        <Input id="spec-origin" name="origin" placeholder="e.g. Vietnamese" required/>
-                        </div>
-                    </div>
                     </div>
                 </div>
                 <DialogFooter className="p-6 pt-4 border-t bg-background sticky bottom-0">
