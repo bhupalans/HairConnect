@@ -25,11 +25,11 @@ const mapFirestoreDocToQuoteRequest = (docSnapshot: any): QuoteRequest => {
 };
 
 export const categories = [
-    { name: 'Raw Hair', icon: 'https://placehold.co/40x40' },
-    { name: 'Virgin Hair', icon: 'https://placehold.co/40x40' },
-    { name: 'Wigs', icon: 'https://placehold.co/40x40' },
-    { name: 'Extensions', icon: 'https://placehold.co/40x40' },
-    { name: 'Tools', icon: 'https://placehold.co/40x40' },
+    { name: 'Raw Hair', icon: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' class='lucide lucide-shrink'%3E%3Cpath d='m9 9-6 6V9h6'%3E%3C/path%3E%3Cpath d='m15 15 6-6v6h-6'%3E%3C/path%3E%3Cpath d='M21 3 3 21'%3E%3C/path%3E%3C/svg%3E` },
+    { name: 'Virgin Hair', icon: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' class='lucide lucide-gem'%3E%3Cpath d='M6 3h12l4 6-10 13L2 9Z'%3E%3C/path%3E%3Cpath d='M12 22V9'%3E%3C/path%3E%3Cpath d='m2 9h20'%3E%3C/path%3E%3C/svg%3E` },
+    { name: 'Wigs', icon: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' class='lucide lucide-user-round'%3E%3Ccircle cx='12' cy='8' r='5'%3E%3C/circle%3E%3Cpath d='M20 21a8 8 0 0 0-16 0'%3E%3C/path%3E%3C/svg%3E` },
+    { name: 'Extensions', icon: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' class='lucide lucide-move-up'%3E%3Cpath d='M8 6L12 2L16 6'%3E%3C/path%3E%3Cpath d='M12 2V22'%3E%3C/path%3E%3C/svg%3E` },
+    { name: 'Tools', icon: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' class='lucide lucide-scissors'%3E%3Ccircle cx='6' cy='6' r='3'%3E%3C/circle%3E%3Ccircle cx='6' cy='18' r='3'%3E%3C/circle%3E%3Cpath d='M20 4L8.12 15.88'%3E%3C/path%3E%3Cpath d='M14.47 14.48L20 20'%3E%3C/path%3E%3Cpath d='M8.12 8.12L12 12'%3E%3C/path%3E%3C/svg%3E` },
 ];
 
 export const getProducts = cache(async (): Promise<Product[]> => {
