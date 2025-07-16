@@ -12,6 +12,7 @@ import type { Seller, Product } from "@/lib/types";
 import { useState, useEffect } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { usePathname } from "next/navigation";
 
 interface SellerProfileClientPageProps {
   seller: Seller;
@@ -21,6 +22,7 @@ interface SellerProfileClientPageProps {
 export function SellerProfileClientPage({ seller, sellerProducts }: SellerProfileClientPageProps) {
   const [currentUser, setCurrentUser] = useState<User | null | undefined>(undefined);
   const isLoading = currentUser === undefined;
+  const pathname = usePathname();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -70,7 +72,7 @@ export function SellerProfileClientPage({ seller, sellerProducts }: SellerProfil
                 </Button>
               ) : (
                 <Button asChild variant="secondary">
-                    <Link href="/login"><LogIn className="mr-2 h-4 w-4" /> Login to Contact Seller</Link>
+                    <Link href={`/login?redirect=${pathname}`}><LogIn className="mr-2 h-4 w-4" /> Login to Contact Seller</Link>
                 </Button>
               )}
             </div>

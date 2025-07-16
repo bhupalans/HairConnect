@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
@@ -23,6 +23,7 @@ import { Loader2 } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,6 +32,7 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    const redirectUrl = searchParams.get("redirect");
 
     if (!email || !password) {
       toast({
@@ -63,13 +65,15 @@ export default function LoginPage() {
           path = "/admin/dashboard";
         }
       }
+      
+      const finalRedirectPath = redirectUrl || path;
 
-      if (path) {
+      if (finalRedirectPath) {
         toast({
           title: "Login Successful",
           description: "Welcome back!",
         });
-        router.push(path);
+        router.push(finalRedirectPath);
       } else {
          // This case handles if a user exists in Auth but not in sellers or admins DB.
          throw new Error("User profile not found.");
