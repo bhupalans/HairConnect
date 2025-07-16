@@ -54,4 +54,6 @@ export interface QuoteRequest {
   sellerId: string;
   quantity: string;
   details?: string;
+  isRead: boolean;
+  productName?: string;
 }

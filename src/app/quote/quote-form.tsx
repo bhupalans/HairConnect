@@ -75,10 +75,15 @@ export function QuoteForm() {
       if (currentUser) {
         setUser(currentUser);
         // User is logged in, let's fetch their data to pre-fill the form
-        const sellerProfile = await getSellerById(currentUser.uid);
-        if (sellerProfile) {
-          form.setValue('name', sellerProfile.name);
-          form.setValue('email', sellerProfile.contact.email);
+        // A user could be a seller or an admin, but here they are acting as a buyer.
+        // We will try to fetch seller profile to get their name.
+        const userProfile = await getSellerById(currentUser.uid);
+        if (userProfile) {
+          form.setValue('name', userProfile.name);
+        }
+        // Always pre-fill the email from the authenticated user.
+        if (currentUser.email) {
+            form.setValue('email', currentUser.email);
         }
       } else {
         setUser(null);
@@ -97,7 +102,6 @@ export function QuoteForm() {
         if (foundProduct) {
           setProduct(foundProduct);
           
-          // Preserve name and email if they were already filled by the auth state change
           const currentName = form.getValues('name');
           const currentEmail = form.getValues('email');
 
@@ -107,7 +111,7 @@ export function QuoteForm() {
             hairType: foundProduct.category,
             length: foundProduct.specs.length.replace(' inches', ''),
             color: foundProduct.specs.color,
-            texture: foundProduct.specs.texture.toLowerCase().replace(' ', '-'),
+            texture: foundProduct.specs.texture.toLowerCase().replace(/ /g, '-'),
             quantity: "",
             details: "",
           });
@@ -133,6 +137,7 @@ export function QuoteForm() {
           buyerName: data.name,
           buyerEmail: data.email,
           productId: product.id,
+          productName: product.name,
           sellerId: product.sellerId,
           quantity: data.quantity,
           details: data.details,
@@ -144,7 +149,8 @@ export function QuoteForm() {
           buyerName: data.name,
           buyerEmail: data.email,
           productId: 'N/A', 
-          sellerId: 'N/A',
+          sellerId: 'N/A', // This could be routed to an admin or a general pool
+          productName: `General Inquiry: ${data.hairType}`,
           quantity: data.quantity,
           details: `Category: ${data.hairType}\nLength: ${data.length} inches\nColor: ${data.color}\nTexture: ${data.texture}\n\nAdditional Details: ${data.details || 'None'}`,
         });

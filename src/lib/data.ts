@@ -2,7 +2,7 @@
 import type { Product, Seller, Buyer, QuoteRequest } from './types';
 import { unstable_noStore as noStore } from 'next/cache';
 import { db, auth } from './firebase';
-import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp, query, orderBy, Timestamp, updateDoc, where, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp, query, orderBy, Timestamp, updateDoc, where, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 
@@ -21,6 +21,8 @@ const mapFirestoreDocToQuoteRequest = (docSnapshot: any): QuoteRequest => {
         sellerId: data.sellerId || 'N/A',
         quantity: data.quantity || '',
         details: data.details || '',
+        isRead: data.isRead || false,
+        productName: data.productName || 'General Inquiry',
     };
 };
 
@@ -99,11 +101,12 @@ export const getBuyerById = async (id:string): Promise<Buyer | null> => {
     return null;
 };
 
-export async function addQuoteRequest(data: Omit<QuoteRequest, 'id' | 'date'>) {
+export async function addQuoteRequest(data: Omit<QuoteRequest, 'id' | 'date' | 'isRead'>) {
     try {
         const quoteCollectionRef = collection(db, 'quote-requests');
         await addDoc(quoteCollectionRef, {
             ...data,
+            isRead: false, // Set new requests as unread
             createdAt: serverTimestamp(), // Use server timestamp for creation date
         });
     } catch (error) {
@@ -122,6 +125,44 @@ export async function getQuoteRequests(): Promise<QuoteRequest[]> {
     } catch (error) {
         console.error("Error fetching quote requests:", error);
         return [];
+    }
+}
+
+export async function getQuoteRequestsBySeller(sellerId: string): Promise<QuoteRequest[]> {
+    noStore();
+    if (!sellerId) return [];
+    try {
+        const quotesRef = collection(db, "quote-requests");
+        const q = query(quotesRef, where("sellerId", "==", sellerId), orderBy("createdAt", "desc"));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(mapFirestoreDocToQuoteRequest);
+    } catch (error) {
+        console.error("Error fetching quote requests for seller:", error);
+        return [];
+    }
+}
+
+export async function markQuoteRequestsAsRead(sellerId: string): Promise<void> {
+    if (!sellerId) return;
+    try {
+        const quotesRef = collection(db, "quote-requests");
+        const q = query(quotesRef, where("sellerId", "==", sellerId), where("isRead", "==", false));
+        const querySnapshot = await getDocs(q);
+        
+        if (querySnapshot.empty) {
+            return; // No unread requests to mark
+        }
+
+        const batch = writeBatch(db);
+        querySnapshot.forEach(docSnapshot => {
+            batch.update(docSnapshot.ref, { isRead: true });
+        });
+
+        await batch.commit();
+    } catch (error) {
+        console.error("Error marking quote requests as read:", error);
+        // We don't re-throw here because failing to mark as read is not a critical UI error.
+        // The user can still view the requests. We just log it.
     }
 }
 

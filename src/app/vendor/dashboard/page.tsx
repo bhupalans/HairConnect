@@ -46,8 +46,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getProductsBySeller, getSellerById, updateProduct, deleteProduct, addProduct, updateSellerProfile } from "@/lib/data";
-import { MoreHorizontal, PlusCircle, Loader2 } from "lucide-react";
+import { getProductsBySeller, getSellerById, updateProduct, deleteProduct, addProduct, updateSellerProfile, getQuoteRequestsBySeller, markQuoteRequestsAsRead } from "@/lib/data";
+import { MoreHorizontal, PlusCircle, Loader2, Mail } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Textarea } from "@/components/ui/textarea";
@@ -66,10 +66,13 @@ import {
 } from "@/components/ui/tabs";
 import { categories } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
-import type { Product, Seller } from "@/lib/types";
+import type { Product, Seller, QuoteRequest } from "@/lib/types";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+
 
 const initialEditProductState: Omit<Product, 'id' | 'sellerId' | 'images'> & { imagePreview: string } = {
     name: "",
@@ -101,6 +104,7 @@ export default function VendorDashboardPage() {
   const [user, setUser] = React.useState<User | null>(null);
   const [seller, setSeller] = React.useState<Seller | null>(null);
   const [products, setProducts] = React.useState<Product[]>([]);
+  const [quoteRequests, setQuoteRequests] = React.useState<QuoteRequest[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isSubmittingProfile, setIsSubmittingProfile] = React.useState(false);
@@ -127,11 +131,20 @@ export default function VendorDashboardPage() {
   const [imagePreview, setImagePreview] = React.useState<string>('');
   const [avatarPreview, setAvatarPreview] = React.useState<string>('');
 
+  const unreadQuotesCount = React.useMemo(() => {
+    return quoteRequests.filter(q => !q.isRead).length;
+  }, [quoteRequests]);
+
 
   const fetchVendorData = React.useCallback(async (currentUser: User) => {
     setIsLoading(true);
     try {
-        const fetchedSeller = await getSellerById(currentUser.uid);
+        const [fetchedSeller, fetchedProducts, fetchedQuotes] = await Promise.all([
+          getSellerById(currentUser.uid),
+          getProductsBySeller(currentUser.uid),
+          getQuoteRequestsBySeller(currentUser.uid)
+        ]);
+        
         if (fetchedSeller) {
           setSeller(fetchedSeller);
           setProfileData({
@@ -142,9 +155,8 @@ export default function VendorDashboardPage() {
              contact: fetchedSeller.contact,
           });
           setAvatarPreview(fetchedSeller.avatarUrl);
-
-          const fetchedProducts = await getProductsBySeller(fetchedSeller.id);
           setProducts(fetchedProducts);
+          setQuoteRequests(fetchedQuotes);
         } else {
           toast({ title: "Seller Profile Not Found", description: "We couldn't find your seller profile. Please contact support.", variant: "destructive"});
         }
@@ -171,6 +183,18 @@ export default function VendorDashboardPage() {
 
     return () => unsubscribe();
   }, [fetchVendorData]);
+
+  const handleTabChange = async (value: string) => {
+    setActiveTab(value);
+    if (value === 'quotes' && user && unreadQuotesCount > 0) {
+      // Mark as read in the background
+      await markQuoteRequestsAsRead(user.uid);
+      // Optimistically update the UI
+      setQuoteRequests(currentQuotes => 
+        currentQuotes.map(q => ({ ...q, isRead: true }))
+      );
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -509,9 +533,15 @@ export default function VendorDashboardPage() {
         </div>
       </header>
       
-      <Tabs defaultValue="products" onValueChange={setActiveTab}>
-          <TabsList>
+      <Tabs defaultValue="products" onValueChange={handleTabChange}>
+          <TabsList className="mb-4">
             <TabsTrigger value="products">My Products</TabsTrigger>
+            <TabsTrigger value="quotes" className="relative">
+              Quote Requests
+              {unreadQuotesCount > 0 && (
+                <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0">{unreadQuotesCount}</Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="profile">Profile Settings</TabsTrigger>
           </TabsList>
           <TabsContent value="products">
@@ -589,6 +619,65 @@ export default function VendorDashboardPage() {
                         <TableRow>
                         <TableCell colSpan={5} className="text-center h-24">
                             You haven't added any products yet.
+                        </TableCell>
+                        </TableRow>
+                    )}
+                    </TableBody>
+                </Table>
+                </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="quotes">
+            <Card>
+                <CardHeader>
+                <CardTitle>Incoming Quote Requests</CardTitle>
+                <CardDescription>
+                    These are requests from potential buyers for your products.
+                </CardDescription>
+                </CardHeader>
+                <CardContent>
+                <Table>
+                    <TableHeader>
+                    <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Buyer</TableHead>
+                        <TableHead>Product</TableHead>
+                        <TableHead>Details</TableHead>
+                        <TableHead>Action</TableHead>
+                    </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                    {quoteRequests.length > 0 ? (
+                        quoteRequests.map((req) => (
+                        <TableRow key={req.id} className={!req.isRead ? 'bg-secondary/60' : ''}>
+                            <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                                {format(new Date(req.date), "dd MMM yyyy")}
+                            </TableCell>
+                            <TableCell>
+                                <div className="font-medium">{req.buyerName}</div>
+                                <div className="text-xs text-muted-foreground">{req.buyerEmail}</div>
+                            </TableCell>
+                            <TableCell>
+                                <div className="font-medium">{req.productName}</div>
+                                <div className="text-xs text-muted-foreground">Qty: {req.quantity}</div>
+                            </TableCell>
+                            <TableCell className="max-w-[300px] text-sm text-muted-foreground whitespace-pre-wrap">
+                                {req.details || 'N/A'}
+                            </TableCell>
+                            <TableCell>
+                               <Button asChild variant="outline" size="sm">
+                                    <a href={`mailto:${req.buyerEmail}?subject=Re: Your Quote Request for ${req.productName}`}>
+                                        <Mail className="mr-2 h-4 w-4"/>
+                                        Contact
+                                    </a>
+                               </Button>
+                            </TableCell>
+                        </TableRow>
+                        ))
+                    ) : (
+                        <TableRow>
+                        <TableCell colSpan={5} className="text-center h-24">
+                            You have no quote requests yet.
                         </TableCell>
                         </TableRow>
                     )}
