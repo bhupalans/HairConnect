@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, Scissors, ChevronDown, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -18,6 +19,7 @@ import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
+import type { Seller } from "@/lib/types";
 
 
 const Logo = () => (
@@ -39,6 +41,7 @@ export function Header() {
   const [isSheetOpen, setSheetOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<'vendor' | 'admin' | null>(null);
+  const [sellerProfile, setSellerProfile] = useState<Seller | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
@@ -47,21 +50,28 @@ export function Header() {
       setIsLoading(true);
       if (currentUser) {
         setUser(currentUser);
-        // Determine user role
-        const sellerDoc = await getDoc(doc(db, "sellers", currentUser.uid));
+        // Determine user role and fetch profile data if needed
+        const sellerDocRef = doc(db, "sellers", currentUser.uid);
+        const sellerDoc = await getDoc(sellerDocRef);
+        
         if (sellerDoc.exists()) {
           setUserRole("vendor");
+          setSellerProfile({ id: sellerDoc.id, ...sellerDoc.data() } as Seller);
         } else {
-          const adminDoc = await getDoc(doc(db, "admins", currentUser.uid));
+          const adminDocRef = doc(db, "admins", currentUser.uid);
+          const adminDoc = await getDoc(adminDocRef);
           if (adminDoc.exists()) {
             setUserRole("admin");
+            setSellerProfile(null);
           } else {
             setUserRole(null); // Should not happen if DB is consistent
+            setSellerProfile(null);
           }
         }
       } else {
         setUser(null);
         setUserRole(null);
+        setSellerProfile(null);
       }
       setIsLoading(false);
     });
@@ -84,16 +94,41 @@ export function Header() {
       return <Loader2 className="h-6 w-6 animate-spin" />;
     }
 
-    if (user && userRole) {
+    if (user && userRole === 'vendor' && sellerProfile) {
+       return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="flex items-center gap-2">
+                <Avatar className="h-8 w-8">
+                    <AvatarImage src={sellerProfile.avatarUrl} alt={sellerProfile.name} />
+                    <AvatarFallback>{sellerProfile.name.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <span>{sellerProfile.companyName || sellerProfile.name}</span>
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Logged in as Vendor</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href={dashboardPath}>My Dashboard</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={handleLogout}>Logout</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+    }
+
+    if (user && userRole === 'admin') {
        return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline">
-                My Account <ChevronDown className="ml-2 h-4 w-4" />
+                Admin Account <ChevronDown className="ml-2 h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Logged in as {userRole === 'admin' ? 'Admin' : 'Vendor'}</DropdownMenuLabel>
+              <DropdownMenuLabel>Logged in as Admin</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <Link href={dashboardPath}>My Dashboard</Link>
