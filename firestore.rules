@@ -4,44 +4,53 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check for Admin role
+    // --- Admins: Allow full access to admins ---
     function isAdmin() {
+      // Check if the requesting user's UID exists in the 'admins' collection.
       return exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
-    // Products can be read by anyone, but only created/modified by the seller or an admin.
+    // --- Products: Publicly readable, writable only by the owner seller or an admin ---
     match /products/{productId} {
       allow read: if true;
-      allow create: if request.auth != null && request.resource.data.sellerId == request.auth.uid;
-      allow update, delete: if request.auth != null && (resource.data.sellerId == request.auth.uid || isAdmin());
+      // Allow create/update/delete if user is an admin or if their UID matches the product's sellerId.
+      // For create, we check the incoming resource's data.
+      allow create: if isAdmin() || request.auth.uid == request.resource.data.sellerId;
+      allow update, delete: if isAdmin() || request.auth.uid == resource.data.sellerId;
     }
 
-    // Sellers profiles can be read by anyone.
-    // A user can create their own seller profile during registration.
-    // A user can update their own profile, or an admin can update any profile.
-    match /sellers/{userId} {
+    // --- Sellers: Publicly readable, writable only by the seller or an admin ---
+    match /sellers/{sellerId} {
       allow read: if true;
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && (request.auth.uid == userId || isAdmin());
-      // Deletion should only be done by an admin from the dashboard
+      // Allow any authenticated user to create a seller profile (register).
+      allow create: if request.auth.uid != null;
+      // Allow updates only by the seller themselves or an admin.
+      allow update: if isAdmin() || request.auth.uid == sellerId;
+      // Only admins can delete seller profiles.
       allow delete: if isAdmin();
     }
-
-    // Buyers can be read by anyone, but only managed by admins.
+    
+    // --- Buyers: Publicly readable, managed only by admins ---
     match /buyers/{buyerId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
     }
-    
-    // Quote requests can be created by anyone. Only admins can read them all.
-    match /quote-requests/{requestId} {
-      allow read: if isAdmin();
-      allow create: if true;
-    }
 
-    // Admins collection can only be accessed by other admins.
+    // --- Quote Requests: Writable by any user, readable only by the designated seller or an admin ---
+    match /quote-requests/{requestId} {
+      // Anyone can create a quote request.
+      allow create: if true;
+      // Users can read a request if they are an admin or the designated seller.
+      allow read: if isAdmin() || request.auth.uid == resource.data.sellerId;
+      // Only the designated seller can update the request (e.g., to mark as read).
+      allow update: if request.auth.uid == resource.data.sellerId;
+      // Only admins can delete requests.
+      allow delete: if isAdmin();
+    }
+    
+    // --- Admins collection: Readable and writable only by other admins for security.
     match /admins/{adminId} {
-        allow read, write: if isAdmin();
+      allow read, write: if isAdmin();
     }
   }
 }
