@@ -26,8 +26,10 @@ import { useToast } from "@/hooks/use-toast";
 import { categories, getProductById, getSellerById, addQuoteRequest } from "@/lib/data";
 import { useSearchParams } from "next/navigation";
 import React, { useEffect, useState } from "react";
-import type { Product } from "@/lib/types";
+import type { Product, Seller } from "@/lib/types";
 import { Loader2 } from "lucide-react";
+import { onAuthStateChanged, type User } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 const quoteFormSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
@@ -56,6 +58,7 @@ const defaultValues: Partial<QuoteFormValues> = {
 export function QuoteForm() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
+  const [user, setUser] = useState<User | null>(null);
   const [product, setProduct] = useState<Product | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingProduct, setIsLoadingProduct] = useState(true);
@@ -66,6 +69,25 @@ export function QuoteForm() {
     resolver: zodResolver(quoteFormSchema),
     defaultValues,
   });
+  
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        // User is logged in, let's fetch their data to pre-fill the form
+        const sellerProfile = await getSellerById(currentUser.uid);
+        if (sellerProfile) {
+          form.setValue('name', sellerProfile.name);
+          form.setValue('email', sellerProfile.contact.email);
+        }
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [form]);
+
 
   useEffect(() => {
     async function fetchProduct() {
@@ -74,14 +96,20 @@ export function QuoteForm() {
         const foundProduct = await getProductById(productId);
         if (foundProduct) {
           setProduct(foundProduct);
+          
+          // Preserve name and email if they were already filled by the auth state change
+          const currentName = form.getValues('name');
+          const currentEmail = form.getValues('email');
+
           form.reset({
-            ...defaultValues,
-            name: form.getValues('name'), // preserve user input if any
-            email: form.getValues('email'), // preserve user input if any
+            name: currentName || "",
+            email: currentEmail || "",
             hairType: foundProduct.category,
             length: foundProduct.specs.length.replace(' inches', ''),
             color: foundProduct.specs.color,
-            texture: foundProduct.specs.texture,
+            texture: foundProduct.specs.texture.toLowerCase().replace(' ', '-'),
+            quantity: "",
+            details: "",
           });
         }
         setIsLoadingProduct(false);
@@ -126,7 +154,12 @@ export function QuoteForm() {
         title: "Quote Request Sent!",
         description: toastDescription,
       });
-      form.reset();
+      // Don't reset name/email if user is logged in
+      form.reset({
+        ...defaultValues,
+        name: user ? form.getValues('name') : "",
+        email: user ? form.getValues('email') : "",
+      });
     } catch (error) {
        console.error("Failed to submit quote request:", error);
        toast({
@@ -141,7 +174,11 @@ export function QuoteForm() {
 
   return (
     <div>
-        {product && (
+        {isLoadingProduct ? (
+          <div className="flex justify-center items-center py-4">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : product && (
             <p className="text-center text-muted-foreground mb-4 -mt-2">
                 Submitting a quote for: <span className="font-semibold text-primary">{product.name}</span>
             </p>
