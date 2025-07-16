@@ -1,6 +1,6 @@
 
 import type { Product, Seller, Buyer, QuoteRequest } from './types';
-import { cache } from 'react';
+import { unstable_noStore as noStore } from 'next/cache';
 import { db, auth } from './firebase';
 import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp, query, orderBy, Timestamp, updateDoc, where, setDoc, deleteDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
@@ -32,26 +32,30 @@ export const categories = [
     { name: 'Tools', icon: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' class='lucide lucide-scissors'%3E%3Ccircle cx='6' cy='6' r='3'%3E%3C/circle%3E%3Ccircle cx='6' cy='18' r='3'%3E%3C/circle%3E%3Cpath d='M20 4L8.12 15.88'%3E%3C/path%3E%3Cpath d='M14.47 14.48L20 20'%3E%3C/path%3E%3Cpath d='M8.12 8.12L12 12'%3E%3C/path%3E%3C/svg%3E` },
 ];
 
-export const getProducts = cache(async (): Promise<Product[]> => {
+export const getProducts = async (): Promise<Product[]> => {
+    noStore();
     const productsCollection = collection(db, 'products');
     const productSnapshot = await getDocs(productsCollection);
     return productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-});
+};
 
-export const getSellers = cache(async (): Promise<Seller[]> => {
+export const getSellers = async (): Promise<Seller[]> => {
+    noStore();
     const sellersCollection = collection(db, 'sellers');
     const sellerSnapshot = await getDocs(sellersCollection);
     return sellerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Seller));
-});
+};
 
-export const getBuyers = cache(async (): Promise<Buyer[]> => {
+export const getBuyers = async (): Promise<Buyer[]> => {
+    noStore();
     const buyersCollection = collection(db, 'buyers');
     const buyerSnapshot = await getDocs(buyersCollection);
     return buyerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Buyer));
-});
+};
 
 
-export const getProductById = cache(async (id: string): Promise<Product | null> => {
+export const getProductById = async (id: string): Promise<Product | null> => {
+    noStore();
     if (!id) return null;
     const docRef = doc(db, 'products', id);
     const docSnap = await getDoc(docRef);
@@ -60,9 +64,10 @@ export const getProductById = cache(async (id: string): Promise<Product | null> 
     }
     console.log(`Product with id ${id} not found in Firestore.`);
     return null;
-});
+};
 
-export const getSellerById = cache(async (id: string): Promise<Seller | null> => {
+export const getSellerById = async (id: string): Promise<Seller | null> => {
+    noStore();
     if (!id) return null;
     const docRef = doc(db, 'sellers', id);
     const docSnap = await getDoc(docRef);
@@ -71,17 +76,19 @@ export const getSellerById = cache(async (id: string): Promise<Seller | null> =>
     }
     console.log(`Seller with id ${id} not found in Firestore.`);
     return null;
-});
+};
 
-export const getProductsBySeller = cache(async (sellerId: string): Promise<Product[]> => {
+export const getProductsBySeller = async (sellerId: string): Promise<Product[]> => {
+  noStore();
   if (!sellerId) return [];
   const productsCollection = collection(db, 'products');
   const q = query(productsCollection, where("sellerId", "==", sellerId));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-});
+};
 
-export const getBuyerById = cache(async (id:string): Promise<Buyer | null> => {
+export const getBuyerById = async (id:string): Promise<Buyer | null> => {
+    noStore();
     if (!id) return null;
     const docRef = doc(db, 'buyers', id);
     const docSnap = await getDoc(docRef);
@@ -90,7 +97,7 @@ export const getBuyerById = cache(async (id:string): Promise<Buyer | null> => {
     }
     console.log(`Buyer with id ${id} not found in Firestore.`);
     return null;
-});
+};
 
 export async function addQuoteRequest(data: Omit<QuoteRequest, 'id' | 'date'>) {
     try {
@@ -106,6 +113,7 @@ export async function addQuoteRequest(data: Omit<QuoteRequest, 'id' | 'date'>) {
 }
 
 export async function getQuoteRequests(): Promise<QuoteRequest[]> {
+    noStore();
     try {
         const quoteCollectionRef = collection(db, 'quote-requests');
         const q = query(quoteCollectionRef, orderBy('createdAt', 'desc'));

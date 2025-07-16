@@ -1,5 +1,8 @@
+
 import { getSellers } from "@/lib/data";
 import { UserCard } from "@/components/user-card";
+
+export const dynamic = 'force-dynamic';
 
 export default async function SellersPage() {
   const sellers = await getSellers();

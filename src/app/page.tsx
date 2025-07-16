@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getProducts, categories } from "@/lib/data";
@@ -5,6 +6,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Sparkles, Gem, Globe } from "lucide-react";
 import { ProductCard } from "@/components/product-card";
+
+export const dynamic = 'force-dynamic';
 
 export default async function Home() {
   const products = await getProducts();

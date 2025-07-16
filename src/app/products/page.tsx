@@ -1,6 +1,9 @@
+
 import { getProducts, categories } from "@/lib/data";
 import { ProductCard } from "@/components/product-card";
 import { ProductFilters } from "@/components/product-filters";
+
+export const dynamic = 'force-dynamic';
 
 export default async function ProductsPage({
   searchParams,
