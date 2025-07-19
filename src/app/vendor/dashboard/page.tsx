@@ -125,6 +125,7 @@ export default function VendorDashboardPage() {
   const [editProductData, setEditProductData] = React.useState(initialEditProductState);
   const [profileData, setProfileData] = React.useState<Partial<Seller>>(initialProfileState);
   
+  const [newImageFiles, setNewImageFiles] = React.useState<File[]>([]);
   const [editImageFile, setEditImageFile] = React.useState<File | null>(null);
   const [newAvatarFile, setNewAvatarFile] = React.useState<File | null>(null);
   
@@ -199,6 +200,7 @@ export default function VendorDashboardPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
+      setNewImageFiles(Array.from(files));
       const newPreviews: string[] = [];
       Array.from(files).forEach(file => {
         const reader = new FileReader();
@@ -211,6 +213,7 @@ export default function VendorDashboardPage() {
         reader.readAsDataURL(file);
       });
     } else {
+      setNewImageFiles([]);
       setImagePreviews([]);
     }
   };
@@ -247,16 +250,14 @@ export default function VendorDashboardPage() {
       return;
     }
     setIsSubmitting(true);
-
-    const formData = new FormData(event.currentTarget);
-    const imageFiles = formData.getAll('images') as File[];
     
-    if (!imageFiles || imageFiles.length === 0 || imageFiles[0].size === 0) {
+    if (newImageFiles.length === 0) {
         toast({ title: "Missing Image", description: "Please select at least one image for your product.", variant: "destructive" });
         setIsSubmitting(false);
         return;
     }
     
+    const formData = new FormData(event.currentTarget);
     const productData = {
         name: formData.get('name') as string,
         description: formData.get('description') as string,
@@ -272,12 +273,13 @@ export default function VendorDashboardPage() {
     };
     
     try {
-        await addProduct(productData, imageFiles, user.uid);
+        await addProduct(productData, newImageFiles, user.uid);
         toast({ title: "Success!", description: `Product "${productData.name}" has been added.` });
         await fetchVendorData(user);
         setShowAddDialog(false);
         (event.target as HTMLFormElement).reset();
         setImagePreviews([]);
+        setNewImageFiles([]);
 
     } catch (error) {
         console.error("Add product error:", error);
@@ -347,10 +349,14 @@ export default function VendorDashboardPage() {
     setIsSubmittingProfile(true);
 
     try {
-      await updateSellerProfile(user.uid, profileData, newAvatarFile);
+      const dataToUpdate = { ...profileData };
+      if (dataToUpdate.contact?.website) {
+        dataToUpdate.contact.website = dataToUpdate.contact.website.replace(/^(https?:\/\/)/, '');
+      }
+
+      await updateSellerProfile(user.uid, dataToUpdate, newAvatarFile);
+      
       toast({ title: "Profile Updated", description: "Your profile has been successfully updated." });
-      // No need to call fetchVendorData here, as the state is already managed locally. 
-      // A full refetch can be done if desired by calling `await fetchVendorData(user)`.
     } catch (error) {
       console.error("Update profile error:", error);
       toast({ title: "Update Failed", description: "Could not update your profile. Please try again.", variant: "destructive"});
@@ -745,7 +751,7 @@ export default function VendorDashboardPage() {
                             </div>
                              <div className="space-y-2">
                                 <Label htmlFor="profile-website">Website (Optional)</Label>
-                                <Input id="profile-website" type="url" placeholder="your-website.com" value={profileData.contact?.website || ''} onChange={e => setProfileData(p => ({...p, contact: {...p.contact, website: e.target.value}} as any))}/>
+                                <Input id="profile-website" type="text" placeholder="your-website.com" value={profileData.contact?.website || ''} onChange={e => setProfileData(p => ({...p, contact: {...p.contact, website: e.target.value}} as any))}/>
                             </div>
                         </div>
                         <div className="space-y-2">
@@ -897,3 +903,4 @@ export default function VendorDashboardPage() {
 }
 
     
+
