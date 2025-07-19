@@ -1,10 +1,14 @@
 
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { LoginForm } from "./login-form";
+import { useRouter } from "next/navigation";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth, db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 function AuthPageFallback() {
     return (
@@ -15,6 +19,46 @@ function AuthPageFallback() {
 }
 
 export default function LoginPage() {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // User is already logged in, determine role and redirect.
+        const sellerDoc = await getDoc(doc(db, "sellers", user.uid));
+        if (sellerDoc.exists()) {
+          router.push('/vendor/dashboard');
+          return;
+        }
+        
+        const adminDoc = await getDoc(doc(db, "admins", user.uid));
+        if (adminDoc.exists()) {
+          router.push('/admin/dashboard');
+          return;
+        }
+        
+        // Fallback if user is in auth but not DB (shouldn't happen in normal flow)
+        // Keep them on login page but stop loading.
+        setIsLoading(false);
+
+      } else {
+        // User is not logged in, show the login page.
+        setIsLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router]);
+
+  if (isLoading) {
+    return (
+        <div className="flex items-center justify-center min-h-[calc(100vh-12rem)] bg-secondary/20">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+    );
+  }
+
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-12rem)] bg-secondary/20">
       <Card className="w-full max-w-sm shadow-xl">
