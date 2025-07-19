@@ -23,23 +23,49 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { Loader2 } from "lucide-react";
 import { countries } from "@/lib/countries";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+
+
+const formSchema = z.object({
+  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
+  companyName: z.string().min(2, { message: "Company name must be at least 2 characters." }),
+  email: z.string().email({ message: "Please enter a valid email address." }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  confirmPassword: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  country: z.string({ required_error: "Please select a country." }).min(1, "Please select a country."),
+  city: z.string().min(1, { message: "City is required." }),
+  phoneCode: z.string().optional(),
+  localPhone: z.string().optional(),
+  bio: z.string().min(10, { message: "Bio must be at least 10 characters." }),
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords do not match.",
+  path: ["confirmPassword"], // Error will be shown on the confirmPassword field
+});
+
 
 export default function RegisterPage() {
   const { toast } = useToast();
   const router = useRouter();
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   
-  // Form state
-  const [name, setName] = useState("");
-  const [companyName, setCompanyName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [country, setCountry] = useState("");
-  const [city, setCity] = useState("");
-  const [phoneCode, setPhoneCode] = useState<string | undefined>(undefined);
-  const [localPhone, setLocalPhone] = useState("");
-  const [bio, setBio] = useState("");
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      companyName: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      country: "",
+      city: "",
+      phoneCode: "",
+      localPhone: "",
+      bio: "",
+    },
+  });
 
   const uniqueCountriesByDialCode = useMemo(() => {
     const seen = new Set();
@@ -54,34 +80,31 @@ export default function RegisterPage() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, []);
   
-  const handleCountryChange = (selectedCountryName: string) => {
-    setCountry(selectedCountryName);
-    const selectedCountryData = countries.find(c => c.name === selectedCountryName);
-    if (selectedCountryData && selectedCountryData.dial_code) {
-      setPhoneCode(selectedCountryData.dial_code);
+  const handleCountryChange = (countryName: string) => {
+    form.setValue('country', countryName);
+    const countryData = countries.find(c => c.name === countryName);
+    if (countryData?.dial_code) {
+      form.setValue('phoneCode', countryData.dial_code);
     }
   };
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setIsLoading(true);
 
-    const location = city && country ? `${city}, ${country}` : city || country;
-    const fullPhoneNumber = phoneCode && localPhone ? `${phoneCode}${localPhone.replace(/\D/g, '')}` : "";
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    const location = values.city && values.country ? `${values.city}, ${values.country}` : values.city || values.country;
+    const fullPhoneNumber = values.phoneCode && values.localPhone ? `${values.phoneCode}${values.localPhone.replace(/\D/g, '')}` : "";
 
     try {
       // Step 1: Create user in Firebase Authentication
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const user = userCredential.user;
 
       // Step 2: Create a corresponding seller document in Firestore
-      // The document ID will be the user's UID from Authentication
       await setDoc(doc(db, "sellers", user.uid), {
-        name: name,
-        companyName: companyName,
+        name: values.name,
+        companyName: values.companyName,
         location: location,
-        bio: bio,
-        avatarUrl: `https://placehold.co/100x100?text=${name.charAt(0)}`,
+        bio: values.bio,
+        avatarUrl: `https://placehold.co/100x100?text=${values.name.charAt(0)}`,
         memberSince: new Date().toISOString(),
         productIds: [],
         contact: {
@@ -110,8 +133,6 @@ export default function RegisterPage() {
         description: description,
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -134,78 +155,129 @@ export default function RegisterPage() {
               </Button>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                 <div className="grid gap-2">
-                    <Label htmlFor="name">Your Name</Label>
-                    <Input id="name" name="name" placeholder="e.g., Aisha Bella" required value={name} onChange={e => setName(e.target.value)} />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="companyName">Company Name</Label>
-                    <Input id="companyName" name="companyName" placeholder="e.g., Bella Hair Imports" required value={companyName} onChange={e => setCompanyName(e.target.value)} />
-                  </div>
-              </div>
-               <div className="grid md:grid-cols-2 gap-6">
-                <div className="grid gap-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" name="email" type="email" placeholder="you@example.com" required value={email} onChange={e => setEmail(e.target.value)} />
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="password">Password</Label>
-                    <Input id="password" name="password" type="password" placeholder="Must be at least 6 characters" required value={password} onChange={e => setPassword(e.target.value)} />
-                </div>
-              </div>
-               <div className="grid md:grid-cols-2 gap-6">
-                 <div className="grid gap-2">
-                    <Label htmlFor="country">Country</Label>
-                    <Select name="country" required value={country} onValueChange={handleCountryChange}>
-                        <SelectTrigger id="country">
-                            <SelectValue placeholder="Select your country" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {countries.map(c => <SelectItem key={c.code} value={c.name}>{c.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="city">City</Label>
-                    <Input id="city" name="city" placeholder="e.g., Lagos" required value={city} onChange={e => setCity(e.target.value)} />
-                  </div>
-              </div>
-              <div className="grid gap-2">
-                 <Label htmlFor="localPhone">Phone Number (Optional)</Label>
-                 <div className="flex gap-2">
-                    <Select name="phoneCode" value={phoneCode} onValueChange={setPhoneCode}>
-                        <SelectTrigger className="w-[120px]">
-                            <SelectValue placeholder="Code" />
-                        </SelectTrigger>
-                        <SelectContent>
-                           {uniqueCountriesByDialCode.map((c, index) => <SelectItem key={c.code + index} value={c.dial_code!}>{`${c.name} (${c.dial_code})`}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                    <Input id="localPhone" name="localPhone" type="tel" placeholder="e.g., 801 234 5678" value={localPhone} onChange={e => setLocalPhone(e.target.value)} />
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                 <div className="grid md:grid-cols-2 gap-6">
+                    <FormField control={form.control} name="name" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Your Name</FormLabel>
+                        <FormControl><Input placeholder="e.g., Aisha Bella" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="companyName" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Company Name</FormLabel>
+                          <FormControl><Input placeholder="e.g., Bella Hair Imports" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                    )} />
                  </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="bio">About Your Business (Bio)</Label>
-                <Textarea id="bio" name="bio" placeholder="Tell buyers about your products and what makes your business unique." required value={bio} onChange={e => setBio(e.target.value)} />
-              </div>
-              <CardFooter className="p-0 pt-4 flex flex-col items-center gap-4">
-                <Button className="w-full" type="submit" disabled={isLoading}>
-                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Create Account
-                </Button>
-                <p className="text-sm text-muted-foreground">
-                    Already have an account?{" "}
-                    <Link href="/login" className="font-medium text-primary hover:underline">
-                        Log in
-                    </Link>
-                </p>
-              </CardFooter>
-            </form>
+                 <div className="grid md:grid-cols-2 gap-6">
+                    <FormField control={form.control} name="email" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email</FormLabel>
+                          <FormControl><Input type="email" placeholder="you@example.com" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                    )} />
+                    <div></div>
+                 </div>
+                 <div className="grid md:grid-cols-2 gap-6">
+                    <FormField control={form.control} name="password" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Password</FormLabel>
+                          <FormControl><Input type="password" placeholder="Must be at least 6 characters" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="confirmPassword" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Confirm Password</FormLabel>
+                          <FormControl><Input type="password" placeholder="Re-enter your password" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                    )} />
+                 </div>
+                 <div className="grid md:grid-cols-2 gap-6">
+                    <FormField control={form.control} name="country" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Country</FormLabel>
+                        <Select onValueChange={handleCountryChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select your country" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {countries.map((c, index) => <SelectItem key={c.code + index} value={c.name}>{c.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="city" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>City</FormLabel>
+                          <FormControl><Input placeholder="e.g., Lagos" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                    )} />
+                 </div>
+                 <div className="grid gap-2">
+                   <Label>Phone Number (Optional)</Label>
+                   <div className="flex gap-2">
+                      <FormField control={form.control} name="phoneCode" render={({ field }) => (
+                        <FormItem className="w-[240px]">
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                  <SelectValue placeholder="Country Code" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                               {uniqueCountriesByDialCode.map((c, index) => <SelectItem key={c.code + index} value={c.dial_code!}>{`${c.name} (${c.dial_code})`}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="localPhone" render={({ field }) => (
+                          <FormItem className="flex-grow">
+                             <FormControl><Input type="tel" placeholder="e.g., 801 234 5678" {...field} /></FormControl>
+                             <FormMessage />
+                          </FormItem>
+                      )} />
+                   </div>
+                 </div>
+                 <FormField control={form.control} name="bio" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>About Your Business (Bio)</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Tell buyers about your products and what makes your business unique." className="min-h-[120px]" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                 )} />
+                <CardFooter className="p-0 pt-4 flex flex-col items-center gap-4">
+                  <Button className="w-full" type="submit" disabled={form.formState.isSubmitting}>
+                     {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Create Account
+                  </Button>
+                  <p className="text-sm text-muted-foreground">
+                      Already have an account?{" "}
+                      <Link href="/login" className="font-medium text-primary hover:underline">
+                          Log in
+                      </Link>
+                  </p>
+                </CardFooter>
+              </form>
+            </Form>
           )}
         </CardContent>
       </Card>
     </div>
   );
 }
+
+    
