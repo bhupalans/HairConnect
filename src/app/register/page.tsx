@@ -30,6 +30,22 @@ export default function RegisterPage() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Create a unique list of countries based on dial_code to prevent duplicate key errors
+  const uniqueCountriesByDialCode = Array.from(
+    countries
+      .filter(c => c.dial_code)
+      .reduce((map, country) => {
+        // Use dial_code as the key to ensure uniqueness.
+        // This will keep the first country encountered for a given dial code.
+        if (!map.has(country.dial_code!)) {
+          map.set(country.dial_code!, country);
+        }
+        return map;
+      }, new Map<string, typeof countries[0]>())
+      .values()
+  ).sort((a, b) => a.name.localeCompare(b.name));
+
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
@@ -160,7 +176,7 @@ export default function RegisterPage() {
                             <SelectValue placeholder="Code" />
                         </SelectTrigger>
                         <SelectContent>
-                           {countries.filter(c => c.dial_code).sort((a,b) => a.name.localeCompare(b.name)).map((c, index) => <SelectItem key={c.code + index} value={c.dial_code!}>{`${c.name} (${c.dial_code})`}</SelectItem>)}
+                           {uniqueCountriesByDialCode.map(c => <SelectItem key={c.dial_code} value={c.dial_code!}>{`${c.name} (${c.dial_code})`}</SelectItem>)}
                         </SelectContent>
                     </Select>
                     <Input id="localPhone" name="localPhone" type="tel" placeholder="e.g., 801 234 5678" />
