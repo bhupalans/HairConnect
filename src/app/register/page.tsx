@@ -122,17 +122,18 @@ export default function RegisterPage() {
 
     } catch (error: any) {
       console.error("Registration error:", error);
-      let description = "An unexpected error occurred. Please try again.";
       if (error.code === 'auth/email-already-in-use') {
-        description = "This email is already registered. Please try logging in.";
-      } else if (error.code === 'auth/weak-password') {
-        description = "The password is too weak. Please choose a stronger password.";
+        form.setError("email", {
+          type: "manual",
+          message: "This email is already registered. Please try logging in.",
+        });
+      } else {
+        toast({
+          title: "Registration Failed",
+          description: "An unexpected error occurred. Please try again.",
+          variant: "destructive",
+        });
       }
-      toast({
-        title: "Registration Failed",
-        description: description,
-        variant: "destructive",
-      });
     }
   };
 
@@ -279,5 +280,3 @@ export default function RegisterPage() {
     </div>
   );
 }
-
-    
