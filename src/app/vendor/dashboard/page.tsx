@@ -128,7 +128,7 @@ export default function VendorDashboardPage() {
   const [editImageFile, setEditImageFile] = React.useState<File | null>(null);
   const [newAvatarFile, setNewAvatarFile] = React.useState<File | null>(null);
   
-  const [imagePreview, setImagePreview] = React.useState<string>('');
+  const [imagePreviews, setImagePreviews] = React.useState<string[]>([]);
   const [avatarPreview, setAvatarPreview] = React.useState<string>('');
 
   const unreadQuotesCount = React.useMemo(() => {
@@ -197,15 +197,21 @@ export default function VendorDashboardPage() {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const newPreviews: string[] = [];
+      Array.from(files).forEach(file => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          newPreviews.push(reader.result as string);
+          if (newPreviews.length === files.length) {
+            setImagePreviews(newPreviews);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
     } else {
-        setImagePreview('');
+      setImagePreviews([]);
     }
   };
   
@@ -243,10 +249,10 @@ export default function VendorDashboardPage() {
     setIsSubmitting(true);
 
     const formData = new FormData(event.currentTarget);
-    const imageFile = formData.get('image') as File;
+    const imageFiles = formData.getAll('images') as File[];
     
-    if (!imageFile || imageFile.size === 0) {
-        toast({ title: "Missing Image", description: "Please select an image for your product.", variant: "destructive" });
+    if (!imageFiles || imageFiles.length === 0 || imageFiles[0].size === 0) {
+        toast({ title: "Missing Image", description: "Please select at least one image for your product.", variant: "destructive" });
         setIsSubmitting(false);
         return;
     }
@@ -266,12 +272,12 @@ export default function VendorDashboardPage() {
     };
     
     try {
-        await addProduct(productData, imageFile, user.uid);
+        await addProduct(productData, imageFiles, user.uid);
         toast({ title: "Success!", description: `Product "${productData.name}" has been added.` });
         await fetchVendorData(user);
         setShowAddDialog(false);
         (event.target as HTMLFormElement).reset();
-        setImagePreview('');
+        setImagePreviews([]);
 
     } catch (error) {
         console.error("Add product error:", error);
@@ -470,9 +476,15 @@ export default function VendorDashboardPage() {
                               </Select>
                               </div>
                               <div className="space-y-2">
-                              <Label htmlFor="product-image">Image</Label>
-                              <Input id="product-image" name="image" type="file" className="file:text-primary file:font-medium" accept="image/png, image/jpeg, image/gif" onChange={handleFileChange} required/>
-                              {imagePreview && (<Image src={imagePreview} alt="New product preview" width={100} height={100} className="rounded-md object-cover mt-2"/>)}
+                              <Label htmlFor="product-images">Images</Label>
+                              <Input id="product-images" name="images" type="file" multiple className="file:text-primary file:font-medium" accept="image/png, image/jpeg, image/gif" onChange={handleFileChange} required/>
+                              {imagePreviews.length > 0 && (
+                                <div className="flex gap-2 mt-2 flex-wrap">
+                                    {imagePreviews.map((preview, index) => (
+                                        <Image key={index} src={preview} alt={`New product preview ${index+1}`} width={80} height={80} className="rounded-md object-cover border"/>
+                                    ))}
+                                </div>
+                              )}
                               </div>
                           </div>
                           <Separator className="my-2" />
@@ -883,3 +895,5 @@ export default function VendorDashboardPage() {
     </div>
   );
 }
+
+    

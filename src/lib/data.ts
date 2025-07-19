@@ -168,27 +168,32 @@ export async function markQuoteRequestsAsRead(sellerId: string): Promise<void> {
 
 export async function addProduct(
   data: Omit<Product, 'id' | 'images' | 'sellerId'>,
-  imageFile: File,
+  imageFiles: File[],
   sellerId: string
 ) {
   if (!sellerId) {
     throw new Error("User is not authenticated. Cannot add product.");
   }
-
+  
   const storage = getStorage();
-  const imageRef = ref(storage, `products/${sellerId}/${imageFile.name}`);
+  const imageUrls: string[] = [];
   
   try {
-    // Step 1: Upload image to Storage
-    const uploadResult = await uploadBytes(imageRef, imageFile);
-    const imageUrl = await getDownloadURL(uploadResult.ref);
+    // Step 1: Upload all images to Storage in parallel
+    const uploadPromises = imageFiles.map(file => {
+      const imageRef = ref(storage, `products/${sellerId}/${Date.now()}-${file.name}`);
+      return uploadBytes(imageRef, file).then(uploadResult => getDownloadURL(uploadResult.ref));
+    });
+    
+    const resolvedImageUrls = await Promise.all(uploadPromises);
+    imageUrls.push(...resolvedImageUrls);
 
-    // Step 2: Prepare the document for Firestore, including sellerId
+    // Step 2: Prepare the document for Firestore, including sellerId and image URLs
     const productsCollection = collection(db, 'products');
     const productData = {
-      ...data, // This now includes name, description, price, category, and specs
+      ...data,
       sellerId: sellerId,
-      images: [imageUrl],
+      images: imageUrls,
     };
     
     // Step 3: Write the document to Firestore
@@ -197,13 +202,22 @@ export async function addProduct(
   } catch (error) {
     console.error("Error during product creation process:", error);
     
-    // If the Firestore write fails, we should try to delete the orphaned image.
-    try {
-        await deleteObject(imageRef);
-        console.log("Successfully cleaned up orphaned image after Firestore error.");
-    } catch (cleanupError) {
-        console.error("CRITICAL: Failed to clean up orphaned image in storage. This might be a permissions issue on 'delete' in storage.rules. Manual deletion may be required.", cleanupError);
+    // If the Firestore write fails, we should try to delete any orphaned images.
+    if (imageUrls.length > 0) {
+      console.log("Attempting to clean up orphaned images after Firestore error...");
+      const deletePromises = imageUrls.map(url => {
+        try {
+          const imageRefToDelete = ref(storage, url);
+          return deleteObject(imageRefToDelete);
+        } catch (cleanupError) {
+          console.error(`CRITICAL: Failed to create ref for orphaned image URL: ${url}. Manual deletion may be required.`, cleanupError);
+          return Promise.resolve(); // Continue trying to delete others
+        }
+      });
+      await Promise.allSettled(deletePromises);
+      console.log("Orphaned image cleanup complete.");
     }
+    
     // Re-throw the original error to be handled by the UI.
     throw error;
   }
@@ -261,14 +275,22 @@ export async function deleteProduct(productId: string) {
             throw new Error("Product not found");
         }
         const productData = productSnap.data() as Product;
-        const imageUrl = productData.images?.[0];
+        
+        // Delete all images associated with the product
+        if (productData.images && productData.images.length > 0) {
+            const deletePromises = productData.images.map(imageUrl => {
+                if (imageUrl.includes('firebasestorage.googleapis.com')) {
+                    const imageRef = ref(storage, imageUrl);
+                    return deleteObject(imageRef);
+                }
+                return Promise.resolve();
+            });
+            await Promise.all(deletePromises);
+        }
 
+        // Delete the Firestore document
         await deleteDoc(productRef);
 
-        if (imageUrl && imageUrl.includes('firebasestorage.googleapis.com')) {
-            const imageRef = ref(storage, imageUrl);
-            await deleteObject(imageRef);
-        }
     } catch (error) {
         console.error("Error deleting product and its assets:", error);
         throw error;
@@ -405,3 +427,5 @@ export async function deleteBuyer(buyerId: string) {
         throw error;
     }
 }
+
+    
