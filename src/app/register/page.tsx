@@ -160,7 +160,7 @@ export default function RegisterPage() {
                             <SelectValue placeholder="Code" />
                         </SelectTrigger>
                         <SelectContent>
-                           {countries.filter(c => c.dial_code).sort((a,b) => a.name.localeCompare(b.name)).map(c => <SelectItem key={c.code} value={c.dial_code!}>{`${c.name} (${c.dial_code})`}</SelectItem>)}
+                           {countries.filter(c => c.dial_code).sort((a,b) => a.name.localeCompare(b.name)).map(c => <SelectItem key={c.code + c.name} value={c.dial_code!}>{`${c.name} (${c.dial_code})`}</SelectItem>)}
                         </SelectContent>
                     </Select>
                     <Input id="localPhone" name="localPhone" type="tel" placeholder="e.g., 801 234 5678" />
@@ -189,3 +189,4 @@ export default function RegisterPage() {
     </div>
   );
 }
+
