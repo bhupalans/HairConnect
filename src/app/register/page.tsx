@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +22,7 @@ import { auth, db } from "@/lib/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { Loader2 } from "lucide-react";
+import { countries } from "@/lib/countries";
 
 export default function RegisterPage() {
   const { toast } = useToast();
@@ -37,9 +39,15 @@ export default function RegisterPage() {
     const companyName = formData.get("companyName") as string;
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
-    const location = formData.get("location") as string;
-    const phone = formData.get("phone") as string;
+    const country = formData.get("country") as string;
+    const city = formData.get("city") as string;
+    const phoneCode = formData.get("phoneCode") as string;
+    const localPhone = formData.get("localPhone") as string;
     const bio = formData.get("bio") as string;
+
+    const location = city && country ? `${city}, ${country}` : city || country;
+    const fullPhoneNumber = phoneCode && localPhone ? `${phoneCode}${localPhone.replace(/\D/g, '')}` : "";
+
 
     try {
       // Step 1: Create user in Firebase Authentication
@@ -58,7 +66,7 @@ export default function RegisterPage() {
         productIds: [],
         contact: {
           email: user.email,
-          phone: phone,
+          phone: fullPhoneNumber,
         },
       });
 
@@ -129,13 +137,34 @@ export default function RegisterPage() {
               </div>
                <div className="grid md:grid-cols-2 gap-6">
                  <div className="grid gap-2">
-                  <Label htmlFor="location">Location</Label>
-                  <Input id="location" name="location" placeholder="e.g., Lagos, Nigeria" required />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="phone">Phone Number (Optional)</Label>
-                  <Input id="phone" name="phone" type="tel" placeholder="e.g., +1 234 567 8900" />
-                </div>
+                    <Label htmlFor="country">Country</Label>
+                    <Select name="country" required>
+                        <SelectTrigger id="country">
+                            <SelectValue placeholder="Select your country" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {countries.map(c => <SelectItem key={c.code} value={c.name}>{c.name}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="city">City</Label>
+                    <Input id="city" name="city" placeholder="e.g., Lagos" required />
+                  </div>
+              </div>
+              <div className="grid gap-2">
+                 <Label htmlFor="localPhone">Phone Number (Optional)</Label>
+                 <div className="flex gap-2">
+                    <Select name="phoneCode">
+                        <SelectTrigger className="w-[120px]">
+                            <SelectValue placeholder="Code" />
+                        </SelectTrigger>
+                        <SelectContent>
+                           {countries.filter(c => c.dial_code).sort((a,b) => a.name.localeCompare(b.name)).map(c => <SelectItem key={c.code} value={c.dial_code!}>{`${c.name} (${c.dial_code})`}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                    <Input id="localPhone" name="localPhone" type="tel" placeholder="e.g., 801 234 5678" />
+                 </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="bio">About Your Business (Bio)</Label>
