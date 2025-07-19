@@ -6,16 +6,15 @@ import { CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { auth, db } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useEffect, useRef } from "react";
+import { useRef, useEffect } from "react";
 
 
 const formSchema = z.object({
@@ -24,19 +23,8 @@ const formSchema = z.object({
 });
 
 export function LoginForm() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const { toast } = useToast();
   
-  const isMounted = useRef(false);
-
-  useEffect(() => {
-    isMounted.current = true;
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
-
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -47,51 +35,11 @@ export function LoginForm() {
 
   const handleLogin = async (values: z.infer<typeof formSchema>) => {
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
-
-      // If component is unmounted due to race condition, exit here.
-      if (!isMounted.current) return;
-
-      const user = userCredential.user;
-      const redirectUrl = searchParams.get("redirect");
-
-      const sellerDocRef = doc(db, "sellers", user.uid);
-      const sellerDoc = await getDoc(sellerDocRef);
-      const adminDocRef = doc(db, "admins", user.uid);
-      const adminDoc = await getDoc(adminDocRef);
-
-      if (sellerDoc.exists()) {
-        toast({
-            title: "Login Successful",
-            description: "Welcome back! Redirecting you to your dashboard.",
-        });
-        const finalRedirectPath = redirectUrl || "/vendor/dashboard";
-        router.push(finalRedirectPath);
-        return;
-      }
-      
-      if (adminDoc.exists()) {
-        toast({
-            title: "Login Successful",
-            description: "Welcome back, Admin! Redirecting you to your dashboard.",
-        });
-        const finalRedirectPath = redirectUrl || "/admin/dashboard";
-        router.push(finalRedirectPath);
-        return;
-      }
-
-      // If user exists in Auth but not in sellers or admins DB
-      await auth.signOut();
-      toast({
-        title: "Login Failed",
-        description: "Your user profile could not be found. Please contact support.",
-        variant: "destructive",
-      });
+      // The form's only job is to sign the user in.
+      // The parent page will handle the redirect.
+      await signInWithEmailAndPassword(auth, values.email, values.password);
       
     } catch (error: any) {
-      // If component has unmounted, do not show any toasts.
-      if (!isMounted.current) return;
-
       console.error("Login error:", error);
       if (error.code === 'auth/invalid-credential') {
         form.setError("password", {
