@@ -27,7 +27,7 @@ export default async function Home() {
         />
         <div className="relative z-10 p-4 text-white">
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-headline">
-            HairConnect: The Global Marketplace for Premium Hair
+            HairBuySell: The Global Marketplace for Premium Hair
           </h1>
           <p className="mt-4 text-lg md:text-xl max-w-2xl mx-auto">
             Discover, source, and trade the finest quality human hair from trusted vendors around the world.
@@ -83,7 +83,7 @@ export default async function Home() {
 
       <section id="why-us" className="py-16 md:py-24 bg-background">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl md:text-4xl font-headline text-center text-primary mb-12">Why Choose HairConnect?</h2>
+          <h2 className="text-3xl md:text-4xl font-headline text-center text-primary mb-12">Why Choose HairBuySell?</h2>
           <div className="grid md:grid-cols-3 gap-8 text-center">
             <div className="flex flex-col items-center">
               <div className="p-4 bg-primary/10 rounded-full mb-4">

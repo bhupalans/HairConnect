@@ -6,7 +6,7 @@ export default function CareersPage() {
     <div className="container mx-auto px-4 py-8 md:py-16">
       <Card className="max-w-4xl mx-auto">
         <CardHeader className="text-center">
-          <CardTitle className="text-4xl font-headline text-primary">Careers at HairConnect</CardTitle>
+          <CardTitle className="text-4xl font-headline text-primary">Careers at HairBuySell</CardTitle>
           <CardDescription className="text-lg text-muted-foreground mt-2">
             Join our team and help us revolutionize the global hair industry.
           </CardDescription>
@@ -20,7 +20,7 @@ export default function CareersPage() {
           </p>
           <div>
             <Button asChild>
-                <a href="mailto:careers@hairconnect.com">Submit Your Resume</a>
+                <a href="mailto:careers@hairbuysell.com">Submit Your Resume</a>
             </Button>
           </div>
         </CardContent>

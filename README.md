@@ -1,3 +1,3 @@
-# HairConnect
+# HairBuySell
 
-This is a Next.js project for the HairConnect marketplace, created in Firebase Studio.
+This is a Next.js project for the HairBuySell marketplace, created in Firebase Studio.

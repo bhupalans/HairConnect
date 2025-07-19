@@ -5,7 +5,7 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 
 export const metadata: Metadata = {
-  title: "HairConnect - Global Human Hair Marketplace",
+  title: "HairBuySell - Global Human Hair Marketplace",
   description: "Your premier global marketplace for buying and selling high-quality human hair. Connect with suppliers, buy in bulk, and grow your hair business online.",
   keywords: [
     'buy human hair in bulk',

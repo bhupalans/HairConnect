@@ -98,7 +98,7 @@ export function LoginForm() {
                 Sign In
               </Button>
               <div className="mt-4 text-center text-sm text-muted-foreground">
-                New to HairConnect?{" "}
+                New to HairBuySell?{" "}
                 <Link href="/register" className="underline text-primary font-medium">
                   Register as a vendor
                 </Link>

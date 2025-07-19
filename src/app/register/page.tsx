@@ -129,7 +129,7 @@ export default function RegisterPage() {
 
       toast({
         title: "Registration Successful!",
-        description: "Welcome to HairConnect! Redirecting you to your dashboard.",
+        description: "Welcome to HairBuySell! Redirecting you to your dashboard.",
       });
 
       // Step 3: Redirect to the dashboard

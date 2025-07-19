@@ -19,7 +19,7 @@ export default function LoginPage() {
         <CardHeader className="text-center">
             <CardTitle className="text-3xl font-headline">Login</CardTitle>
             <CardDescription>
-                Access your HairConnect dashboard.
+                Access your HairBuySell dashboard.
             </CardDescription>
         </CardHeader>
         <CardContent>

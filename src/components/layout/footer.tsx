@@ -10,7 +10,7 @@ export function Footer() {
              <Link href="/" className="flex items-center gap-2 mb-4">
                 <Scissors className="h-7 w-7 text-primary" />
                 <span className="text-2xl font-headline font-bold text-primary">
-                HairConnect
+                HairBuySell
                 </span>
             </Link>
             <p className="text-muted-foreground text-center md:text-left max-w-xs">The premier global marketplace for ethically sourced, high-quality human hair.</p>
@@ -46,7 +46,7 @@ export function Footer() {
           </div>
         </div>
         <div className="mt-8 border-t pt-6 text-center text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} HairConnect. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} HairBuySell. All rights reserved.</p>
         </div>
       </div>
     </footer>
