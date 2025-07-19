@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Scissors } from "lucide-react";
+import { Gem } from "lucide-react";
 
 export function Footer() {
   return (
@@ -8,7 +8,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="flex flex-col items-center md:items-start">
              <Link href="/" className="flex items-center gap-2 mb-4">
-                <Scissors className="h-7 w-7 text-primary" />
+                <Gem className="h-7 w-7 text-primary" />
                 <span className="text-2xl font-headline font-bold text-primary">
                 HairBuySell
                 </span>

@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Scissors, ChevronDown, Loader2 } from "lucide-react";
+import { Menu, Gem, ChevronDown, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
@@ -24,7 +24,7 @@ import type { Seller } from "@/lib/types";
 
 const Logo = () => (
   <Link href="/" className="flex items-center gap-2">
-    <Scissors className="h-7 w-7 text-primary" />
+    <Gem className="h-7 w-7 text-primary" />
     <span className="text-2xl font-headline font-bold text-primary">
       HairBuySell
     </span>

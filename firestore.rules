@@ -52,5 +52,12 @@ service cloud.firestore {
     match /admins/{adminId} {
       allow read, write: if isAdmin();
     }
+
+    // Allow public create, but only admin read for contact messages
+    match /contact-messages/{messageId} {
+      allow create: if true;
+      allow read: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      allow update, delete: if false;
+    }
   }
 }
