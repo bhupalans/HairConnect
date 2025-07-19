@@ -4,7 +4,6 @@
 import { Button } from "@/components/ui/button";
 import { CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
@@ -16,6 +15,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useEffect, useRef } from "react";
 
 
 const formSchema = z.object({
@@ -28,6 +28,15 @@ export function LoginForm() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   
+  const isMounted = useRef(false);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -39,6 +48,10 @@ export function LoginForm() {
   const handleLogin = async (values: z.infer<typeof formSchema>) => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
+
+      // If component is unmounted due to race condition, exit here.
+      if (!isMounted.current) return;
+
       const user = userCredential.user;
       const redirectUrl = searchParams.get("redirect");
 
@@ -76,6 +89,9 @@ export function LoginForm() {
       });
       
     } catch (error: any) {
+      // If component has unmounted, do not show any toasts.
+      if (!isMounted.current) return;
+
       console.error("Login error:", error);
       if (error.code === 'auth/invalid-credential') {
         form.setError("password", {
