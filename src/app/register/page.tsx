@@ -11,15 +11,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { Loader2 } from "lucide-react";
 import { countries } from "@/lib/countries";
@@ -49,7 +48,7 @@ const formSchema = z.object({
 export default function RegisterPage() {
   const { toast } = useToast();
   const router = useRouter();
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -66,6 +65,20 @@ export default function RegisterPage() {
       bio: "",
     },
   });
+  
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // User is logged in, redirect them away from the register page.
+        router.push('/vendor/dashboard');
+      } else {
+        // User is not logged in, show the page.
+        setIsLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router]);
 
   const uniqueCountriesByDialCode = useMemo(() => {
     const seen = new Set();
@@ -115,10 +128,11 @@ export default function RegisterPage() {
 
       toast({
         title: "Registration Successful!",
-        description: "Welcome to HairConnect. You can now log in.",
+        description: "Welcome to HairConnect! Redirecting you to your dashboard.",
       });
 
-      setIsSubmitted(true);
+      // Step 3: Redirect to the dashboard
+      router.push('/vendor/dashboard');
 
     } catch (error: any) {
       console.error("Registration error:", error);
@@ -136,6 +150,14 @@ export default function RegisterPage() {
       }
     }
   };
+  
+  if (isLoading) {
+     return (
+        <div className="flex items-center justify-center min-h-[calc(100vh-12rem)] bg-secondary/20">
+             <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12 flex items-center justify-center">
@@ -147,15 +169,6 @@ export default function RegisterPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isSubmitted ? (
-            <div className="text-center p-8">
-              <h3 className="text-2xl font-bold text-primary mb-4">Thank you for registering!</h3>
-              <p className="text-muted-foreground mb-6">You're all set. You can now log in to access your dashboard.</p>
-              <Button asChild>
-                <Link href="/login">Go to Login</Link>
-              </Button>
-            </div>
-          ) : (
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                  <div className="grid md:grid-cols-2 gap-6">
@@ -237,7 +250,7 @@ export default function RegisterPage() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                               {uniqueCountriesByDialCode.map((c, index) => <SelectItem key={c.code + index} value={c.dial_code!}>{`${c.name} (${c.dial_code})`}</SelectItem>)}
+                               {uniqueCountriesByDialCode.map((c, index) => <SelectItem key={c.dial_code! + index} value={c.dial_code!}>{`${c.name} (${c.dial_code})`}</SelectItem>)}
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -274,7 +287,6 @@ export default function RegisterPage() {
                 </CardFooter>
               </form>
             </Form>
-          )}
         </CardContent>
       </Card>
     </div>
