@@ -59,12 +59,12 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { getProducts, getSellers, getBuyers, getQuoteRequests, addVendor, updateVendor, deleteVendor, addBuyer, updateBuyer, deleteBuyer, updateProduct, deleteProduct, categories } from "@/lib/data";
+import { getProducts, getSellers, getBuyers, getQuoteRequests, addVendor, updateVendor, deleteVendor, addBuyer, updateBuyer, deleteBuyer, updateProduct, deleteProduct, categories, getContactMessages } from "@/lib/data";
 import { MoreHorizontal, PlusCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
-import type { QuoteRequest, Product, Seller, Buyer } from "@/lib/types";
+import type { QuoteRequest, Product, Seller, Buyer, ContactMessage } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 
@@ -106,6 +106,7 @@ export default function AdminDashboardPage() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("products");
   const [quoteRequests, setQuoteRequests] = useState<QuoteRequest[]>([]);
+  const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
   const [productsData, setProductsData] = useState<Product[]>([]);
   const [sellersData, setSellersData] = useState<Seller[]>([]);
   const [buyersData, setBuyersData] = useState<Buyer[]>([]);
@@ -143,6 +144,10 @@ export default function AdminDashboardPage() {
         if (activeTab === 'quote-requests') {
             const requests = await getQuoteRequests();
             setQuoteRequests(requests);
+        }
+        if (activeTab === 'messages') {
+            const messages = await getContactMessages();
+            setContactMessages(messages);
         }
         if (activeTab === 'products') {
             const prods = await getProducts();
@@ -641,9 +646,10 @@ export default function AdminDashboardPage() {
             <TabsTrigger value="vendors">Vendors</TabsTrigger>
             <TabsTrigger value="buyers">Buyers</TabsTrigger>
             <TabsTrigger value="quote-requests">Quote Requests</TabsTrigger>
+            <TabsTrigger value="messages">Messages</TabsTrigger>
           </TabsList>
           <div className="ml-auto">
-            {activeTab !== 'quote-requests' && renderAddDialog()}
+            {activeTab !== 'quote-requests' && activeTab !== 'messages' && renderAddDialog()}
           </div>
         </div>
         <TabsContent value="products">
@@ -913,6 +919,51 @@ export default function AdminDashboardPage() {
                       )) : (
                       <TableRow>
                           <TableCell colSpan={6} className="text-center h-24">No quote requests yet.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="messages">
+          <Card>
+            <CardHeader>
+              <CardTitle>Contact Messages</CardTitle>
+              <CardDescription>
+                Messages submitted through the contact form.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {renderTableContent(
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>From</TableHead>
+                      <TableHead>Subject</TableHead>
+                      <TableHead>Message</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {contactMessages.length > 0 ? contactMessages.map((msg) => (
+                        <TableRow key={msg.id}>
+                          <TableCell className="text-sm">
+                            {format(new Date(msg.date), "PPp")}
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-medium">{msg.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {msg.email}
+                            </div>
+                          </TableCell>
+                          <TableCell>{msg.subject}</TableCell>
+                          <TableCell className="max-w-[400px] text-sm text-muted-foreground whitespace-pre-wrap">{msg.message}</TableCell>
+                        </TableRow>
+                      )) : (
+                      <TableRow>
+                          <TableCell colSpan={4} className="text-center h-24">No messages yet.</TableCell>
                       </TableRow>
                     )}
                   </TableBody>

@@ -1,5 +1,5 @@
 
-import type { Product, Seller, Buyer, QuoteRequest } from './types';
+import type { Product, Seller, Buyer, QuoteRequest, ContactMessage } from './types';
 import { unstable_noStore as noStore } from 'next/cache';
 import { db, auth } from './firebase';
 import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp, query, orderBy, Timestamp, updateDoc, where, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
@@ -428,4 +428,40 @@ export async function deleteBuyer(buyerId: string) {
     }
 }
 
-    
+// Contact Messages
+export async function addContactMessage(data: Omit<ContactMessage, 'id' | 'date'>) {
+    try {
+        const messagesCollectionRef = collection(db, 'contact-messages');
+        await addDoc(messagesCollectionRef, {
+            ...data,
+            createdAt: serverTimestamp(),
+        });
+    } catch (error) {
+        console.error("Error adding contact message: ", error);
+        throw error;
+    }
+}
+
+export async function getContactMessages(): Promise<ContactMessage[]> {
+    noStore();
+    try {
+        const messagesCollectionRef = collection(db, 'contact-messages');
+        const q = query(messagesCollectionRef, orderBy('createdAt', 'desc'));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            const date = data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : new Date().toISOString();
+            return {
+                id: doc.id,
+                date: date,
+                name: data.name || '',
+                email: data.email || '',
+                subject: data.subject || '',
+                message: data.message || '',
+            }
+        });
+    } catch (error) {
+        console.error("Error fetching contact messages:", error);
+        return [];
+    }
+}
