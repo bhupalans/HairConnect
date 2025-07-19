@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
@@ -29,41 +29,45 @@ export default function RegisterPage() {
   const router = useRouter();
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Form state
+  const [name, setName] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [country, setCountry] = useState("");
+  const [city, setCity] = useState("");
+  const [phoneCode, setPhoneCode] = useState<string | undefined>(undefined);
+  const [localPhone, setLocalPhone] = useState("");
+  const [bio, setBio] = useState("");
 
-  // Create a unique list of countries based on dial_code to prevent duplicate key errors
-  const uniqueCountriesByDialCode = Array.from(
-    countries
-      .filter(c => c.dial_code)
-      .reduce((map, country) => {
-        // Use dial_code as the key to ensure uniqueness.
-        // This will keep the first country encountered for a given dial code.
-        if (!map.has(country.dial_code!)) {
-          map.set(country.dial_code!, country);
+  const uniqueCountriesByDialCode = useMemo(() => {
+    const seen = new Set();
+    return countries
+      .filter(c => {
+        if (!c.dial_code || seen.has(c.dial_code)) {
+          return false;
         }
-        return map;
-      }, new Map<string, typeof countries[0]>())
-      .values()
-  ).sort((a, b) => a.name.localeCompare(b.name));
-
+        seen.add(c.dial_code);
+        return true;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, []);
+  
+  const handleCountryChange = (selectedCountryName: string) => {
+    setCountry(selectedCountryName);
+    const selectedCountryData = countries.find(c => c.name === selectedCountryName);
+    if (selectedCountryData && selectedCountryData.dial_code) {
+      setPhoneCode(selectedCountryData.dial_code);
+    }
+  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
 
-    const formData = new FormData(event.currentTarget);
-    const name = formData.get("name") as string;
-    const companyName = formData.get("companyName") as string;
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
-    const country = formData.get("country") as string;
-    const city = formData.get("city") as string;
-    const phoneCode = formData.get("phoneCode") as string;
-    const localPhone = formData.get("localPhone") as string;
-    const bio = formData.get("bio") as string;
-
     const location = city && country ? `${city}, ${country}` : city || country;
     const fullPhoneNumber = phoneCode && localPhone ? `${phoneCode}${localPhone.replace(/\D/g, '')}` : "";
-
 
     try {
       // Step 1: Create user in Firebase Authentication
@@ -134,27 +138,27 @@ export default function RegisterPage() {
               <div className="grid md:grid-cols-2 gap-6">
                  <div className="grid gap-2">
                     <Label htmlFor="name">Your Name</Label>
-                    <Input id="name" name="name" placeholder="e.g., Aisha Bella" required />
+                    <Input id="name" name="name" placeholder="e.g., Aisha Bella" required value={name} onChange={e => setName(e.target.value)} />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="companyName">Company Name</Label>
-                    <Input id="companyName" name="companyName" placeholder="e.g., Bella Hair Imports" required />
+                    <Input id="companyName" name="companyName" placeholder="e.g., Bella Hair Imports" required value={companyName} onChange={e => setCompanyName(e.target.value)} />
                   </div>
               </div>
                <div className="grid md:grid-cols-2 gap-6">
                 <div className="grid gap-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input id="email" name="email" type="email" placeholder="you@example.com" required />
+                    <Input id="email" name="email" type="email" placeholder="you@example.com" required value={email} onChange={e => setEmail(e.target.value)} />
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor="password">Password</Label>
-                    <Input id="password" name="password" type="password" placeholder="Must be at least 6 characters" required />
+                    <Input id="password" name="password" type="password" placeholder="Must be at least 6 characters" required value={password} onChange={e => setPassword(e.target.value)} />
                 </div>
               </div>
                <div className="grid md:grid-cols-2 gap-6">
                  <div className="grid gap-2">
                     <Label htmlFor="country">Country</Label>
-                    <Select name="country" required>
+                    <Select name="country" required value={country} onValueChange={handleCountryChange}>
                         <SelectTrigger id="country">
                             <SelectValue placeholder="Select your country" />
                         </SelectTrigger>
@@ -165,26 +169,26 @@ export default function RegisterPage() {
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="city">City</Label>
-                    <Input id="city" name="city" placeholder="e.g., Lagos" required />
+                    <Input id="city" name="city" placeholder="e.g., Lagos" required value={city} onChange={e => setCity(e.target.value)} />
                   </div>
               </div>
               <div className="grid gap-2">
                  <Label htmlFor="localPhone">Phone Number (Optional)</Label>
                  <div className="flex gap-2">
-                    <Select name="phoneCode">
+                    <Select name="phoneCode" value={phoneCode} onValueChange={setPhoneCode}>
                         <SelectTrigger className="w-[120px]">
                             <SelectValue placeholder="Code" />
                         </SelectTrigger>
                         <SelectContent>
-                           {uniqueCountriesByDialCode.map(c => <SelectItem key={c.dial_code} value={c.dial_code!}>{`${c.name} (${c.dial_code})`}</SelectItem>)}
+                           {uniqueCountriesByDialCode.map((c, index) => <SelectItem key={c.code + index} value={c.dial_code!}>{`${c.name} (${c.dial_code})`}</SelectItem>)}
                         </SelectContent>
                     </Select>
-                    <Input id="localPhone" name="localPhone" type="tel" placeholder="e.g., 801 234 5678" />
+                    <Input id="localPhone" name="localPhone" type="tel" placeholder="e.g., 801 234 5678" value={localPhone} onChange={e => setLocalPhone(e.target.value)} />
                  </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="bio">About Your Business (Bio)</Label>
-                <Textarea id="bio" name="bio" placeholder="Tell buyers about your products and what makes your business unique." required />
+                <Textarea id="bio" name="bio" placeholder="Tell buyers about your products and what makes your business unique." required value={bio} onChange={e => setBio(e.target.value)} />
               </div>
               <CardFooter className="p-0 pt-4 flex flex-col items-center gap-4">
                 <Button className="w-full" type="submit" disabled={isLoading}>
