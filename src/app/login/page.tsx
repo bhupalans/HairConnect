@@ -14,7 +14,7 @@ function LoginPageFallback() {
 
 export default function LoginPage() {
   return (
-    <div className="flex items-center justify-center min-h-[80vh] bg-secondary/20">
+    <div className="flex items-center justify-center min-h-[calc(100vh-12rem)] bg-secondary/20">
       <Card className="w-full max-w-sm shadow-xl">
         <CardHeader className="text-center">
             <CardTitle className="text-3xl font-headline">Login</CardTitle>
