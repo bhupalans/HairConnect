@@ -2,6 +2,7 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -100,6 +101,7 @@ const initialProfileState: Partial<Seller> = {
 
 export default function VendorDashboardPage() {
   const { toast } = useToast();
+  const router = useRouter();
 
   const [user, setUser] = React.useState<User | null>(null);
   const [seller, setSeller] = React.useState<Seller | null>(null);
@@ -138,7 +140,6 @@ export default function VendorDashboardPage() {
 
 
   const fetchVendorData = React.useCallback(async (currentUser: User) => {
-    setIsLoading(true);
     try {
         const [fetchedSeller, fetchedProducts, fetchedQuotes] = await Promise.all([
           getSellerById(currentUser.uid),
@@ -171,19 +172,21 @@ export default function VendorDashboardPage() {
 
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setIsLoading(true);
       if (currentUser) {
+        if (!currentUser.emailVerified) {
+          router.push('/auth/verify-email');
+          return;
+        }
         setUser(currentUser);
         await fetchVendorData(currentUser);
       } else {
-        setUser(null);
-        setSeller(null);
-        setProducts([]);
-        setIsLoading(false);
+        router.push('/login?redirect=/vendor/dashboard');
       }
     });
 
     return () => unsubscribe();
-  }, [fetchVendorData]);
+  }, [fetchVendorData, router]);
 
   const handleTabChange = async (value: string) => {
     setActiveTab(value);
@@ -395,30 +398,10 @@ export default function VendorDashboardPage() {
     }
   }
 
-  if (isLoading) {
+  if (isLoading || !user || !seller) {
     return (
-      <div className="container mx-auto px-4 py-8 md:py-12 text-center">
+      <div className="container mx-auto px-4 py-8 md:py-12 text-center h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
-        <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
-      </div>
-    );
-  }
-
-  if (!user || !seller) {
-    return (
-      <div className="container mx-auto px-4 py-8 md:py-12 text-center">
-        <h1 className="text-2xl font-bold">Could not find seller data.</h1>
-        <p className="text-muted-foreground">
-          Please{" "}
-          <Link href="/register" className="text-primary underline">
-            register
-          </Link>{" "}
-          or{" "}
-          <Link href="/login" className="text-primary underline">
-            log in
-          </Link>
-          .
-        </p>
       </div>
     );
   }
@@ -903,4 +886,5 @@ export default function VendorDashboardPage() {
 }
 
     
+
 
