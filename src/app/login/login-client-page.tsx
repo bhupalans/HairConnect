@@ -21,38 +21,26 @@ export function LoginClientPage() {
       if (user) {
         setIsLoading(true); // Show loader while we determine role and redirect
         
-        // Check for admin role first.
-        const adminDoc = await getDoc(doc(db, "admins", user.uid));
-        if (adminDoc.exists()) {
-           toast({
-            title: "Login Successful",
-            description: "Welcome back, Admin! Redirecting you to your dashboard.",
-          });
-          const redirectUrl = searchParams.get("redirect") || "/admin/dashboard";
-          router.push(redirectUrl);
-          return;
-        }
-        
-        // If not admin, check for seller role.
+        // This page is for vendors. Check for seller role.
         const sellerDoc = await getDoc(doc(db, "sellers", user.uid));
         if (sellerDoc.exists()) {
           toast({
             title: "Login Successful",
             description: "Welcome back! Redirecting you to your dashboard.",
           });
-          // This is where we would add an email verification check in the future.
+          // In the future, we can add an email verification check here.
           // For now, we redirect directly.
           const redirectUrl = searchParams.get("redirect") || "/vendor/dashboard";
           router.push(redirectUrl);
           return;
         }
         
-        // Fallback if user is in auth but not DB (e.g., deleted from Firestore)
-        // This is a security measure to prevent orphaned auth accounts from staying logged in.
+        // If user is authenticated but not in the sellers collection,
+        // it means they are not a vendor. Sign them out.
         await auth.signOut();
         toast({
-            title: "Login Failed",
-            description: "Your user profile could not be found. Please contact support.",
+            title: "Access Denied",
+            description: "This login is for registered vendors only. Please use the admin login if you are an administrator.",
             variant: "destructive",
         });
         setIsLoading(false);
