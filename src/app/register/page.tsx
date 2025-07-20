@@ -27,6 +27,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Checkbox } from "@/components/ui/checkbox";
 
 
 const formSchema = z.object({
@@ -40,6 +41,9 @@ const formSchema = z.object({
   phoneCode: z.string().optional(),
   localPhone: z.string().optional(),
   bio: z.string().min(10, { message: "Bio must be at least 10 characters." }),
+  terms: z.literal(true, {
+    errorMap: () => ({ message: "You must accept the terms and conditions." }),
+  }),
 }).refine(data => data.password === data.confirmPassword, {
   message: "Passwords do not match.",
   path: ["confirmPassword"], // Error will be shown on the confirmPassword field
@@ -64,6 +68,7 @@ export default function RegisterPage() {
       phoneCode: "",
       localPhone: "",
       bio: "",
+      terms: false,
     },
   });
   
@@ -274,6 +279,34 @@ export default function RegisterPage() {
                       <FormMessage />
                     </FormItem>
                  )} />
+                 <FormField
+                    control={form.control}
+                    name="terms"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>
+                            I agree to the HairBuySell{" "}
+                            <Link href="/company/terms" className="underline text-primary hover:text-primary/80" target="_blank">
+                              Terms of Service
+                            </Link>{" "}
+                            and{" "}
+                            <Link href="/company/privacy" className="underline text-primary hover:text-primary/80" target="_blank">
+                              Privacy Policy
+                            </Link>
+                            .
+                          </FormLabel>
+                          <FormMessage />
+                        </div>
+                      </FormItem>
+                    )}
+                  />
                 <CardFooter className="p-0 pt-4 flex flex-col items-center gap-4">
                   <Button className="w-full" type="submit" disabled={form.formState.isSubmitting}>
                      {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -293,3 +326,5 @@ export default function RegisterPage() {
     </div>
   );
 }
+
+    
