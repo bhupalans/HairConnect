@@ -22,17 +22,8 @@ export function LoginClientPage() {
         setIsLoading(true); // Show loader while we determine role and redirect
         // User is logged in, determine role and redirect.
         const sellerDoc = await getDoc(doc(db, "sellers", user.uid));
-        if (sellerDoc.exists()) {
-          toast({
-            title: "Login Successful",
-            description: "Welcome back! Redirecting you to your dashboard.",
-          });
-          const redirectUrl = searchParams.get("redirect") || "/vendor/dashboard";
-          router.push(redirectUrl);
-          return;
-        }
-        
         const adminDoc = await getDoc(doc(db, "admins", user.uid));
+
         if (adminDoc.exists()) {
            toast({
             title: "Login Successful",
@@ -43,8 +34,20 @@ export function LoginClientPage() {
           return;
         }
         
-        // Fallback if user is in auth but not DB (shouldn't happen in normal flow)
-        // Keep them on login page but stop loading.
+        if (sellerDoc.exists()) {
+          toast({
+            title: "Login Successful",
+            description: "Welcome back! Redirecting you to your dashboard.",
+          });
+          // This is where we would add an email verification check in the future.
+          // For now, we redirect directly.
+          const redirectUrl = searchParams.get("redirect") || "/vendor/dashboard";
+          router.push(redirectUrl);
+          return;
+        }
+        
+        // Fallback if user is in auth but not DB (e.g., deleted from Firestore)
+        // This is a security measure to prevent orphaned auth accounts from staying logged in.
         await auth.signOut();
         toast({
             title: "Login Failed",
