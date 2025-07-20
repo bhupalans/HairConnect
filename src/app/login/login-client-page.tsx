@@ -20,10 +20,9 @@ export function LoginClientPage() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setIsLoading(true); // Show loader while we determine role and redirect
-        // User is logged in, determine role and redirect.
-        const sellerDoc = await getDoc(doc(db, "sellers", user.uid));
+        
+        // Check for admin role first.
         const adminDoc = await getDoc(doc(db, "admins", user.uid));
-
         if (adminDoc.exists()) {
            toast({
             title: "Login Successful",
@@ -34,6 +33,8 @@ export function LoginClientPage() {
           return;
         }
         
+        // If not admin, check for seller role.
+        const sellerDoc = await getDoc(doc(db, "sellers", user.uid));
         if (sellerDoc.exists()) {
           toast({
             title: "Login Successful",
