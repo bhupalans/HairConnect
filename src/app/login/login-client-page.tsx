@@ -17,13 +17,27 @@ export function LoginClientPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    const checkSellerRoleWithRetry = async (user: User, retries = 3, delay = 1000): Promise<boolean> => {
+      for (let i = 0; i < retries; i++) {
+        const sellerDoc = await getDoc(doc(db, "sellers", user.uid));
+        if (sellerDoc.exists()) {
+          return true; // Seller document found
+        }
+        // If not found, wait for the delay before the next attempt
+        if (i < retries - 1) {
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+      return false; // Seller document not found after all retries
+    };
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setIsLoading(true); // Show loader while we determine role and redirect
         
-        // This page is for vendors. Check for seller role.
-        const sellerDoc = await getDoc(doc(db, "sellers", user.uid));
-        if (sellerDoc.exists()) {
+        const isSeller = await checkSellerRoleWithRetry(user);
+        
+        if (isSeller) {
           // User is a seller, now check if their email is verified.
           if (!user.emailVerified) {
             // If not verified, redirect to the verification page.
@@ -41,8 +55,8 @@ export function LoginClientPage() {
           return;
         }
         
-        // If user is authenticated but not in the sellers collection,
-        // it means they are not a vendor. Sign them out.
+        // If user is authenticated but not a seller after retries,
+        // sign them out and show an error.
         await auth.signOut();
         toast({
             title: "Access Denied",
@@ -70,5 +84,3 @@ export function LoginClientPage() {
 
   return <LoginForm />;
 }
-
-    
