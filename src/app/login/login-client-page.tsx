@@ -24,12 +24,18 @@ export function LoginClientPage() {
         // This page is for vendors. Check for seller role.
         const sellerDoc = await getDoc(doc(db, "sellers", user.uid));
         if (sellerDoc.exists()) {
+          // User is a seller, now check if their email is verified.
+          if (!user.emailVerified) {
+            // If not verified, redirect to the verification page.
+            router.push('/auth/verify-email');
+            return;
+          }
+
+          // If verified, proceed to dashboard.
           toast({
             title: "Login Successful",
             description: "Welcome back! Redirecting you to your dashboard.",
           });
-          // In the future, we can add an email verification check here.
-          // For now, we redirect directly.
           const redirectUrl = searchParams.get("redirect") || "/vendor/dashboard";
           router.push(redirectUrl);
           return;
@@ -64,3 +70,5 @@ export function LoginClientPage() {
 
   return <LoginForm />;
 }
+
+    

@@ -19,7 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
-import { createUserWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
+import { createUserWithEmailAndPassword, onAuthStateChanged, sendEmailVerification } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { Loader2 } from "lucide-react";
 import { countries } from "@/lib/countries";
@@ -116,6 +116,9 @@ export default function RegisterPage() {
       // Step 1: Create user in Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const user = userCredential.user;
+      
+      // Step 1.5: Send verification email
+      await sendEmailVerification(user);
 
       // Step 2: Create a corresponding seller document in Firestore
       await setDoc(doc(db, "sellers", user.uid), {
@@ -134,11 +137,11 @@ export default function RegisterPage() {
 
       toast({
         title: "Registration Successful!",
-        description: "Welcome to HairBuySell! Redirecting you to your dashboard.",
+        description: "A verification email has been sent. Please check your inbox.",
       });
 
-      // Step 3: Redirect to the dashboard
-      router.push('/vendor/dashboard');
+      // Step 3: Redirect to the verification page
+      router.push('/auth/verify-email');
 
     } catch (error: any) {
       console.error("Registration error:", error);
