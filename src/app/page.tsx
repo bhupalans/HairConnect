@@ -1,17 +1,19 @@
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getProducts, categories } from "@/lib/data";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { getProducts, categories, getSourcingRequests } from "@/lib/data";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Sparkles, Gem, Globe } from "lucide-react";
+import { ArrowRight, Sparkles, Gem, Globe, ShoppingBag } from "lucide-react";
 import { ProductCard } from "@/components/product-card";
+import { formatDistanceToNow } from 'date-fns';
 
 export const dynamic = 'force-dynamic';
 
 export default async function Home() {
   const products = await getProducts();
   const featuredProducts = products.slice(0, 4);
+  const sourcingRequests = (await getSourcingRequests()).filter(req => req.status === 'active').slice(0, 4);
 
   return (
     <div className="flex flex-col">
@@ -81,7 +83,38 @@ export default async function Home() {
         </div>
       </section>
 
-      <section id="why-us" className="py-16 md:py-24 bg-background">
+      <section id="sourcing-requests" className="py-16 md:py-24 bg-background">
+          <div className="container mx-auto px-4">
+              <h2 className="text-3xl md:text-4xl font-headline text-center text-primary mb-2">Active Sourcing Requests</h2>
+              <p className="text-lg text-muted-foreground text-center mb-12 max-w-2xl mx-auto">
+                  Opportunities for sellers. Buyers are actively looking for these products right now.
+              </p>
+              {sourcingRequests.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {sourcingRequests.map(req => (
+                           <Card key={req.id} className="p-6 flex flex-col sm:flex-row items-start gap-4">
+                              <div className="bg-primary/10 p-3 rounded-full hidden sm:block">
+                                  <ShoppingBag className="h-6 w-6 text-primary"/>
+                              </div>
+                              <div className="flex-grow">
+                                  <p className="font-semibold text-foreground mb-1 line-clamp-2">{req.requestDetails}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Posted by {req.buyerCompanyName || req.buyerName} - {formatDistanceToNow(new Date(req.datePosted), { addSuffix: true })}
+                                  </p>
+                              </div>
+                              <Button asChild variant="secondary" className="mt-2 sm:mt-0 w-full sm:w-auto">
+                                  <Link href={`/buyers/${req.buyerId}`}>View Details</Link>
+                              </Button>
+                           </Card>
+                      ))}
+                  </div>
+              ) : (
+                  <p className="text-center text-muted-foreground">There are no active sourcing requests at the moment.</p>
+              )}
+          </div>
+      </section>
+
+      <section id="why-us" className="py-16 md:py-24 bg-secondary/40">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl md:text-4xl font-headline text-center text-primary mb-12">Why Choose HairBuySell?</h2>
           <div className="grid md:grid-cols-3 gap-8 text-center">
