@@ -90,23 +90,32 @@ export default async function Home() {
                   Opportunities for sellers. Buyers are actively looking for these products right now.
               </p>
               {sourcingRequests.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {sourcingRequests.map(req => (
-                           <Card key={req.id} className="p-6 flex flex-col sm:flex-row items-start gap-4">
-                              <div className="bg-primary/10 p-3 rounded-full hidden sm:block">
-                                  <ShoppingBag className="h-6 w-6 text-primary"/>
-                              </div>
-                              <div className="flex-grow">
-                                  <p className="font-semibold text-foreground mb-1 line-clamp-2">{req.requestDetails}</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    Posted by {req.buyerCompanyName || req.buyerName} - {formatDistanceToNow(new Date(req.datePosted), { addSuffix: true })}
-                                  </p>
-                              </div>
-                              <Button asChild variant="secondary" className="mt-2 sm:mt-0 w-full sm:w-auto">
-                                  <Link href={`/buyers/${req.buyerId}`}>View Details</Link>
-                              </Button>
-                           </Card>
-                      ))}
+                  <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {sourcingRequests.map(req => (
+                              <Card key={req.id} className="p-6 flex flex-col sm:flex-row items-start gap-4">
+                                  <div className="bg-primary/10 p-3 rounded-full hidden sm:block">
+                                      <ShoppingBag className="h-6 w-6 text-primary"/>
+                                  </div>
+                                  <div className="flex-grow">
+                                      <p className="font-semibold text-foreground mb-1 line-clamp-2">{req.requestDetails}</p>
+                                      <p className="text-sm text-muted-foreground">
+                                        Posted by {req.buyerCompanyName || req.buyerName} - {formatDistanceToNow(new Date(req.datePosted), { addSuffix: true })}
+                                      </p>
+                                  </div>
+                                  <Button asChild variant="secondary" className="mt-2 sm:mt-0 w-full sm:w-auto">
+                                      <Link href={`/buyers/${req.buyerId}`}>View Details</Link>
+                                  </Button>
+                              </Card>
+                          ))}
+                      </div>
+                       <div className="text-center mt-12">
+                          <Button asChild>
+                              <Link href="/sourcing-requests" className="font-bold">
+                                  View All Requests <ArrowRight className="ml-2 h-4 w-4" />
+                              </Link>
+                          </Button>
+                      </div>
                   </div>
               ) : (
                   <p className="text-center text-muted-foreground">There are no active sourcing requests at the moment.</p>
