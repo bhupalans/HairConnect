@@ -205,7 +205,7 @@ export default function AdminDashboardPage() {
         description: product.description,
         price: product.price,
         category: product.category,
-        imagePreview: product.images?.[0] || "",
+        imagePreview: product.images?.[0]?.url || "",
         specs: {
             ...product.specs,
             length: product.specs.length.replace(' inches', ''), // remove suffix for editing
@@ -681,8 +681,8 @@ export default function AdminDashboardPage() {
                       <TableRow key={product.id}>
                         <TableCell className="hidden sm:table-cell">
                           <Image
-                            src={product.images?.[0] || 'https://placehold.co/64x64'}
-                            alt={product.name}
+                            src={product.images?.[0]?.url || 'https://placehold.co/64x64'}
+                            alt={product.images?.[0]?.altText || product.name}
                             width={64}
                             height={64}
                             className="rounded-md object-cover"

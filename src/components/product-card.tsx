@@ -11,7 +11,8 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product }: ProductCardProps) {
-  const imageUrl = product.images && product.images.length > 0 ? product.images[0] : 'https://placehold.co/600x600';
+  const imageUrl = product.images && product.images.length > 0 ? product.images[0].url : 'https://placehold.co/600x600';
+  const altText = product.images && product.images.length > 0 ? product.images[0].altText : product.name;
 
   return (
     <Card className="flex flex-col h-full overflow-hidden rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
@@ -20,7 +21,7 @@ export function ProductCard({ product }: ProductCardProps) {
           <div className="relative aspect-square">
             <Image
               src={imageUrl}
-              alt={product.name}
+              alt={altText}
               data-ai-hint={`${product.specs.color} ${product.specs.texture} hair`}
               fill
               className="object-cover"

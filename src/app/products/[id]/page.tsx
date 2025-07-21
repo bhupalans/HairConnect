@@ -29,7 +29,7 @@ export default async function ProductDetailPage({ params }: { params: { id: stri
                 product.images.map((img, index) => (
                   <CarouselItem key={index}>
                     <div className="aspect-square relative">
-                      <Image src={img} alt={`${product.name} image ${index + 1}`} fill className="object-cover" data-ai-hint={`${product.specs.color} ${product.specs.texture} hair`}/>
+                      <Image src={img.url} alt={img.altText} fill className="object-cover" data-ai-hint={`${product.specs.color} ${product.specs.texture} hair`}/>
                     </div>
                   </CarouselItem>
                 ))

@@ -1,10 +1,11 @@
 
-import type { Product, Seller, Buyer, QuoteRequest, ContactMessage } from './types';
+import type { Product, Seller, Buyer, QuoteRequest, ContactMessage, ProductImage } from './types';
 import { unstable_noStore as noStore } from 'next/cache';
 import { db, auth } from './firebase';
 import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp, query, orderBy, Timestamp, updateDoc, where, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { generateAltText } from '@/ai/flows/generate-alt-text-flow';
 
 
 const mapFirestoreDocToQuoteRequest = (docSnapshot: any): QuoteRequest => {
@@ -33,6 +34,15 @@ export const categories = [
     { name: 'Extensions', icon: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' class='lucide lucide-move-up'%3E%3Cpath d='M8 6L12 2L16 6'%3E%3C/path%3E%3Cpath d='M12 2V22'%3E%3C/path%3E%3C/svg%3E` },
     { name: 'Tools', icon: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' class='lucide lucide-scissors'%3E%3Ccircle cx='6' cy='6' r='3'%3E%3C/circle%3E%3Ccircle cx='6' cy='18' r='3'%3E%3C/circle%3E%3Cpath d='M20 4L8.12 15.88'%3E%3C/path%3E%3Cpath d='M14.47 14.48L20 20'%3E%3C/path%3E%3Cpath d='M8.12 8.12L12 12'%3E%3C/path%3E%3C/svg%3E` },
 ];
+
+const fileToDataUri = async (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+};
 
 export const getProducts = async (): Promise<Product[]> => {
     noStore();
@@ -174,38 +184,48 @@ export async function addProduct(
   if (!sellerId) {
     throw new Error("User is not authenticated. Cannot add product.");
   }
-  
-  const storage = getStorage();
-  const imageUrls: string[] = [];
-  
-  try {
-    // Step 1: Upload all images to Storage in parallel
-    const uploadPromises = imageFiles.map(file => {
-      const imageRef = ref(storage, `products/${sellerId}/${Date.now()}-${file.name}`);
-      return uploadBytes(imageRef, file).then(uploadResult => getDownloadURL(uploadResult.ref));
-    });
-    
-    const resolvedImageUrls = await Promise.all(uploadPromises);
-    imageUrls.push(...resolvedImageUrls);
 
-    // Step 2: Prepare the document for Firestore, including sellerId and image URLs
+  const storage = getStorage();
+  const uploadedImageUrls: string[] = [];
+  const productImages: ProductImage[] = [];
+
+  try {
+    // Step 1: Upload images and generate alt text in parallel
+    const uploadAndAnalyzePromises = imageFiles.map(async (file) => {
+      // Upload to storage
+      const imageRef = ref(storage, `products/${sellerId}/${Date.now()}-${file.name}`);
+      const uploadResult = await uploadBytes(imageRef, file);
+      const url = await getDownloadURL(uploadResult.ref);
+      uploadedImageUrls.push(url); // Keep track for cleanup on failure
+
+      // Generate alt text
+      const imageDataUri = await fileToDataUri(file);
+      const { altText } = await generateAltText({ imageDataUri });
+
+      return { url, altText };
+    });
+
+    const resolvedImages = await Promise.all(uploadAndAnalyzePromises);
+    productImages.push(...resolvedImages);
+
+    // Step 2: Prepare the document for Firestore
     const productsCollection = collection(db, 'products');
     const productData = {
       ...data,
       sellerId: sellerId,
-      images: imageUrls,
+      images: productImages,
     };
-    
+
     // Step 3: Write the document to Firestore
     await addDoc(productsCollection, productData);
-    
+
   } catch (error) {
     console.error("Error during product creation process:", error);
-    
-    // If the Firestore write fails, we should try to delete any orphaned images.
-    if (imageUrls.length > 0) {
-      console.log("Attempting to clean up orphaned images after Firestore error...");
-      const deletePromises = imageUrls.map(url => {
+
+    // If any step fails, clean up any images that were already uploaded.
+    if (uploadedImageUrls.length > 0) {
+      console.log("Attempting to clean up orphaned images after failure...");
+      const deletePromises = uploadedImageUrls.map(url => {
         try {
           const imageRefToDelete = ref(storage, url);
           return deleteObject(imageRefToDelete);
@@ -217,43 +237,49 @@ export async function addProduct(
       await Promise.allSettled(deletePromises);
       console.log("Orphaned image cleanup complete.");
     }
-    
-    // Re-throw the original error to be handled by the UI.
+
     throw error;
   }
 }
 
-
-export async function updateProduct(productId: string, data: Partial<Omit<Product, 'id' | 'images'>>, newImageFile: File | null) {
+export async function updateProduct(
+  productId: string,
+  data: Partial<Omit<Product, 'id' | 'images'>>,
+  newImageFile: File | null
+) {
   const productRef = doc(db, "products", productId);
   const dataToUpdate: any = { ...data };
 
   try {
     const storage = getStorage();
-    
+
     const existingProductSnap = await getDoc(productRef);
     if (!existingProductSnap.exists()) {
-        throw new Error("Product not found to update.");
+      throw new Error("Product not found to update.");
     }
     const existingProductData = existingProductSnap.data() as Product;
     const sellerId = existingProductData.sellerId;
 
     if (newImageFile) {
-      const oldImageUrl = existingProductData?.images?.[0];
-
-      const newImageRef = ref(storage, `products/${sellerId}/${newImageFile.name}`);
+      // Handle the new image upload and AI alt text generation
+      const newImageRef = ref(storage, `products/${sellerId}/${Date.now()}-${newImageFile.name}`);
       const uploadResult = await uploadBytes(newImageRef, newImageFile);
       const newImageUrl = await getDownloadURL(uploadResult.ref);
       
-      dataToUpdate.images = [newImageUrl];
+      const imageDataUri = await fileToDataUri(newImageFile);
+      const { altText } = await generateAltText({ imageDataUri });
 
+      dataToUpdate.images = [{ url: newImageUrl, altText }];
+
+      // Delete the old image if it exists
+      const oldImageUrl = existingProductData?.images?.[0]?.url;
       if (oldImageUrl && oldImageUrl.includes('firebasestorage.googleapis.com')) {
-          try {
-            const oldImageStorageRef = ref(storage, oldImageUrl);
-            await deleteObject(oldImageStorageRef);
-          } catch (deleteError: any) {
-             console.warn("Could not delete old image, it may have already been removed:", deleteError.code);
-          }
+        try {
+          const oldImageStorageRef = ref(storage, oldImageUrl);
+          await deleteObject(oldImageStorageRef);
+        } catch (deleteError: any) {
+          console.warn("Could not delete old image, it may have already been removed:", deleteError.code);
+        }
       }
     }
 
@@ -278,9 +304,9 @@ export async function deleteProduct(productId: string) {
         
         // Delete all images associated with the product
         if (productData.images && productData.images.length > 0) {
-            const deletePromises = productData.images.map(imageUrl => {
-                if (imageUrl.includes('firebasestorage.googleapis.com')) {
-                    const imageRef = ref(storage, imageUrl);
+            const deletePromises = productData.images.map(image => {
+                if (image.url.includes('firebasestorage.googleapis.com')) {
+                    const imageRef = ref(storage, image.url);
                     return deleteObject(imageRef);
                 }
                 return Promise.resolve();
