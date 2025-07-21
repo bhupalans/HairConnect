@@ -4,60 +4,63 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- Admins: Allow full access to admins ---
+    // Helper functions
     function isAdmin() {
-      // Check if the requesting user's UID exists in the 'admins' collection.
       return exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
+    
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
 
-    // --- Products: Publicly readable, writable only by the owner seller or an admin ---
+    // Default Deny: By default, no one has access.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    // Admins have full access to their own collection
+    match /admins/{adminId} {
+      allow read, write: if isOwner(adminId);
+    }
+    
+    // Products can be read by anyone, written only by their owner seller or an admin.
     match /products/{productId} {
       allow read: if true;
-      // Allow create/update/delete if user is an admin or if their UID matches the product's sellerId.
-      // For create, we check the incoming resource's data.
-      allow create: if isAdmin() || request.auth.uid == request.resource.data.sellerId;
-      allow update, delete: if isAdmin() || request.auth.uid == resource.data.sellerId;
+      allow create, update: if isOwner(request.resource.data.sellerId) || isAdmin();
+      allow delete: if isOwner(resource.data.sellerId) || isAdmin();
     }
-
-    // --- Sellers: Publicly readable, writable only by the seller or an admin ---
+    
+    // Sellers can be read by anyone. Sellers can only update their own profile. Admins can do anything.
     match /sellers/{sellerId} {
       allow read: if true;
-      // Allow any authenticated user to create a seller profile (register).
-      allow create: if request.auth.uid != null;
-      // Allow updates only by the seller themselves or an admin.
-      allow update: if isAdmin() || request.auth.uid == sellerId;
-      // Only admins can delete seller profiles.
+      allow create: if isAdmin(); // Only admins can create new seller profiles from dashboard
+      allow update: if isOwner(sellerId) || isAdmin();
       allow delete: if isAdmin();
     }
     
-    // --- Buyers: Publicly readable, managed only by admins ---
+    // Buyers can be read by anyone. Only admins can manage them.
     match /buyers/{buyerId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin();
-    }
-
-    // --- Quote Requests: Writable by any user, readable only by the designated seller or an admin ---
-    match /quote-requests/{requestId} {
-      // Anyone can create a quote request.
-      allow create: if true;
-      // Users can read a request if they are an admin or the designated seller.
-      allow read: if isAdmin() || request.auth.uid == resource.data.sellerId;
-      // Only the designated seller can update the request (e.g., to mark as read).
-      allow update: if request.auth.uid == resource.data.sellerId;
-      // Only admins can delete requests.
-      allow delete: if isAdmin();
+      allow write: if isAdmin();
     }
     
-    // --- Admins collection: Readable and writable only by other admins for security.
-    match /admins/{adminId} {
-      allow read, write: if isAdmin();
+    // Quote Requests can be read by admins or the relevant seller. Anyone can create one.
+    match /quote-requests/{requestId} {
+      allow create: if true;
+      allow read, update: if isAdmin() || (request.auth != null && get(/databases/$(database)/documents/sellers/$(request.auth.uid)).data.id == resource.data.sellerId);
+      allow delete: if isAdmin();
     }
 
-    // Allow public create, but only admin read for contact messages
+    // Contact messages are write-only for users, read-only for admins.
     match /contact-messages/{messageId} {
       allow create: if true;
-      allow read: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
-      allow update, delete: if false;
+      allow read, delete: if isAdmin();
+    }
+
+    // Sourcing Requests can be read by anyone, but only written by admins.
+    match /sourcing-requests/{requestId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }

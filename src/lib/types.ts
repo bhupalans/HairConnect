@@ -71,3 +71,13 @@ export interface ContactMessage {
   message: string;
   date: string;
 }
+
+export interface SourcingRequest {
+    id: string;
+    buyerId: string;
+    buyerName: string;
+    buyerCompanyName: string;
+    requestDetails: string;
+    datePosted: string;
+    status: 'active' | 'closed';
+}

@@ -59,12 +59,12 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { getProducts, getSellers, getBuyers, getQuoteRequests, addVendor, updateVendor, deleteVendor, addBuyer, updateBuyer, deleteBuyer, updateProduct, deleteProduct, categories, getContactMessages } from "@/lib/data";
+import { getProducts, getSellers, getBuyers, getQuoteRequests, addVendor, updateVendor, deleteVendor, addBuyer, updateBuyer, deleteBuyer, updateProduct, deleteProduct, categories, getContactMessages, getSourcingRequests, addSourcingRequest, updateSourcingRequest, deleteSourcingRequest } from "@/lib/data";
 import { MoreHorizontal, PlusCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
-import type { QuoteRequest, Product, Seller, Buyer, ContactMessage } from "@/lib/types";
+import type { QuoteRequest, Product, Seller, Buyer, ContactMessage, SourcingRequest } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 
@@ -84,6 +84,12 @@ const initialNewBuyerState = {
   email: "",
   location: "",
   bio: "",
+};
+
+const initialSourcingRequestState = {
+    buyerId: "",
+    requestDetails: "",
+    status: "active" as SourcingRequest['status'],
 }
 
 const initialEditProductState: Omit<Product, 'id' | 'sellerId' | 'images'> & { imagePreview: string } = {
@@ -110,6 +116,7 @@ export default function AdminDashboardPage() {
   const [productsData, setProductsData] = useState<Product[]>([]);
   const [sellersData, setSellersData] = useState<Seller[]>([]);
   const [buyersData, setBuyersData] = useState<Buyer[]>([]);
+  const [sourcingRequestsData, setSourcingRequestsData] = useState<SourcingRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -117,6 +124,7 @@ export default function AdminDashboardPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedVendor, setSelectedVendor] = useState<Seller | null>(null);
   const [selectedBuyer, setSelectedBuyer] = useState<Buyer | null>(null);
+  const [selectedSourcingRequest, setSelectedSourcingRequest] = useState<SourcingRequest | null>(null);
 
   // State for dialogs
   const [isAddVendorOpen, setIsAddVendorOpen] = useState(false);
@@ -127,6 +135,9 @@ export default function AdminDashboardPage() {
   const [isDeleteBuyerOpen, setIsDeleteBuyerOpen] = useState(false);
   const [isEditProductOpen, setIsEditProductOpen] = useState(false);
   const [isDeleteProductOpen, setIsDeleteProductOpen] = useState(false);
+  const [isAddSourcingRequestOpen, setIsAddSourcingRequestOpen] = useState(false);
+  const [isEditSourcingRequestOpen, setIsEditSourcingRequestOpen] = useState(false);
+  const [isDeleteSourcingRequestOpen, setIsDeleteSourcingRequestOpen] = useState(false);
 
   // State for forms
   const [newVendor, setNewVendor] = useState(initialNewVendorState);
@@ -134,6 +145,8 @@ export default function AdminDashboardPage() {
   const [newBuyer, setNewBuyer] = useState(initialNewBuyerState);
   const [editBuyerData, setEditBuyerData] = useState<Partial<Buyer>>({});
   const [editProductData, setEditProductData] = useState(initialEditProductState);
+  const [newSourcingRequest, setNewSourcingRequest] = useState(initialSourcingRequestState);
+  const [editSourcingRequestData, setEditSourcingRequestData] = useState<Partial<SourcingRequest>>({});
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
 
 
@@ -144,6 +157,13 @@ export default function AdminDashboardPage() {
         if (activeTab === 'quote-requests') {
             const requests = await getQuoteRequests();
             setQuoteRequests(requests);
+        }
+        if (activeTab === 'sourcing-requests') {
+            const requests = await getSourcingRequests();
+            setSourcingRequestsData(requests);
+            // Also need buyers data for the dropdown
+            const buys = await getBuyers();
+            setBuyersData(buys);
         }
         if (activeTab === 'messages') {
             const messages = await getContactMessages();
@@ -183,6 +203,10 @@ export default function AdminDashboardPage() {
     const buys = await getBuyers();
     setBuyersData(buys);
   }
+  const refetchSourcingRequests = async () => {
+      const reqs = await getSourcingRequests();
+      setSourcingRequestsData(reqs);
+  }
 
   const getTitle = () => {
     switch (activeTab) {
@@ -192,10 +216,90 @@ export default function AdminDashboardPage() {
         return "Vendor";
       case "buyers":
         return "Buyer";
+      case "sourcing-requests":
+        return "Sourcing Request";
       default:
         return "";
     }
   };
+
+  // --- SOURCING REQUEST HANDLERS ---
+  const handleAddSourcingRequest = async () => {
+    setIsSubmitting(true);
+    if (!newSourcingRequest.buyerId || !newSourcingRequest.requestDetails) {
+        toast({ title: "Missing fields", description: "Please select a buyer and add request details.", variant: "destructive"});
+        setIsSubmitting(false);
+        return;
+    }
+    try {
+        const buyer = buyersData.find(b => b.id === newSourcingRequest.buyerId);
+        if (!buyer) throw new Error("Buyer not found");
+
+        await addSourcingRequest({
+            buyerId: newSourcingRequest.buyerId,
+            buyerName: buyer.name,
+            buyerCompanyName: buyer.companyName || '',
+            requestDetails: newSourcingRequest.requestDetails,
+            status: newSourcingRequest.status,
+        });
+        toast({ title: "Sourcing Request Added", description: `Request for ${buyer.name} has been posted.` });
+        setIsAddSourcingRequestOpen(false);
+        setNewSourcingRequest(initialSourcingRequestState);
+        refetchSourcingRequests();
+    } catch (error) {
+        console.error("Add Sourcing Request Error:", error);
+        toast({ title: "Error", description: "Could not add the sourcing request.", variant: "destructive" });
+    } finally {
+        setIsSubmitting(false);
+    }
+  }
+
+  const handleEditSourcingRequestClick = (request: SourcingRequest) => {
+    setSelectedSourcingRequest(request);
+    setEditSourcingRequestData({
+        requestDetails: request.requestDetails,
+        status: request.status,
+    });
+    setIsEditSourcingRequestOpen(true);
+  }
+
+  const handleUpdateSourcingRequest = async () => {
+    if (!selectedSourcingRequest) return;
+    setIsSubmitting(true);
+    try {
+        await updateSourcingRequest(selectedSourcingRequest.id, editSourcingRequestData);
+        toast({ title: "Request Updated", description: `The request has been updated successfully.` });
+        setIsEditSourcingRequestOpen(false);
+        refetchSourcingRequests();
+    } catch(error) {
+        console.error("Update request error:", error);
+        toast({ title: "Update Failed", description: "Could not update the request.", variant: "destructive" });
+    } finally {
+        setIsSubmitting(false);
+    }
+  }
+  
+  const handleDeleteSourcingRequestClick = (request: SourcingRequest) => {
+    setSelectedSourcingRequest(request);
+    setIsDeleteSourcingRequestOpen(true);
+  }
+
+  const handleDeleteSourcingRequest = async () => {
+    if (!selectedSourcingRequest) return;
+    setIsSubmitting(true);
+    try {
+        await deleteSourcingRequest(selectedSourcingRequest.id);
+        toast({ title: "Request Deleted", description: `The sourcing request has been deleted.` });
+        setIsDeleteSourcingRequestOpen(false);
+        refetchSourcingRequests();
+    } catch (error) {
+        console.error("Delete request error:", error);
+        toast({ title: "Delete Failed", description: "Could not delete the request.", variant: "destructive" });
+    } finally {
+        setIsSubmitting(false);
+    }
+  }
+
 
   // --- PRODUCT HANDLERS ---
   const handleEditProductClick = (product: Product) => {
@@ -493,6 +597,63 @@ export default function AdminDashboardPage() {
   }
 
   const renderAddDialog = () => {
+    if (activeTab === 'sourcing-requests') {
+        return (
+            <Dialog open={isAddSourcingRequestOpen} onOpenChange={setIsAddSourcingRequestOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add {getTitle()}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add New {getTitle()}</DialogTitle>
+                    <DialogDescription>
+                      Post a new sourcing request on behalf of a buyer.
+                    </DialogDescription>
+                  </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="sourcing-buyer">Buyer</Label>
+                        <Select onValueChange={(value) => setNewSourcingRequest({...newSourcingRequest, buyerId: value})} value={newSourcingRequest.buyerId}>
+                          <SelectTrigger id="sourcing-buyer">
+                            <SelectValue placeholder="Select a buyer" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {buyersData.map(b => (
+                              <SelectItem key={b.id} value={b.id}>{b.companyName || b.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="sourcing-details">Request Details</Label>
+                        <Textarea id="sourcing-details" placeholder="e.g. 50kg of 22-inch Raw Vietnamese Wavy hair" value={newSourcingRequest.requestDetails} onChange={(e) => setNewSourcingRequest({...newSourcingRequest, requestDetails: e.target.value})} />
+                      </div>
+                       <div className="space-y-2">
+                        <Label htmlFor="sourcing-status">Status</Label>
+                        <Select onValueChange={(value) => setNewSourcingRequest({...newSourcingRequest, status: value as SourcingRequest['status']})} value={newSourcingRequest.status}>
+                          <SelectTrigger id="sourcing-status">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="closed">Closed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  <DialogFooter>
+                     <Button type="submit" onClick={handleAddSourcingRequest} disabled={isSubmitting}>
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                        Save changes
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        )
+    }
     if (activeTab === 'vendors') {
         return (
              <Dialog open={isAddVendorOpen} onOpenChange={setIsAddVendorOpen}>
@@ -646,10 +807,11 @@ export default function AdminDashboardPage() {
             <TabsTrigger value="vendors">Vendors</TabsTrigger>
             <TabsTrigger value="buyers">Buyers</TabsTrigger>
             <TabsTrigger value="quote-requests">Quote Requests</TabsTrigger>
+            <TabsTrigger value="sourcing-requests">Sourcing Requests</TabsTrigger>
             <TabsTrigger value="messages">Messages</TabsTrigger>
           </TabsList>
           <div className="ml-auto">
-            {activeTab !== 'quote-requests' && activeTab !== 'messages' && renderAddDialog()}
+            {activeTab !== 'quote-requests' && activeTab !== 'messages' && activeTab !== 'products' && renderAddDialog()}
           </div>
         </div>
         <TabsContent value="products">
@@ -927,6 +1089,73 @@ export default function AdminDashboardPage() {
             </CardContent>
           </Card>
         </TabsContent>
+        <TabsContent value="sourcing-requests">
+          <Card>
+            <CardHeader>
+              <CardTitle>Sourcing Requests</CardTitle>
+              <CardDescription>
+                Manage active sourcing requests from buyers.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {renderTableContent(
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Buyer</TableHead>
+                      <TableHead>Request</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>
+                        <span className="sr-only">Actions</span>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sourcingRequestsData.length > 0 ? sourcingRequestsData.map((req) => (
+                      <TableRow key={req.id}>
+                         <TableCell className="text-sm text-muted-foreground">
+                            {format(new Date(req.datePosted), "PP")}
+                         </TableCell>
+                         <TableCell>
+                            <div className="font-medium">{req.buyerCompanyName || req.buyerName}</div>
+                            <div className="text-xs text-muted-foreground">{req.buyerName}</div>
+                         </TableCell>
+                         <TableCell className="max-w-[400px] whitespace-pre-wrap">{req.requestDetails}</TableCell>
+                         <TableCell>{req.status}</TableCell>
+                         <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                aria-haspopup="true"
+                                size="icon"
+                                variant="ghost"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Toggle menu</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuItem onSelect={() => handleEditSourcingRequestClick(req)}>Edit</DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive" onSelect={() => handleDeleteSourcingRequestClick(req)}>
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    )) : (
+                      <TableRow>
+                          <TableCell colSpan={5} className="text-center h-24">No sourcing requests found.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
         <TabsContent value="messages">
           <Card>
             <CardHeader>
@@ -976,6 +1205,60 @@ export default function AdminDashboardPage() {
 
       {/* DIALOGS */}
       
+      {/* Edit Sourcing Request Dialog */}
+      <Dialog open={isEditSourcingRequestOpen} onOpenChange={setIsEditSourcingRequestOpen}>
+        <DialogContent>
+            <DialogHeader>
+            <DialogTitle>Edit Sourcing Request</DialogTitle>
+            <DialogDescription>
+                Update the details for this request from {selectedSourcingRequest?.buyerName}.
+            </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+                <div className="space-y-2">
+                    <Label htmlFor="edit-sourcing-details">Request Details</Label>
+                    <Textarea id="edit-sourcing-details" value={editSourcingRequestData.requestDetails || ''} onChange={(e) => setEditSourcingRequestData({...editSourcingRequestData, requestDetails: e.target.value})} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="edit-sourcing-status">Status</Label>
+                     <Select onValueChange={(value) => setEditSourcingRequestData({...editSourcingRequestData, status: value as SourcingRequest['status']})} value={editSourcingRequestData.status}>
+                        <SelectTrigger id="edit-sourcing-status"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="closed">Closed</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setIsEditSourcingRequestOpen(false)}>Cancel</Button>
+                <Button type="submit" onClick={handleUpdateSourcingRequest} disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Save Changes
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete Sourcing Request Confirmation */}
+      <AlertDialog open={isDeleteSourcingRequestOpen} onOpenChange={setIsDeleteSourcingRequestOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete this sourcing request.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteSourcingRequest} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Edit Product Dialog */}
        <Dialog open={isEditProductOpen} onOpenChange={setIsEditProductOpen}>
         <DialogContent className="sm:max-w-3xl p-0">

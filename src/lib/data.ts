@@ -1,5 +1,5 @@
 
-import type { Product, Seller, Buyer, QuoteRequest, ContactMessage, ProductImage } from './types';
+import type { Product, Seller, Buyer, QuoteRequest, ContactMessage, ProductImage, SourcingRequest } from './types';
 import { unstable_noStore as noStore } from 'next/cache';
 import { db, auth } from './firebase';
 import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp, query, orderBy, Timestamp, updateDoc, where, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
@@ -486,5 +486,72 @@ export async function getContactMessages(): Promise<ContactMessage[]> {
     } catch (error) {
         console.error("Error fetching contact messages:", error);
         return [];
+    }
+}
+
+// Sourcing Requests
+export async function addSourcingRequest(data: Omit<SourcingRequest, 'id' | 'datePosted'>): Promise<void> {
+    const collectionRef = collection(db, 'sourcing-requests');
+    try {
+        await addDoc(collectionRef, {
+            ...data,
+            datePosted: serverTimestamp(),
+        });
+    } catch (error) {
+        console.error("Error adding sourcing request:", error);
+        throw error;
+    }
+}
+
+export async function getSourcingRequests(): Promise<SourcingRequest[]> {
+    noStore();
+    const collectionRef = collection(db, 'sourcing-requests');
+    const q = query(collectionRef, orderBy('datePosted', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => {
+        const data = doc.data();
+        const date = data.datePosted instanceof Timestamp ? data.datePosted.toDate().toISOString() : new Date().toISOString();
+        return {
+            id: doc.id,
+            ...data,
+            datePosted: date,
+        } as SourcingRequest;
+    });
+}
+
+export async function getSourcingRequestsByBuyer(buyerId: string): Promise<SourcingRequest[]> {
+    noStore();
+    if (!buyerId) return [];
+    const collectionRef = collection(db, 'sourcing-requests');
+    const q = query(collectionRef, where('buyerId', '==', buyerId), where('status', '==', 'active'), orderBy('datePosted', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => {
+        const data = doc.data();
+        const date = data.datePosted instanceof Timestamp ? data.datePosted.toDate().toISOString() : new Date().toISOString();
+        return {
+            id: doc.id,
+            ...data,
+            datePosted: date,
+        } as SourcingRequest;
+    });
+}
+
+export async function updateSourcingRequest(id: string, data: Partial<SourcingRequest>): Promise<void> {
+    const docRef = doc(db, 'sourcing-requests', id);
+    try {
+        await updateDoc(docRef, data);
+    } catch (error) {
+        console.error("Error updating sourcing request:", error);
+        throw error;
+    }
+}
+
+export async function deleteSourcingRequest(id: string): Promise<void> {
+    const docRef = doc(db, 'sourcing-requests', id);
+    try {
+        await deleteDoc(docRef);
+    } catch (error) {
+        console.error("Error deleting sourcing request:", error);
+        throw error;
     }
 }
