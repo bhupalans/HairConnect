@@ -1,66 +1,54 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions
-    function isAdmin() {
-      return exists(/databases/$(database)/documents/admins/$(request.auth.uid));
-    }
     
-    function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
-    }
-
-    // Default Deny: By default, no one has access.
-    match /{document=**} {
-      allow read, write: if false;
-    }
-    
-    // Admins have full access to their own collection
-    match /admins/{adminId} {
-      allow read, write: if isOwner(adminId);
-    }
-    
-    // Products can be read by anyone, written only by their owner seller or an admin.
+    // Allow public read access to products, sellers, and buyers
     match /products/{productId} {
       allow read: if true;
-      allow create, update: if isOwner(request.resource.data.sellerId) || isAdmin();
-      allow delete: if isOwner(resource.data.sellerId) || isAdmin();
+      allow write: if request.auth != null && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.uid == resource.data.sellerId
+      );
     }
-    
-    // Sellers can be read by anyone. Sellers can only update their own profile. Admins can do anything.
+
     match /sellers/{sellerId} {
       allow read: if true;
-      allow create: if isAdmin(); // Only admins can create new seller profiles from dashboard
-      allow update: if isOwner(sellerId) || isAdmin();
-      allow delete: if isAdmin();
+      allow write: if request.auth != null && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.uid == sellerId
+      );
     }
     
-    // Buyers can be read by anyone. Only admins can manage them.
     match /buyers/{buyerId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
     
-    // Quote Requests can be read by admins or the relevant seller. Anyone can create one.
     match /quote-requests/{requestId} {
-      allow create: if true;
-      allow read, update: if isAdmin() || (request.auth != null && get(/databases/$(database)/documents/sellers/$(request.auth.uid)).data.id == resource.data.sellerId);
-      allow delete: if isAdmin();
+      allow read: if request.auth != null && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.uid == resource.data.sellerId
+      );
+      allow create: if true; // Anyone can submit a quote request
     }
-
-    // Contact messages are write-only for users, read-only for admins.
+    
     match /contact-messages/{messageId} {
-      allow create: if true;
-      allow read, delete: if isAdmin();
+        allow read: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+        allow create: if true;
     }
 
-    // Sourcing Requests can be read by anyone, but only written by admins.
+    // Only admins can read/write to the admins collection
+    match /admins/{adminId} {
+      allow read, write: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Rules for the new sourcing-requests collection
     match /sourcing-requests/{requestId} {
-      allow read: if true;
-      allow write: if isAdmin();
+      // Allow public read access for visitors
+      allow get: if true;
+      // Admins can read the whole list, create, update, and delete.
+      allow list, write: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
   }
 }
