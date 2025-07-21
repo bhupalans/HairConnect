@@ -176,6 +176,28 @@ export async function markQuoteRequestsAsRead(sellerId: string): Promise<void> {
     }
 }
 
+async function generateAltTextInBackground(productId: string, imageFile: File) {
+    try {
+        const imageDataUri = await fileToDataUri(imageFile);
+        const { altText } = await generateAltText({ imageDataUri });
+
+        const productRef = doc(db, "products", productId);
+        const productSnap = await getDoc(productRef);
+
+        if (productSnap.exists()) {
+            const productData = productSnap.data() as Product;
+            const updatedImages = productData.images.map(img => 
+                img.altText === productData.name ? { ...img, altText: altText } : img
+            );
+            
+            await updateDoc(productRef, { images: updatedImages });
+        }
+    } catch (error) {
+        console.error(`Failed to generate alt text for product ${productId} in background:`, error);
+        // Don't re-throw, as this is a background process.
+    }
+}
+
 export async function addProduct(
   data: Omit<Product, 'id' | 'images' | 'sellerId'>,
   imageFiles: File[],
@@ -186,60 +208,33 @@ export async function addProduct(
   }
 
   const storage = getStorage();
-  const uploadedImageUrls: string[] = [];
   const productImages: ProductImage[] = [];
 
-  try {
-    // Step 1: Upload images and generate alt text in parallel
-    const uploadAndAnalyzePromises = imageFiles.map(async (file) => {
-      // Upload to storage
-      const imageRef = ref(storage, `products/${sellerId}/${Date.now()}-${file.name}`);
-      const uploadResult = await uploadBytes(imageRef, file);
-      const url = await getDownloadURL(uploadResult.ref);
-      uploadedImageUrls.push(url); // Keep track for cleanup on failure
+  // Step 1: Upload images and collect their URLs. Use a generic alt text for now.
+  const uploadPromises = imageFiles.map(async (file) => {
+    const imageRef = ref(storage, `products/${sellerId}/${Date.now()}-${file.name}`);
+    const uploadResult = await uploadBytes(imageRef, file);
+    const url = await getDownloadURL(uploadResult.ref);
+    return { url, altText: data.name, originalFile: file }; // Use product name as placeholder
+  });
 
-      // Generate alt text
-      const imageDataUri = await fileToDataUri(file);
-      const { altText } = await generateAltText({ imageDataUri });
+  const uploadedImages = await Promise.all(uploadPromises);
+  productImages.push(...uploadedImages.map(img => ({ url: img.url, altText: img.altText })));
 
-      return { url, altText };
-    });
+  // Step 2: Prepare and write the document to Firestore immediately.
+  const productsCollection = collection(db, 'products');
+  const productData = {
+    ...data,
+    sellerId: sellerId,
+    images: productImages,
+  };
+  const productDocRef = await addDoc(productsCollection, productData);
+  const newProductId = productDocRef.id;
 
-    const resolvedImages = await Promise.all(uploadAndAnalyzePromises);
-    productImages.push(...resolvedImages);
-
-    // Step 2: Prepare the document for Firestore
-    const productsCollection = collection(db, 'products');
-    const productData = {
-      ...data,
-      sellerId: sellerId,
-      images: productImages,
-    };
-
-    // Step 3: Write the document to Firestore
-    await addDoc(productsCollection, productData);
-
-  } catch (error) {
-    console.error("Error during product creation process:", error);
-
-    // If any step fails, clean up any images that were already uploaded.
-    if (uploadedImageUrls.length > 0) {
-      console.log("Attempting to clean up orphaned images after failure...");
-      const deletePromises = uploadedImageUrls.map(url => {
-        try {
-          const imageRefToDelete = ref(storage, url);
-          return deleteObject(imageRefToDelete);
-        } catch (cleanupError) {
-          console.error(`CRITICAL: Failed to create ref for orphaned image URL: ${url}. Manual deletion may be required.`, cleanupError);
-          return Promise.resolve(); // Continue trying to delete others
-        }
-      });
-      await Promise.allSettled(deletePromises);
-      console.log("Orphaned image cleanup complete.");
-    }
-
-    throw error;
-  }
+  // Step 3: Trigger AI generation for each image in the background (fire and forget).
+  uploadedImages.forEach(img => {
+    generateAltTextInBackground(newProductId, img.originalFile);
+  });
 }
 
 export async function updateProduct(
@@ -266,10 +261,12 @@ export async function updateProduct(
       const uploadResult = await uploadBytes(newImageRef, newImageFile);
       const newImageUrl = await getDownloadURL(uploadResult.ref);
       
-      const imageDataUri = await fileToDataUri(newImageFile);
-      const { altText } = await generateAltText({ imageDataUri });
+      const placeholderAlt = data.name || existingProductData.name;
+      dataToUpdate.images = [{ url: newImageUrl, altText: placeholderAlt }];
 
-      dataToUpdate.images = [{ url: newImageUrl, altText }];
+      // Trigger background AI generation
+      generateAltTextInBackground(productId, newImageFile);
+
 
       // Delete the old image if it exists
       const oldImageUrl = existingProductData?.images?.[0]?.url;

@@ -20,8 +20,8 @@ export function ProductCard({ product }: ProductCardProps) {
         <CardHeader className="p-0">
           <div className="relative aspect-square">
             <Image
-              src={imageUrl}
-              alt={altText}
+              src={imageUrl || 'https://placehold.co/600x600'}
+              alt={altText || 'Product image'}
               data-ai-hint={`${product.specs.color} ${product.specs.texture} hair`}
               fill
               className="object-cover"
