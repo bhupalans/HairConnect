@@ -1,54 +1,47 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Allow public read access to products, sellers, and buyers
-    match /products/{productId} {
-      allow read: if true;
-      allow write: if request.auth != null && (
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        request.auth.uid == resource.data.sellerId
-      );
-    }
-
-    match /sellers/{sellerId} {
-      allow read: if true;
-      allow write: if request.auth != null && (
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        request.auth.uid == sellerId
-      );
-    }
-    
-    match /buyers/{buyerId} {
-      allow read: if true;
-      allow write: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
-    }
-    
-    match /quote-requests/{requestId} {
-      allow read: if request.auth != null && (
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        request.auth.uid == resource.data.sellerId
-      );
-      allow create: if true; // Anyone can submit a quote request
-    }
-    
-    match /contact-messages/{messageId} {
-        allow read: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
-        allow create: if true;
-    }
-
-    // Only admins can read/write to the admins collection
-    match /admins/{adminId} {
+    // Admins have full access to everything
+    match /{document=**} {
       allow read, write: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
-    // Rules for the new sourcing-requests collection
+    // Products can be read by anyone
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == resource.data.sellerId;
+    }
+    
+    // Sellers can be read by anyone
+    // Sellers can only write to their own document
+    match /sellers/{sellerId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == sellerId;
+    }
+    
+    // Buyers can be read by anyone
+    match /buyers/{buyerId} {
+      allow read: if true;
+    }
+
+    // Quote requests are private between participants
+    match /quote-requests/{requestId} {
+        allow read, write: if request.auth != null && (request.auth.uid == resource.data.sellerId || request.auth.uid == resource.data.buyerId);
+        allow create: if request.auth != null;
+    }
+
+    // Contact messages are write-only for users
+    match /contact-messages/{messageId} {
+        allow create: if true;
+    }
+
+    // Sourcing requests can be read by anyone, but only written by admins
     match /sourcing-requests/{requestId} {
-      // Allow public read access for visitors
-      allow get: if true;
-      // Admins can read the whole list, create, update, and delete.
-      allow list, write: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+        allow read: if true;
+        allow write: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
   }
 }
