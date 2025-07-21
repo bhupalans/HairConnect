@@ -523,9 +523,11 @@ export async function getSourcingRequestsByBuyer(buyerId: string): Promise<Sourc
     noStore();
     if (!buyerId) return [];
     const collectionRef = collection(db, 'sourcing-requests');
-    const q = query(collectionRef, where('buyerId', '==', buyerId), where('status', '==', 'active'), orderBy('datePosted', 'desc'));
+    // Fetch all requests for the buyer first, then filter. This avoids needing a composite index.
+    const q = query(collectionRef, where('buyerId', '==', buyerId), orderBy('datePosted', 'desc'));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => {
+    
+    const allRequests = snapshot.docs.map(doc => {
         const data = doc.data();
         const date = data.datePosted instanceof Timestamp ? data.datePosted.toDate().toISOString() : new Date().toISOString();
         return {
@@ -534,6 +536,9 @@ export async function getSourcingRequestsByBuyer(buyerId: string): Promise<Sourc
             datePosted: date,
         } as SourcingRequest;
     });
+
+    // Filter for active requests in the code
+    return allRequests.filter(req => req.status === 'active');
 }
 
 export async function updateSourcingRequest(id: string, data: Partial<SourcingRequest>): Promise<void> {
