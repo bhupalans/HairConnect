@@ -75,12 +75,11 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 
 
-const initialEditProductState: Omit<Product, 'id' | 'sellerId' | 'images'> & { imagePreview: string } = {
+const initialEditProductState: Omit<Product, 'id' | 'sellerId' | 'images'> = {
     name: "",
     description: "",
     price: 0,
     category: "Wigs",
-    imagePreview: "",
     specs: {
         type: "",
         length: "",
@@ -127,11 +126,18 @@ export default function VendorDashboardPage() {
   const [editProductData, setEditProductData] = React.useState(initialEditProductState);
   const [profileData, setProfileData] = React.useState<Partial<Seller>>(initialProfileState);
   
+  // State for new product image uploads
   const [newImageFiles, setNewImageFiles] = React.useState<File[]>([]);
-  const [editImageFile, setEditImageFile] = React.useState<File | null>(null);
-  const [newAvatarFile, setNewAvatarFile] = React.useState<File | null>(null);
-  
   const [imagePreviews, setImagePreviews] = React.useState<string[]>([]);
+  
+  // State for edit product image handling
+  const [editExistingImageUrls, setEditExistingImageUrls] = React.useState<string[]>([]);
+  const [editNewImageFiles, setEditNewImageFiles] = React.useState<File[]>([]);
+  const [editNewImagePreviews, setEditNewImagePreviews] = React.useState<string[]>([]);
+  const [editImagesToRemove, setEditImagesToRemove] = React.useState<string[]>([]);
+
+
+  const [newAvatarFile, setNewAvatarFile] = React.useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = React.useState<string>('');
 
   const unreadQuotesCount = React.useMemo(() => {
@@ -224,18 +230,6 @@ export default function VendorDashboardPage() {
     setNewImageFiles(prevFiles => prevFiles.filter((_, index) => index !== indexToRemove));
     setImagePreviews(prevPreviews => prevPreviews.filter((_, index) => index !== indexToRemove));
   };
-
-  const handleEditFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setEditImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditProductData((prev) => ({ ...prev, imagePreview: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
-    }
-  };
   
    const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -305,31 +299,73 @@ export default function VendorDashboardPage() {
       description: product.description,
       price: product.price,
       category: product.category,
-      imagePreview: product.images?.[0] || "",
       specs: {
         ...product.specs,
         length: product.specs.length.replace(' inches', ''), // remove suffix for editing
       }
     });
-    setEditImageFile(null); // Reset file input on open
+    setEditExistingImageUrls(product.images || []);
+    setEditNewImageFiles([]);
+    setEditNewImagePreviews([]);
+    setEditImagesToRemove([]);
     setShowEditDialog(true);
   };
+  
+  const handleEditFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const currentFiles = Array.from(files);
+      setEditNewImageFiles(prev => [...prev, ...currentFiles]);
+      
+      const newPreviews: string[] = [];
+      currentFiles.forEach(file => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          newPreviews.push(reader.result as string);
+          if (newPreviews.length === currentFiles.length) {
+            setEditNewImagePreviews(prev => [...prev, ...newPreviews]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  };
+
+  const handleRemoveExistingImage = (urlToRemove: string) => {
+    setEditExistingImageUrls(prev => prev.filter(url => url !== urlToRemove));
+    setEditImagesToRemove(prev => [...prev, urlToRemove]);
+  };
+  
+  const handleRemoveNewEditImage = (indexToRemove: number) => {
+    setEditNewImageFiles(prev => prev.filter((_, i) => i !== indexToRemove));
+    setEditNewImagePreviews(prev => prev.filter((_, i) => i !== indexToRemove));
+  };
+
 
   // Handler to submit the updated product data
   const handleUpdateProduct = async () => {
     if (!selectedProduct || !user) return;
+    
+    if (editExistingImageUrls.length === 0 && editNewImageFiles.length === 0) {
+        toast({ title: "At least one image is required.", variant: "destructive" });
+        return;
+    }
+
     setIsSubmitting(true);
     
     try {
       const price = typeof editProductData.price === 'string' ? parseFloat(editProductData.price) : editProductData.price;
-      await updateProduct(selectedProduct.id, {
+      
+      const updatedProductData = {
         ...editProductData,
         price: price,
         specs: {
           ...editProductData.specs,
           length: `${editProductData.specs.length} inches`
         }
-      }, editImageFile);
+      };
+      
+      await updateProduct(selectedProduct.id, updatedProductData, editNewImageFiles, editImagesToRemove, editExistingImageUrls);
 
       await fetchVendorData(user);
 
@@ -773,15 +809,15 @@ export default function VendorDashboardPage() {
 
       {/* Edit Product Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="sm:max-w-3xl p-0">
-          <DialogHeader className="p-6 pb-0">
+        <DialogContent className="sm:max-w-3xl p-0 h-[90vh] flex flex-col">
+           <DialogHeader className="p-6 pb-0">
             <DialogTitle>Edit Product</DialogTitle>
             <DialogDescription>
               Update the details for "{selectedProduct?.name}". Make changes and
               click save.
             </DialogDescription>
           </DialogHeader>
-          <div className="max-h-[70vh] overflow-y-auto px-6">
+          <div className="flex-grow overflow-y-auto px-6">
             <div className="grid gap-6 py-4">
                  <div className="grid md:grid-cols-2 gap-6">
                    <div className="space-y-2">
@@ -809,10 +845,27 @@ export default function VendorDashboardPage() {
                           </SelectContent>
                       </Select>
                   </div>
-                  <div className="space-y-2">
-                      <Label htmlFor="edit-product-image-vendor">Image</Label>
-                      <Input id="edit-product-image-vendor" type="file" className="file:text-primary file:font-medium" accept="image/png, image/jpeg, image/gif" onChange={handleEditFileChange}/>
-                      {editProductData.imagePreview && (<Image src={editProductData.imagePreview} alt="Product preview" width={100} height={100} className="rounded-md object-cover mt-2"/>)}
+                   <div className="space-y-2">
+                      <Label htmlFor="edit-product-images-vendor">Images</Label>
+                      <Input id="edit-product-images-vendor" type="file" multiple className="file:text-primary file:font-medium" accept="image/png, image/jpeg, image/gif" onChange={handleEditFileChange}/>
+                        <div className="flex gap-2 mt-2 flex-wrap">
+                            {editExistingImageUrls.map((url) => (
+                                <div key={url} className="relative">
+                                    <Image src={url} alt="Existing product image" width={80} height={80} className="rounded-md object-cover border"/>
+                                    <Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 h-5 w-5 rounded-full" onClick={() => handleRemoveExistingImage(url)}>
+                                        <X className="h-3 w-3" />
+                                    </Button>
+                                </div>
+                            ))}
+                            {editNewImagePreviews.map((preview, index) => (
+                                <div key={index} className="relative">
+                                    <Image src={preview} alt={`New product preview ${index+1}`} width={80} height={80} className="rounded-md object-cover border"/>
+                                    <Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 h-5 w-5 rounded-full" onClick={() => handleRemoveNewEditImage(index)}>
+                                        <X className="h-3 w-3" />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
                   </div>
                 </div>
               <Separator className="my-2" />
@@ -901,6 +954,7 @@ export default function VendorDashboardPage() {
 }
 
     
+
 
 
 

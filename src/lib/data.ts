@@ -224,40 +224,53 @@ export async function addProduct(
 }
 
 
-export async function updateProduct(productId: string, data: Partial<Omit<Product, 'id' | 'images'>>, newImageFile: File | null) {
+export async function updateProduct(
+  productId: string,
+  data: Partial<Omit<Product, 'id' | 'images'>>,
+  newImageFiles: File[],
+  imagesToRemove: string[],
+  existingImageUrls: string[]
+) {
   const productRef = doc(db, "products", productId);
-  const dataToUpdate: any = { ...data };
+  const storage = getStorage();
 
   try {
-    const storage = getStorage();
-    
     const existingProductSnap = await getDoc(productRef);
     if (!existingProductSnap.exists()) {
-        throw new Error("Product not found to update.");
+      throw new Error("Product not found to update.");
     }
-    const existingProductData = existingProductSnap.data() as Product;
-    const sellerId = existingProductData.sellerId;
+    const sellerId = existingProductSnap.data().sellerId;
 
-    if (newImageFile) {
-      const oldImageUrl = existingProductData?.images?.[0];
-
-      const newImageRef = ref(storage, `products/${sellerId}/${newImageFile.name}`);
-      const uploadResult = await uploadBytes(newImageRef, newImageFile);
-      const newImageUrl = await getDownloadURL(uploadResult.ref);
-      
-      dataToUpdate.images = [newImageUrl];
-
-      if (oldImageUrl && oldImageUrl.includes('firebasestorage.googleapis.com')) {
-          try {
-            const oldImageStorageRef = ref(storage, oldImageUrl);
-            await deleteObject(oldImageStorageRef);
-          } catch (deleteError: any) {
-             console.warn("Could not delete old image, it may have already been removed:", deleteError.code);
-          }
-      }
+    // 1. Delete images marked for removal from Storage
+    if (imagesToRemove.length > 0) {
+      const deletePromises = imagesToRemove.map(url => {
+        if (url.includes('firebasestorage.googleapis.com')) {
+          const imageRefToDelete = ref(storage, url);
+          return deleteObject(imageRefToDelete).catch(err => console.warn(`Failed to delete old image ${url}:`, err));
+        }
+        return Promise.resolve();
+      });
+      await Promise.all(deletePromises);
     }
 
-    await updateDoc(productRef, dataToUpdate);
+    // 2. Upload new images to Storage
+    let newImageUrls: string[] = [];
+    if (newImageFiles.length > 0) {
+      const uploadPromises = newImageFiles.map(file => {
+        const imageRef = ref(storage, `products/${sellerId}/${Date.now()}-${file.name}`);
+        return uploadBytes(imageRef, file).then(uploadResult => getDownloadURL(uploadResult.ref));
+      });
+      newImageUrls = await Promise.all(uploadPromises);
+    }
+    
+    // 3. Construct the final list of image URLs
+    const finalImageUrls = [...existingImageUrls, ...newImageUrls];
+    
+    // 4. Update the Firestore document with new data and the final image list
+    await updateDoc(productRef, {
+      ...data,
+      images: finalImageUrls,
+    });
 
   } catch (error) {
     console.error("Error updating product:", error);
