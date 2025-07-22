@@ -1,28 +1,18 @@
-
 rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Function to check if the user is an admin by looking up their UID in Firestore
-    function isAdmin() {
-      return exists(/databases/$(database)/documents/admins/$(request.auth.uid));
-    }
-
-    // Rules for product images
-    // Allow read by anyone.
-    // Allow write (create, update, delete) if the user is the owner OR is an admin.
+    // Allow vendors to manage their own product images. Admins cannot.
     match /products/{userId}/{allPaths=**} {
-      allow read;
-      allow write: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Rules for user avatars
-    // Allow read by anyone.
-    // Allow write (create, update, delete) if the user is the owner OR is an admin.
+    // Allow users to manage their own avatar. Admins cannot.
     match /avatars/{userId}/{allPaths=**} {
-      allow read;
-      allow write: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
   }
 }
