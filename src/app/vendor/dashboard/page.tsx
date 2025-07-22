@@ -48,7 +48,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getProductsBySeller, getSellerById, updateProduct, deleteProduct, addProduct, updateSellerProfile, getQuoteRequestsBySeller, markQuoteRequestsAsRead } from "@/lib/data";
-import { MoreHorizontal, PlusCircle, Loader2, Mail } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Loader2, Mail, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Textarea } from "@/components/ui/textarea";
@@ -203,24 +203,28 @@ export default function VendorDashboardPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      setNewImageFiles(Array.from(files));
+      const currentFiles = Array.from(files);
+      setNewImageFiles(prevFiles => [...prevFiles, ...currentFiles]);
+      
       const newPreviews: string[] = [];
-      Array.from(files).forEach(file => {
+      currentFiles.forEach(file => {
         const reader = new FileReader();
         reader.onloadend = () => {
           newPreviews.push(reader.result as string);
-          if (newPreviews.length === files.length) {
-            setImagePreviews(newPreviews);
+          if (newPreviews.length === currentFiles.length) {
+            setImagePreviews(prevPreviews => [...prevPreviews, ...newPreviews]);
           }
         };
         reader.readAsDataURL(file);
       });
-    } else {
-      setNewImageFiles([]);
-      setImagePreviews([]);
     }
   };
   
+  const handleRemoveImage = (indexToRemove: number) => {
+    setNewImageFiles(prevFiles => prevFiles.filter((_, index) => index !== indexToRemove));
+    setImagePreviews(prevPreviews => prevPreviews.filter((_, index) => index !== indexToRemove));
+  };
+
   const handleEditFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -466,11 +470,22 @@ export default function VendorDashboardPage() {
                               </div>
                               <div className="space-y-2">
                               <Label htmlFor="product-images">Images</Label>
-                              <Input id="product-images" name="images" type="file" multiple className="file:text-primary file:font-medium" accept="image/png, image/jpeg, image/gif" onChange={handleFileChange} required/>
+                              <Input id="product-images" name="images" type="file" multiple className="file:text-primary file:font-medium" accept="image/png, image/jpeg, image/gif" onChange={handleFileChange} />
                               {imagePreviews.length > 0 && (
                                 <div className="flex gap-2 mt-2 flex-wrap">
                                     {imagePreviews.map((preview, index) => (
-                                        <Image key={index} src={preview} alt={`New product preview ${index+1}`} width={80} height={80} className="rounded-md object-cover border"/>
+                                      <div key={index} className="relative">
+                                        <Image src={preview} alt={`New product preview ${index+1}`} width={80} height={80} className="rounded-md object-cover border"/>
+                                        <Button
+                                            type="button"
+                                            variant="destructive"
+                                            size="icon"
+                                            className="absolute -top-2 -right-2 h-5 w-5 rounded-full"
+                                            onClick={() => handleRemoveImage(index)}
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </Button>
+                                      </div>
                                     ))}
                                 </div>
                               )}
@@ -886,5 +901,6 @@ export default function VendorDashboardPage() {
 }
 
     
+
 
 
