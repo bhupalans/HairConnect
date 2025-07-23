@@ -16,10 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { auth } from "@/lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
 import { Loader2 } from "lucide-react";
 import { countries } from "@/lib/countries";
 import { useForm } from "react-hook-form";
@@ -27,8 +25,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Checkbox } from "@/components/ui/checkbox";
-import { addBuyer } from "@/lib/data";
-
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -53,7 +49,6 @@ const formSchema = z.object({
 export default function BuyerRegisterPage() {
   const { toast } = useToast();
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -71,24 +66,6 @@ export default function BuyerRegisterPage() {
       terms: false,
     },
   });
-  
-  useEffect(() => {
-    // This effect checks if a user is ALREADY logged in when they visit the page.
-    // It prevents a logged-in user from seeing the registration form.
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        // A user is already logged in, they should not be on this page.
-        // We can redirect them to a generic dashboard or home.
-        // Let's assume a buyer dashboard for now, as role detection will happen there.
-        router.push('/buyer/dashboard');
-      } else {
-        // No user is logged in, safe to show the registration form.
-        setIsLoading(false);
-      }
-    });
-
-    return () => unsubscribe();
-  }, [router]);
 
   const uniqueCountriesByDialCode = useMemo(() => {
     const seen = new Set();
@@ -111,42 +88,24 @@ export default function BuyerRegisterPage() {
     }
   };
 
-
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    // This is the new, robust flow.
+    // We store the data in the session and redirect to a dedicated processing page.
+    // This avoids all race conditions with the header and other components.
     try {
-      await addBuyer(values);
-
-      toast({
-        title: "Registration Successful!",
-        description: "A verification email has been sent. Please check your inbox.",
-      });
-
-      router.push('/auth/verify-email');
-
-    } catch (error: any) {
-      console.error("Buyer registration error:", error);
-      if (error.code === 'auth/email-already-in-use') {
-        form.setError("email", {
-          type: "manual",
-          message: "This email is already registered. Please try logging in.",
-        });
-      } else {
+      sessionStorage.setItem('buyerRegistrationData', JSON.stringify(values));
+      router.push('/auth/creating-account');
+    } catch (error) {
+        console.error("Failed to initiate registration:", error);
         toast({
-          title: "Registration Failed",
-          description: "An unexpected error occurred. Please try again.",
-          variant: "destructive",
+            title: "An unexpected error occurred",
+            description: "Could not start the registration process. Please try again.",
+            variant: "destructive",
         });
-      }
+        // Re-enable the form if session storage fails
+        form.formState.isSubmitting = false;
     }
   };
-  
-  if (isLoading) {
-     return (
-        <div className="flex items-center justify-center min-h-[calc(100vh-12rem)] bg-secondary/20">
-             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-    );
-  }
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12 flex items-center justify-center">

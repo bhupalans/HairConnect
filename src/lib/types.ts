@@ -1,4 +1,5 @@
 
+
 export interface ProductImage {
   url: string;
   alt: string;
@@ -73,4 +74,17 @@ export interface ContactMessage {
   subject: string;
   message: string;
   date: string;
+}
+
+// Used to pass data from registration form to the processing page
+export interface BuyerRegistrationData {
+  name: string;
+  companyName?: string;
+  email: string;
+  password: string;
+  country: string;
+  city: string;
+  phoneCode?: string;
+  localPhone?: string;
+  bio: string;
 }
