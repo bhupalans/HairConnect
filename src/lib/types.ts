@@ -45,8 +45,11 @@ export interface Buyer {
   avatarUrl: string;
   bio: string;
   memberSince: string;
+  isVerified: boolean;
   contact: {
     email: string;
+    phone?: string;
+    website?: string;
   }
 }
 

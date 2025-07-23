@@ -4,7 +4,7 @@ import { unstable_noStore as noStore } from 'next/cache';
 import { db, auth } from './firebase';
 import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp, query, orderBy, Timestamp, updateDoc, where, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { generateAltText } from '@/ai/flows/generate-alt-text-flow';
 
 
@@ -446,24 +446,50 @@ export async function deleteVendor(vendorId: string) {
     }
 }
 
-export async function addBuyer({ companyName, name, email, location, bio }: { companyName?: string; name: string; email: string; location:string, bio: string }) {
-    const buyerCollectionRef = collection(db, 'buyers');
-    try {
-        await addDoc(buyerCollectionRef, {
-            name,
-            companyName: companyName || '',
-            location,
-            bio,
-            avatarUrl: `https://placehold.co/100x100?text=${name.charAt(0)}`,
-            memberSince: new Date().toISOString(),
-            contact: {
-                email: email,
-            },
-        });
-    } catch (error) {
-        console.error("Error adding buyer:", error);
-        throw error;
-    }
+export async function addBuyer(
+  values: {
+    name: string;
+    companyName?: string;
+    email: string;
+    password: string;
+    country: string;
+    city: string;
+    phoneCode?: string;
+    localPhone?: string;
+    bio: string;
+  }
+) {
+  const location = values.city && values.country ? `${values.city}, ${values.country}` : values.city || values.country;
+  const fullPhoneNumber = values.phoneCode && values.localPhone ? `${values.phoneCode}${values.localPhone.replace(/\D/g, '')}` : "";
+  
+  try {
+    // Step 1: Create user in Firebase Authentication
+    const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+    const user = userCredential.user;
+    
+    // Step 2: Send verification email
+    await sendEmailVerification(user);
+
+    // Step 3: Create a corresponding buyer document in Firestore
+    await setDoc(doc(db, "buyers", user.uid), {
+      name: values.name,
+      companyName: values.companyName || '',
+      location: location,
+      bio: values.bio,
+      isVerified: false, // Buyers start as unverified
+      avatarUrl: `https://placehold.co/100x100?text=${values.name.charAt(0)}`,
+      memberSince: new Date().toISOString(),
+      contact: {
+        email: user.email,
+        phone: fullPhoneNumber,
+        website: '', // Website is not in the form, so default to empty
+      },
+    });
+
+  } catch (error) {
+    console.error("Error adding buyer:", error);
+    throw error;
+  }
 }
 
 export async function updateBuyer(buyerId: string, data: Partial<Buyer>) {
