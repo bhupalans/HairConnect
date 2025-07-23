@@ -18,7 +18,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, type DocumentSnapshot } from "firebase/firestore";
 import type { Seller } from "@/lib/types";
 
 
@@ -46,15 +46,28 @@ export function Header() {
   const router = useRouter();
 
   useEffect(() => {
+    const fetchSellerWithRetry = async (uid: string, retries = 3, delay = 500): Promise<DocumentSnapshot | null> => {
+        for (let i = 0; i < retries; i++) {
+            const sellerDocRef = doc(db, "sellers", uid);
+            const sellerDoc = await getDoc(sellerDocRef);
+            if (sellerDoc.exists()) {
+                return sellerDoc;
+            }
+            if (i < retries - 1) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
+        return null;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setIsLoading(true);
       if (currentUser) {
         setUser(currentUser);
-        // Determine user role and fetch profile data if needed
-        const sellerDocRef = doc(db, "sellers", currentUser.uid);
-        const sellerDoc = await getDoc(sellerDocRef);
         
-        if (sellerDoc.exists()) {
+        const sellerDoc = await fetchSellerWithRetry(currentUser.uid);
+        
+        if (sellerDoc && sellerDoc.exists()) {
           setUserRole("vendor");
           setSellerProfile({ id: sellerDoc.id, ...sellerDoc.data() } as Seller);
         } else {
@@ -64,7 +77,9 @@ export function Header() {
             setUserRole("admin");
             setSellerProfile(null);
           } else {
-            setUserRole(null); // Should not happen if DB is consistent
+            // This might happen right after registration if Firestore is slow.
+            // It will resolve on next interaction or refresh.
+            setUserRole(null); 
             setSellerProfile(null);
           }
         }
@@ -76,7 +91,6 @@ export function Header() {
       setIsLoading(false);
     });
 
-    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, []);
 
