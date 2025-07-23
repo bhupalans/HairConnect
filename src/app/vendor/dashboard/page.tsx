@@ -67,7 +67,7 @@ import {
 } from "@/components/ui/tabs";
 import { categories } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
-import type { Product, Seller, QuoteRequest } from "@/lib/types";
+import type { Product, Seller, QuoteRequest, ProductImage } from "@/lib/types";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { Separator } from "@/components/ui/separator";
@@ -315,7 +315,7 @@ export default function VendorDashboardPage() {
         length: product.specs.length.replace(' inches', ''), // remove suffix for editing
       }
     });
-    setEditExistingImageUrls(product.images || []);
+    setEditExistingImageUrls(product.images.map(img => img.url) || []);
     setEditNewImageFiles([]);
     setEditNewImagePreviews([]);
     setEditImagesToRemove([]);
@@ -403,7 +403,7 @@ export default function VendorDashboardPage() {
     setIsSubmittingProfile(true);
 
     try {
-      const dataToUpdate = { ...profileData };
+      const dataToUpdate: Partial<Seller> = { ...profileData };
       if (dataToUpdate.contact?.website) {
         dataToUpdate.contact.website = dataToUpdate.contact.website.replace(/^(https?:\/\/)/, '');
       }
@@ -641,8 +641,8 @@ export default function VendorDashboardPage() {
                         <TableRow key={product.id}>
                             <TableCell className="hidden sm:table-cell">
                             <Image
-                                src={product.images?.[0] || 'https://placehold.co/64x64'}
-                                alt={product.name}
+                                src={product.images?.[0]?.url || 'https://placehold.co/64x64'}
+                                alt={product.images?.[0]?.alt || product.name}
                                 width={64}
                                 height={64}
                                 className="rounded-md object-cover"
