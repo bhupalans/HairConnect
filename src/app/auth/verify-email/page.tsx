@@ -2,14 +2,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, sendEmailVerification, type User } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, MailCheck } from "lucide-react";
+import { doc, getDoc } from "firebase/firestore";
 
 export default function VerifyEmailPage() {
   const router = useRouter();
@@ -17,14 +17,44 @@ export default function VerifyEmailPage() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isResending, setIsResending] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+
+  const determineRoleAndRedirect = async (user: User) => {
+    if (!user) return;
+    setIsRedirecting(true);
+
+    const sellerDoc = await getDoc(doc(db, "sellers", user.uid));
+    if (sellerDoc.exists()) {
+      router.push("/vendor/dashboard");
+      return;
+    }
+
+    const buyerDoc = await getDoc(doc(db, "buyers", user.uid));
+    if (buyerDoc.exists()) {
+      router.push("/buyer/dashboard");
+      return;
+    }
+
+    // Fallback in case the role document isn't found immediately
+    // This could happen due to replication lag. We'll sign them out
+    // and send them to the login page with a message.
+    toast({
+        title: "Profile Not Ready",
+        description: "Your profile is still being set up. Please try logging in again in a moment.",
+        variant: "destructive"
+    });
+    await auth.signOut();
+    router.push("/login");
+  };
+
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        // If the email is already verified, redirect to the dashboard.
+        // If the email is already verified, redirect immediately.
         if (currentUser.emailVerified) {
-          router.push("/vendor/dashboard");
+          determineRoleAndRedirect(currentUser);
           return;
         }
       } else {
@@ -39,7 +69,7 @@ export default function VerifyEmailPage() {
   }, [router]);
   
   useEffect(() => {
-    if (!user) return;
+    if (!user || isRedirecting) return;
     
     // Set up an interval to periodically check the email verification status.
     const interval = setInterval(async () => {
@@ -50,12 +80,12 @@ export default function VerifyEmailPage() {
           title: "Email Verified!",
           description: "Your account is now active. Welcome to your dashboard.",
         });
-        router.push("/vendor/dashboard");
+        determineRoleAndRedirect(user);
       }
     }, 3000); // Check every 3 seconds
 
     return () => clearInterval(interval);
-  }, [user, router, toast]);
+  }, [user, router, toast, isRedirecting]);
 
   const handleResendEmail = async () => {
     if (!user) {
@@ -85,7 +115,7 @@ export default function VerifyEmailPage() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || isRedirecting) {
     return (
       <div className="flex min-h-[calc(100vh-12rem)] items-center justify-center bg-secondary/20">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -110,7 +140,7 @@ export default function VerifyEmailPage() {
                 Please check your inbox (and spam folder) and click the link to activate your account. This page will automatically redirect once you're verified.
             </p>
             <p className="text-sm font-medium text-destructive/80 px-4">
-              Note: You must verify your email within 24 hours of registration, or your account will be automatically deleted.
+              Note: You must verify your email within 24 hours of registration, or your account may be automatically deleted.
             </p>
             <Button onClick={handleResendEmail} disabled={isResending}>
                 {isResending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -129,5 +159,3 @@ export default function VerifyEmailPage() {
     </div>
   );
 }
-
-    
