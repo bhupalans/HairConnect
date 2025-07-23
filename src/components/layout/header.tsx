@@ -77,9 +77,16 @@ export function Header() {
       setIsLoading(true);
       if (currentUser) {
         setUser(currentUser);
-        const { role, profile } = await fetchUserRole(currentUser.uid);
-        setUserRole(role);
-        setUserProfile(profile);
+        // Only fetch role if email is verified
+        if (currentUser.emailVerified) {
+          const { role, profile } = await fetchUserRole(currentUser.uid);
+          setUserRole(role);
+          setUserProfile(profile);
+        } else {
+          // If email is not verified, treat as logged out for UI purposes
+          setUserRole(null);
+          setUserProfile(null);
+        }
       } else {
         setUser(null);
         setUserRole(null);
@@ -111,8 +118,9 @@ export function Header() {
     if (isLoading) {
       return <Loader2 className="h-6 w-6 animate-spin" />;
     }
-
-    if (user && userRole) {
+    
+    // Show account info only if user is logged in, has a role, AND email is verified.
+    if (user && userRole && user.emailVerified) {
        const dashboardPath = getDashboardPath();
        const roleLabel = userRole.charAt(0).toUpperCase() + userRole.slice(1);
        
@@ -158,7 +166,8 @@ export function Header() {
       if (isLoading) {
           return null; // Or a loading indicator
       }
-      if (user && userRole) {
+       // Show account info only if user is logged in, has a role, AND email is verified.
+      if (user && userRole && user.emailVerified) {
           const dashboardPath = getDashboardPath();
           return (
                <div className="flex flex-col gap-4">
