@@ -18,9 +18,8 @@ import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { auth, db } from "@/lib/firebase";
-import { createUserWithEmailAndPassword, onAuthStateChanged, sendEmailVerification } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { auth } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 import { Loader2 } from "lucide-react";
 import { countries } from "@/lib/countries";
 import { useForm } from "react-hook-form";
@@ -74,14 +73,16 @@ export default function BuyerRegisterPage() {
   });
   
   useEffect(() => {
+    // This effect checks if a user is ALREADY logged in when they visit the page.
+    // It prevents a logged-in user from seeing the registration form.
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        // User is logged in, redirect them away from the register page.
-        // We will need to check their role to redirect correctly,
-        // for now, a generic redirect is fine.
+        // A user is already logged in, they should not be on this page.
+        // We can redirect them to a generic dashboard or home.
+        // Let's assume a buyer dashboard for now, as role detection will happen there.
         router.push('/buyer/dashboard');
       } else {
-        // User is not logged in, show the page.
+        // No user is logged in, safe to show the registration form.
         setIsLoading(false);
       }
     });
@@ -113,6 +114,8 @@ export default function BuyerRegisterPage() {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
+      // The addBuyer function now handles user creation, db entry, and verification email.
+      // The only thing left to do here is redirect upon success.
       await addBuyer(values);
 
       toast({
@@ -120,7 +123,7 @@ export default function BuyerRegisterPage() {
         description: "A verification email has been sent. Please check your inbox.",
       });
 
-      // Redirect to the email verification page
+      // The key change: ONLY redirect after the entire process is complete.
       router.push('/auth/verify-email');
 
     } catch (error: any) {
