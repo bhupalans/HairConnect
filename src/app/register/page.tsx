@@ -140,8 +140,8 @@ export default function RegisterPage() {
         description: "A verification email has been sent. Please check your inbox.",
       });
 
-      // Step 3: Redirect to the dashboard where auth guards will handle the next step
-      router.push('/vendor/dashboard');
+      // Step 3: Redirect to the email verification page
+      router.push('/auth/verify-email');
 
     } catch (error: any) {
       console.error("Registration error:", error);
