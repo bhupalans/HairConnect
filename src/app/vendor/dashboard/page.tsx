@@ -139,6 +139,7 @@ export default function VendorDashboardPage() {
 
   const [newAvatarFile, setNewAvatarFile] = React.useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = React.useState<string>('');
+  const [isAvatarRemoved, setIsAvatarRemoved] = React.useState(false);
 
   const unreadQuotesCount = React.useMemo(() => {
     return quoteRequests.filter(q => !q.isRead).length;
@@ -235,12 +236,21 @@ export default function VendorDashboardPage() {
     const file = e.target.files?.[0];
     if (file) {
       setNewAvatarFile(file);
+      setIsAvatarRemoved(false); // A new file is selected, so we are not removing
       const reader = new FileReader();
       reader.onloadend = () => {
         setAvatarPreview(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleRemoveAvatar = () => {
+    setNewAvatarFile(null);
+    setIsAvatarRemoved(true);
+    // Use a generic placeholder, or get the name from profileData
+    const initialChar = profileData.name ? profileData.name.charAt(0) : 'S';
+    setAvatarPreview(`https://placehold.co/100x100?text=${initialChar}`);
   };
 
 
@@ -397,9 +407,14 @@ export default function VendorDashboardPage() {
         dataToUpdate.contact.website = dataToUpdate.contact.website.replace(/^(https?:\/\/)/, '');
       }
 
-      await updateSellerProfile(user.uid, dataToUpdate, newAvatarFile);
+      await updateSellerProfile(user.uid, dataToUpdate, newAvatarFile, isAvatarRemoved);
       
       toast({ title: "Profile Updated", description: "Your profile has been successfully updated." });
+      // Refresh data to get the new avatar URL with cache-busting
+      await fetchVendorData(user); 
+      setNewAvatarFile(null);
+      setIsAvatarRemoved(false);
+
     } catch (error) {
       console.error("Update profile error:", error);
       toast({ title: "Update Failed", description: "Could not update your profile. Please try again.", variant: "destructive"});
@@ -750,7 +765,13 @@ export default function VendorDashboardPage() {
                             <div className="space-y-2">
                                 <Label>Avatar</Label>
                                 <Image src={avatarPreview || "https://placehold.co/100x100"} alt="Avatar preview" width={100} height={100} className="rounded-full object-cover border"/>
-                                <Input id="avatar-upload" type="file" accept="image/*" onChange={handleAvatarFileChange} className="max-w-[100px] text-xs"/>
+                                <div className="flex gap-2 max-w-[100px]">
+                                    <Label htmlFor="avatar-upload" className="flex-grow">
+                                        <div className={cn(buttonVariants({ variant: "outline", size: "sm" }), "cursor-pointer w-full")}>Change</div>
+                                    </Label>
+                                    <Input id="avatar-upload" type="file" accept="image/*" onChange={handleAvatarFileChange} className="hidden"/>
+                                    <Button type="button" variant="ghost" size="sm" onClick={handleRemoveAvatar}>Remove</Button>
+                                </div>
                             </div>
                             <div className="flex-grow space-y-6">
                                <div className="grid md:grid-cols-2 gap-4">
@@ -952,9 +973,3 @@ export default function VendorDashboardPage() {
     </div>
   );
 }
-
-    
-
-
-
-

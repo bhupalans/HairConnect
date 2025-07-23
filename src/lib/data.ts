@@ -348,40 +348,55 @@ export async function updateVendor(vendorId: string, data: Partial<Seller>) {
     }
 }
 
-export async function updateSellerProfile(sellerId: string, data: Partial<Seller>, newAvatarFile: File | null) {
+export async function updateSellerProfile(
+    sellerId: string, 
+    data: Partial<Seller>, 
+    newAvatarFile: File | null, 
+    removeAvatar: boolean
+) {
   const sellerRef = doc(db, "sellers", sellerId);
+  const storage = getStorage();
   const dataToUpdate = { ...data };
 
   try {
-    if (newAvatarFile) {
-      const storage = getStorage();
-      const existingSellerSnap = await getDoc(sellerRef);
-      if (!existingSellerSnap.exists()) {
-          throw new Error("Seller not found to update.");
-      }
-      const existingSellerData = existingSellerSnap.data() as Seller;
+    const existingSellerSnap = await getDoc(sellerRef);
+    if (!existingSellerSnap.exists()) {
+        throw new Error("Seller not found to update.");
+    }
+    const existingSellerData = existingSellerSnap.data() as Seller;
+    const oldAvatarUrl = existingSellerData.avatarUrl;
 
-      const oldAvatarUrl = existingSellerData.avatarUrl;
+    // Helper function to delete old avatar
+    const deleteOldAvatar = async () => {
+        if (oldAvatarUrl && oldAvatarUrl.includes('firebasestorage.googleapis.com')) {
+            try {
+              const oldAvatarStorageRef = ref(storage, oldAvatarUrl);
+              await deleteObject(oldAvatarStorageRef);
+            } catch (deleteError: any) {
+               if (deleteError.code !== 'storage/object-not-found') {
+                  console.warn("Could not delete old avatar:", deleteError);
+               }
+            }
+        }
+    };
 
-      // Use a consistent name for avatars, like 'avatar.jpg', to prevent clutter
-      const newAvatarRef = ref(storage, `avatars/${sellerId}/avatar`);
-      const uploadResult = await uploadBytes(newAvatarRef, newAvatarFile);
-      const newAvatarUrl = await getDownloadURL(uploadResult.ref);
-      
-      dataToUpdate.avatarUrl = newAvatarUrl;
+    if (removeAvatar) {
+        await deleteOldAvatar();
+        // Set avatarUrl to a default placeholder
+        dataToUpdate.avatarUrl = `https://placehold.co/100x100?text=${existingSellerData.name.charAt(0)}`;
+    } else if (newAvatarFile) {
+        // A new file is being uploaded, delete the old one first
+        await deleteOldAvatar();
 
-      // Delete the old avatar if it's a real storage URL and not the placeholder
-      if (oldAvatarUrl && oldAvatarUrl.includes('firebasestorage.googleapis.com')) {
-          try {
-            const oldAvatarStorageRef = ref(storage, oldAvatarUrl);
-            await deleteObject(oldAvatarStorageRef);
-          } catch (deleteError: any) {
-             // It's okay if the old file doesn't exist, log a warning.
-             if (deleteError.code !== 'storage/object-not-found') {
-                console.warn("Could not delete old avatar:", deleteError);
-             }
-          }
-      }
+        const newAvatarRef = ref(storage, `avatars/${sellerId}/avatar`);
+        const uploadResult = await uploadBytes(newAvatarRef, newAvatarFile);
+        let newAvatarUrl = await getDownloadURL(uploadResult.ref);
+        
+        // --- Cache-busting ---
+        // Append a timestamp to the URL to force browsers to re-fetch the image
+        newAvatarUrl = `${newAvatarUrl}?updated=${Date.now()}`;
+
+        dataToUpdate.avatarUrl = newAvatarUrl;
     }
 
     await updateDoc(sellerRef, dataToUpdate);
