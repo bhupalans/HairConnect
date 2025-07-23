@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { addBuyer } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
@@ -11,8 +11,15 @@ import type { BuyerRegistrationData } from '@/lib/types';
 export default function CreatingAccountPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const effectRan = useRef(false);
 
   useEffect(() => {
+    // This check prevents the effect from running twice in development due to React.StrictMode.
+    if (effectRan.current === true) {
+      return;
+    }
+    effectRan.current = true;
+
     const processRegistration = async () => {
       // Retrieve the registration data from sessionStorage
       const storedData = sessionStorage.getItem('buyerRegistrationData');
