@@ -114,8 +114,6 @@ export default function BuyerRegisterPage() {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      // The addBuyer function now handles user creation, db entry, and verification email.
-      // The only thing left to do here is redirect upon success.
       await addBuyer(values);
 
       toast({
@@ -123,7 +121,6 @@ export default function BuyerRegisterPage() {
         description: "A verification email has been sent. Please check your inbox.",
       });
 
-      // The key change: ONLY redirect after the entire process is complete.
       router.push('/auth/verify-email');
 
     } catch (error: any) {
