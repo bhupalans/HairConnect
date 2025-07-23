@@ -109,6 +109,9 @@ export default function VerifyEmailPage() {
             <p className="text-muted-foreground">
                 Please check your inbox (and spam folder) and click the link to activate your account. This page will automatically redirect once you're verified.
             </p>
+            <p className="text-sm font-medium text-destructive/80 px-4">
+              Note: You must verify your email within 24 hours of registration, or your account will be automatically deleted.
+            </p>
             <Button onClick={handleResendEmail} disabled={isResending}>
                 {isResending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Resend Verification Email
