@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, sendEmailVerification, type User } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
@@ -19,33 +19,39 @@ export default function VerifyEmailPage() {
   const [isResending, setIsResending] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
 
-  const determineRoleAndRedirect = async (user: User) => {
-    if (!user) return;
+  const determineRoleAndRedirect = useCallback(async (userToRedirect: User) => {
+    if (isRedirecting) return;
     setIsRedirecting(true);
 
-    const sellerDoc = await getDoc(doc(db, "sellers", user.uid));
-    if (sellerDoc.exists()) {
-      router.push("/vendor/dashboard");
-      return;
-    }
+    try {
+      const sellerDoc = await getDoc(doc(db, "sellers", userToRedirect.uid));
+      if (sellerDoc.exists()) {
+        router.push("/vendor/dashboard");
+        return;
+      }
 
-    const buyerDoc = await getDoc(doc(db, "buyers", user.uid));
-    if (buyerDoc.exists()) {
-      router.push("/buyer/dashboard");
-      return;
-    }
+      const buyerDoc = await getDoc(doc(db, "buyers", userToRedirect.uid));
+      if (buyerDoc.exists()) {
+        router.push("/buyer/dashboard");
+        return;
+      }
 
-    // Fallback in case the role document isn't found immediately
-    // This could happen due to replication lag. We'll sign them out
-    // and send them to the login page with a message.
-    toast({
-        title: "Profile Not Ready",
-        description: "Your profile is still being set up. Please try logging in again in a moment.",
-        variant: "destructive"
-    });
-    await auth.signOut();
-    router.push("/login");
-  };
+      // Fallback in case the role document isn't found immediately
+      // This could happen due to replication lag. We'll sign them out
+      // and send them to the login page with a message.
+      toast({
+          title: "Profile Not Ready",
+          description: "Your profile is still being set up. Please try logging in again in a moment.",
+          variant: "destructive"
+      });
+      await auth.signOut();
+      router.push("/login");
+    } catch (error) {
+       console.error("Redirection error:", error);
+       toast({ title: "Error", description: "Could not redirect you to your dashboard.", variant: "destructive"});
+       setIsRedirecting(false); // Reset on error
+    }
+  }, [router, toast, isRedirecting]);
 
 
   useEffect(() => {
@@ -66,7 +72,7 @@ export default function VerifyEmailPage() {
     });
 
     return () => unsubscribe();
-  }, [router]);
+  }, [determineRoleAndRedirect, router]);
   
   useEffect(() => {
     if (!user || isRedirecting) return;
@@ -85,7 +91,7 @@ export default function VerifyEmailPage() {
     }, 3000); // Check every 3 seconds
 
     return () => clearInterval(interval);
-  }, [user, router, toast, isRedirecting]);
+  }, [user, toast, isRedirecting, determineRoleAndRedirect]);
 
   const handleResendEmail = async () => {
     if (!user) {
