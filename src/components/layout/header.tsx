@@ -40,53 +40,50 @@ const navLinks = [
 export function Header() {
   const [isSheetOpen, setSheetOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-  const [userRole, setUserRole] = useState<'vendor' | 'admin' | null>(null);
-  const [sellerProfile, setSellerProfile] = useState<Seller | null>(null);
+  const [userRole, setUserRole] = useState<'vendor' | 'admin' | 'buyer' | null>(null);
+  const [userProfile, setUserProfile] = useState<Seller | null>(null); // Can be adapted for Buyer profiles too
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const fetchSellerWithRetry = async (uid: string, retries = 3, delay = 500): Promise<DocumentSnapshot | null> => {
-        for (let i = 0; i < retries; i++) {
-            const sellerDocRef = doc(db, "sellers", uid);
-            const sellerDoc = await getDoc(sellerDocRef);
-            if (sellerDoc.exists()) {
-                return sellerDoc;
-            }
-            if (i < retries - 1) {
-                await new Promise(resolve => setTimeout(resolve, delay));
-            }
+    const fetchUserRole = async (uid: string): Promise<{ role: 'vendor' | 'admin' | 'buyer' | null, profile: any | null }> => {
+        // Check for seller first
+        const sellerDocRef = doc(db, "sellers", uid);
+        const sellerDoc = await getDoc(sellerDocRef);
+        if (sellerDoc.exists()) {
+            return { role: "vendor", profile: { id: sellerDoc.id, ...sellerDoc.data() } as Seller };
         }
-        return null;
+        
+        // Check for buyer
+        const buyerDocRef = doc(db, "buyers", uid);
+        const buyerDoc = await getDoc(buyerDocRef);
+        if (buyerDoc.exists()) {
+             return { role: "buyer", profile: { id: buyerDoc.id, ...buyerDoc.data() } };
+        }
+        
+        // Check for admin
+        const adminDocRef = doc(db, "admins", uid);
+        const adminDoc = await getDoc(adminDocRef);
+        if (adminDoc.exists()) {
+            return { role: "admin", profile: null };
+        }
+
+        // This might happen right after registration if Firestore is slow.
+        // It will resolve on next interaction or refresh.
+        return { role: null, profile: null };
     }
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setIsLoading(true);
       if (currentUser) {
         setUser(currentUser);
-        
-        const sellerDoc = await fetchSellerWithRetry(currentUser.uid);
-        
-        if (sellerDoc && sellerDoc.exists()) {
-          setUserRole("vendor");
-          setSellerProfile({ id: sellerDoc.id, ...sellerDoc.data() } as Seller);
-        } else {
-          const adminDocRef = doc(db, "admins", currentUser.uid);
-          const adminDoc = await getDoc(adminDocRef);
-          if (adminDoc.exists()) {
-            setUserRole("admin");
-            setSellerProfile(null);
-          } else {
-            // This might happen right after registration if Firestore is slow.
-            // It will resolve on next interaction or refresh.
-            setUserRole(null); 
-            setSellerProfile(null);
-          }
-        }
+        const { role, profile } = await fetchUserRole(currentUser.uid);
+        setUserRole(role);
+        setUserProfile(profile);
       } else {
         setUser(null);
         setUserRole(null);
-        setSellerProfile(null);
+        setUserProfile(null);
       }
       setIsLoading(false);
     });
@@ -101,48 +98,40 @@ export function Header() {
     });
   };
 
-  const dashboardPath = userRole === "admin" ? "/admin/dashboard" : "/vendor/dashboard";
+  const getDashboardPath = () => {
+      switch (userRole) {
+          case "admin": return "/admin/dashboard";
+          case "vendor": return "/vendor/dashboard";
+          case "buyer": return "/buyer/dashboard";
+          default: return "/";
+      }
+  }
 
   const renderAuthSection = () => {
     if (isLoading) {
       return <Loader2 className="h-6 w-6 animate-spin" />;
     }
 
-    if (user && userRole === 'vendor' && sellerProfile) {
+    if (user && userRole) {
+       const dashboardPath = getDashboardPath();
+       const roleLabel = userRole.charAt(0).toUpperCase() + userRole.slice(1);
+       
        return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center gap-2">
-                <Avatar className="h-8 w-8">
-                    <AvatarImage src={sellerProfile.avatarUrl} alt={sellerProfile.name} />
-                    <AvatarFallback>{sellerProfile.name.charAt(0)}</AvatarFallback>
-                </Avatar>
-                <span>{sellerProfile.companyName || sellerProfile.name}</span>
+                {userProfile?.avatarUrl && (
+                    <Avatar className="h-8 w-8">
+                        <AvatarImage src={userProfile.avatarUrl} alt={userProfile.name} />
+                        <AvatarFallback>{userProfile.name?.charAt(0) || 'A'}</AvatarFallback>
+                    </Avatar>
+                )}
+                <span>{userProfile?.companyName || userProfile?.name || 'My Account'}</span>
                 <ChevronDown className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Logged in as Vendor</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href={dashboardPath}>My Dashboard</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={handleLogout}>Logout</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        );
-    }
-
-    if (user && userRole === 'admin') {
-       return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">
-                Admin Account <ChevronDown className="ml-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Logged in as Admin</DropdownMenuLabel>
+              <DropdownMenuLabel>Logged in as {roleLabel}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <Link href={dashboardPath}>My Dashboard</Link>
@@ -154,9 +143,14 @@ export function Header() {
     }
     
     return (
-       <Button variant="outline" asChild>
-          <Link href="/login">Login / Register</Link>
-        </Button>
+        <div className="flex items-center gap-2">
+            <Button variant="outline" asChild>
+                <Link href="/login">Login</Link>
+            </Button>
+            <Button asChild>
+                <Link href="/register">Register</Link>
+            </Button>
+       </div>
     );
   }
   
@@ -165,6 +159,7 @@ export function Header() {
           return null; // Or a loading indicator
       }
       if (user && userRole) {
+          const dashboardPath = getDashboardPath();
           return (
                <div className="flex flex-col gap-4">
                   <Button asChild size="lg" onClick={() => setSheetOpen(false)}>
@@ -177,9 +172,14 @@ export function Header() {
           )
       }
       return (
-         <Button variant="outline" asChild size="lg" onClick={() => setSheetOpen(false)}>
-            <Link href="/login">Login / Register</Link>
-          </Button>
+         <div className="flex flex-col gap-4">
+            <Button asChild size="lg" onClick={() => setSheetOpen(false)}>
+                <Link href="/login">Login</Link>
+            </Button>
+            <Button variant="outline" asChild size="lg" onClick={() => setSheetOpen(false)}>
+                <Link href="/register">Register</Link>
+            </Button>
+         </div>
       )
   }
 
