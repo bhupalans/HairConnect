@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 export default function TermsOfServicePage() {
@@ -14,7 +15,7 @@ export default function TermsOfServicePage() {
           <div className="space-y-2">
             <h3 className="text-xl font-semibold text-primary/90">1. Introduction</h3>
             <p>
-                Welcome to HairConnect. These Terms of Service ("Terms") govern your use of our website and services. By accessing or using our platform, you agree to be bound by these Terms. (This is placeholder text).
+                Welcome to HairBuySell. These Terms of Service ("Terms") govern your use of our website and services. By accessing or using our platform, you agree to be bound by these Terms. (This is placeholder text).
             </p>
           </div>
           <div className="space-y-2">
@@ -26,13 +27,13 @@ export default function TermsOfServicePage() {
           <div className="space-y-2">
             <h3 className="text-xl font-semibold text-primary/90">3. Content & Transactions</h3>
             <p>
-                Our service allows you to post product listings and engage in transactions with other users. You are responsible for the content you post and the transactions you enter into. HairConnect serves as a platform and is not a party to any transaction between buyers and sellers. (This is placeholder text).
+                Our service allows you to post product listings and engage in transactions with other users. You are responsible for the content you post and the transactions you enter into. HairBuySell serves as a platform and is not a party to any transaction between buyers and sellers. (This is placeholder text).
             </p>
           </div>
           <div className="space-y-2">
             <h3 className="text-xl font-semibold text-primary/90">4. Limitation of Liability</h3>
             <p>
-                In no event shall HairConnect, nor its directors or employees, be liable for any indirect, incidental, special, consequential or punitive damages resulting from your use of the service. (This is placeholder text).
+                In no event shall HairBuySell, nor its directors or employees, be liable for any indirect, incidental, special, consequential or punitive damages resulting from your use of the service. (This is placeholder text).
             </p>
           </div>
           <div className="space-y-2">

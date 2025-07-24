@@ -75,13 +75,11 @@ export function QuoteForm() {
       if (currentUser) {
         setUser(currentUser);
         // User is logged in, let's fetch their data to pre-fill the form
-        // A user could be a seller or an admin, but here they are acting as a buyer.
-        // We will try to fetch seller profile to get their name.
-        const userProfile = await getSellerById(currentUser.uid);
+        // A user could be a seller or a buyer. Let's try to get their name.
+        const userProfile = await getSellerById(currentUser.uid) || await getBuyerById(currentUser.uid);
         if (userProfile) {
           form.setValue('name', userProfile.name);
         }
-        // Always pre-fill the email from the authenticated user.
         if (currentUser.email) {
             form.setValue('email', currentUser.email);
         }
@@ -128,12 +126,21 @@ export function QuoteForm() {
     setIsSubmitting(true);
     let toastDescription = "";
     
+    // Ensure we have the buyer's ID if they are logged in.
+    if (!user && !data.email) {
+       toast({ title: "Email required", description: "Please enter your email to submit a quote.", variant: "destructive" });
+       setIsSubmitting(false);
+       return;
+    }
+    const buyerId = user ? user.uid : 'anonymous';
+
     try {
       if (product) {
         const seller = await getSellerById(product.sellerId);
         toastDescription = `Your request for "${product.name}" has been sent to ${seller?.companyName || 'the vendor'}. They will contact you shortly.`;
         
         await addQuoteRequest({
+          buyerId: buyerId,
           buyerName: data.name,
           buyerEmail: data.email,
           productId: product.id,
@@ -146,6 +153,7 @@ export function QuoteForm() {
       } else {
         toastDescription = "Your general inquiry has been sent to our team. A vendor will contact you shortly.";
         await addQuoteRequest({
+          buyerId: buyerId,
           buyerName: data.name,
           buyerEmail: data.email,
           productId: 'N/A', 

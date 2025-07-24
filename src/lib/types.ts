@@ -57,6 +57,7 @@ export interface Buyer {
 export interface QuoteRequest {
   id: string;
   date: string;
+  buyerId: string;
   buyerName: string;
   buyerEmail: string;
   productId: string;

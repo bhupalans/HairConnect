@@ -19,7 +19,7 @@ import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, type DocumentSnapshot } from "firebase/firestore";
-import type { Seller } from "@/lib/types";
+import type { Seller, Buyer } from "@/lib/types";
 
 
 const Logo = () => (
@@ -41,7 +41,7 @@ export function Header() {
   const [isSheetOpen, setSheetOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<'vendor' | 'admin' | 'buyer' | null>(null);
-  const [userProfile, setUserProfile] = useState<Seller | null>(null); // Can be adapted for Buyer profiles too
+  const [userProfile, setUserProfile] = useState<Seller | Buyer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
@@ -84,6 +84,7 @@ export function Header() {
           setUserProfile(profile);
         } else {
           // If email is not verified, treat as logged out for UI purposes
+          // But keep user object so verify-email page can work
           setUserRole(null);
           setUserProfile(null);
         }

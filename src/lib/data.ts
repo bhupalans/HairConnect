@@ -1,4 +1,5 @@
 
+
 import type { Product, Seller, Buyer, QuoteRequest, ContactMessage, ProductImage } from './types';
 import { unstable_noStore as noStore } from 'next/cache';
 import { db, auth } from './firebase';
@@ -16,6 +17,7 @@ const mapFirestoreDocToQuoteRequest = (docSnapshot: any): QuoteRequest => {
     return {
         id: docSnapshot.id,
         date: date,
+        buyerId: data.buyerId || '',
         buyerName: data.buyerName || '',
         buyerEmail: data.buyerEmail || '',
         productId: data.productId || 'N/A',
@@ -151,6 +153,21 @@ export async function getQuoteRequestsBySeller(sellerId: string): Promise<QuoteR
         return [];
     }
 }
+
+export async function getQuoteRequestsByBuyer(buyerId: string): Promise<QuoteRequest[]> {
+    noStore();
+    if (!buyerId) return [];
+    try {
+        const quotesRef = collection(db, "quote-requests");
+        const q = query(quotesRef, where("buyerId", "==", buyerId), orderBy("createdAt", "desc"));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(mapFirestoreDocToQuoteRequest);
+    } catch (error) {
+        console.error("Error fetching quote requests for buyer:", error);
+        return [];
+    }
+}
+
 
 export async function markQuoteRequestsAsRead(sellerId: string): Promise<void> {
     if (!sellerId) return;
@@ -492,14 +509,54 @@ export async function addBuyer(
   }
 }
 
-export async function updateBuyer(buyerId: string, data: Partial<Buyer>) {
-    const buyerRef = doc(db, "buyers", buyerId);
-    try {
-        await updateDoc(buyerRef, data);
-    } catch (error) {
-        console.error("Error updating buyer:", error);
-        throw error;
+export async function updateBuyerProfile(
+    buyerId: string, 
+    data: Partial<Buyer>, 
+    newAvatarFile: File | null, 
+    removeAvatar: boolean
+) {
+  const buyerRef = doc(db, "buyers", buyerId);
+  const storage = getStorage();
+  const dataToUpdate: any = { ...data };
+
+  try {
+    const existingBuyerSnap = await getDoc(buyerRef);
+    if (!existingBuyerSnap.exists()) {
+        throw new Error("Buyer not found to update.");
     }
+    const existingBuyerData = existingBuyerSnap.data() as Buyer;
+    const oldAvatarUrl = existingBuyerData.avatarUrl;
+
+    const deleteOldAvatar = async () => {
+        if (oldAvatarUrl && oldAvatarUrl.includes('firebasestorage.googleapis.com')) {
+            try {
+              const oldAvatarStorageRef = ref(storage, oldAvatarUrl);
+              await deleteObject(oldAvatarStorageRef);
+            } catch (deleteError: any) {
+               if (deleteError.code !== 'storage/object-not-found') {
+                  console.warn("Could not delete old avatar:", deleteError);
+               }
+            }
+        }
+    };
+
+    if (removeAvatar) {
+        await deleteOldAvatar();
+        dataToUpdate.avatarUrl = `https://placehold.co/100x100?text=${existingBuyerData.name.charAt(0)}`;
+    } else if (newAvatarFile) {
+        await deleteOldAvatar();
+        const newAvatarRef = ref(storage, `avatars/${buyerId}/avatar`);
+        const uploadResult = await uploadBytes(newAvatarRef, newAvatarFile);
+        let newAvatarUrl = await getDownloadURL(uploadResult.ref);
+        newAvatarUrl = `${newAvatarUrl}?updated=${Date.now()}`;
+        dataToUpdate.avatarUrl = newAvatarUrl;
+    }
+
+    await updateDoc(buyerRef, dataToUpdate);
+  } catch (error) {
+    console.error("Error updating buyer profile:", error);
+    throw error;
+  }
 }
 
 export async function deleteBuyer(buyerId: string) {
