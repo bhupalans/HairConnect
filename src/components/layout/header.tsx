@@ -147,7 +147,7 @@ export function Header() {
     
     return (
        <Button variant="outline" asChild>
-          <Link href="/login">Login / SignUp</Link>
+          <Link href="/login">Login / Sign Up</Link>
         </Button>
     );
   }
@@ -172,7 +172,7 @@ export function Header() {
       return (
          <div className="flex flex-col gap-4">
             <Button asChild size="lg" onClick={() => setSheetOpen(false)}>
-                <Link href="/login">Login / SignUp</Link>
+                <Link href="/login">Login / Sign Up</Link>
             </Button>
          </div>
       )

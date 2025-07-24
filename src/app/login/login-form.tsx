@@ -100,7 +100,7 @@ export function LoginForm() {
               <div className="mt-4 text-center text-sm text-muted-foreground">
                 New to HairBuySell?{" "}
                 <Link href="/register" className="underline text-primary font-medium">
-                  Create an account
+                  Sign up
                 </Link>
               </div>
           </CardFooter>
