@@ -55,8 +55,8 @@ service cloud.firestore {
     match /quote-requests/{requestId} {
       // Anyone can create a quote request.
       allow create: if true;
-      // Users can read a request if they are an admin or the designated seller.
-      allow read: if isAdmin() || request.auth.uid == resource.data.sellerId;
+      // Users can read a request if they are an admin or the designated seller or the designated buyer
+      allow read: if isAdmin() || request.auth.uid == resource.data.sellerId || request.auth.uid == resource.data.buyerId;
       // Only the designated seller can update the request (e.g., to mark as read).
       allow update: if request.auth.uid == resource.data.sellerId;
       // Only admins can delete requests.

@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { categories, getProductById, getSellerById, addQuoteRequest } from "@/lib/data";
+import { categories, getProductById, getSellerById, getBuyerById, addQuoteRequest } from "@/lib/data";
 import { useSearchParams } from "next/navigation";
 import React, { useEffect, useState } from "react";
 import type { Product, Seller } from "@/lib/types";
