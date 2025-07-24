@@ -78,6 +78,8 @@ export function Header() {
           setUserRole(role);
           setUserProfile(profile);
         } else {
+          // User is logged in but not verified
+          // This state is handled by the verify-email page, but we clear role here
           setUserRole(null);
           setUserProfile(null);
         }
@@ -145,7 +147,7 @@ export function Header() {
     
     return (
        <Button variant="outline" asChild>
-          <Link href="/login">Login</Link>
+          <Link href="/login">Login / SignUp</Link>
         </Button>
     );
   }
@@ -170,7 +172,7 @@ export function Header() {
       return (
          <div className="flex flex-col gap-4">
             <Button asChild size="lg" onClick={() => setSheetOpen(false)}>
-                <Link href="/login">Login</Link>
+                <Link href="/login">Login / SignUp</Link>
             </Button>
          </div>
       )
