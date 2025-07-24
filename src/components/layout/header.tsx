@@ -15,10 +15,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, Gem, ChevronDown, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, type DocumentSnapshot } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import type { Seller, Buyer } from "@/lib/types";
 
 
@@ -44,32 +44,28 @@ export function Header() {
   const [userProfile, setUserProfile] = useState<Seller | Buyer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     const fetchUserRole = async (uid: string): Promise<{ role: 'vendor' | 'admin' | 'buyer' | null, profile: any | null }> => {
-        // Check for seller first
         const sellerDocRef = doc(db, "sellers", uid);
         const sellerDoc = await getDoc(sellerDocRef);
         if (sellerDoc.exists()) {
             return { role: "vendor", profile: { id: sellerDoc.id, ...sellerDoc.data() } as Seller };
         }
         
-        // Check for buyer
         const buyerDocRef = doc(db, "buyers", uid);
         const buyerDoc = await getDoc(buyerDocRef);
         if (buyerDoc.exists()) {
              return { role: "buyer", profile: { id: buyerDoc.id, ...buyerDoc.data() } };
         }
         
-        // Check for admin
         const adminDocRef = doc(db, "admins", uid);
         const adminDoc = await getDoc(adminDocRef);
         if (adminDoc.exists()) {
             return { role: "admin", profile: null };
         }
 
-        // This might happen right after registration if Firestore is slow.
-        // It will resolve on next interaction or refresh.
         return { role: null, profile: null };
     }
 
@@ -77,14 +73,11 @@ export function Header() {
       setIsLoading(true);
       if (currentUser) {
         setUser(currentUser);
-        // Only fetch role if email is verified
         if (currentUser.emailVerified) {
           const { role, profile } = await fetchUserRole(currentUser.uid);
           setUserRole(role);
           setUserProfile(profile);
         } else {
-          // If email is not verified, treat as logged out for UI purposes
-          // But keep user object so verify-email page can work
           setUserRole(null);
           setUserProfile(null);
         }
@@ -97,11 +90,11 @@ export function Header() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [pathname]); // Re-run on route change to catch state after login/logout navigation
 
   const handleLogout = () => {
     signOut(auth).then(() => {
-      setSheetOpen(false); // Close mobile menu on logout
+      setSheetOpen(false);
       router.push("/");
     });
   };
@@ -120,7 +113,6 @@ export function Header() {
       return <Loader2 className="h-6 w-6 animate-spin" />;
     }
     
-    // Show account info only if user is logged in, has a role, AND email is verified.
     if (user && userRole && user.emailVerified) {
        const dashboardPath = getDashboardPath();
        const roleLabel = userRole.charAt(0).toUpperCase() + userRole.slice(1);
@@ -152,22 +144,16 @@ export function Header() {
     }
     
     return (
-        <div className="flex items-center gap-2">
-            <Button variant="outline" asChild>
-                <Link href="/login">Login</Link>
-            </Button>
-            <Button asChild>
-                <Link href="/register">Register</Link>
-            </Button>
-       </div>
+       <Button variant="outline" asChild>
+          <Link href="/login">Login</Link>
+        </Button>
     );
   }
   
   const renderMobileAuthSection = () => {
       if (isLoading) {
-          return null; // Or a loading indicator
+          return null;
       }
-       // Show account info only if user is logged in, has a role, AND email is verified.
       if (user && userRole && user.emailVerified) {
           const dashboardPath = getDashboardPath();
           return (
@@ -185,9 +171,6 @@ export function Header() {
          <div className="flex flex-col gap-4">
             <Button asChild size="lg" onClick={() => setSheetOpen(false)}>
                 <Link href="/login">Login</Link>
-            </Button>
-            <Button variant="outline" asChild size="lg" onClick={() => setSheetOpen(false)}>
-                <Link href="/register">Register</Link>
             </Button>
          </div>
       )
