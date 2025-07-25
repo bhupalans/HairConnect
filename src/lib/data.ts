@@ -140,6 +140,19 @@ export async function getQuoteRequests(): Promise<QuoteRequest[]> {
     }
 }
 
+export async function getOpenQuoteRequests(): Promise<QuoteRequest[]> {
+    noStore();
+    try {
+        const quoteCollectionRef = collection(db, 'quote-requests');
+        const q = query(quoteCollectionRef, where('sellerId', '==', 'N/A'), orderBy('createdAt', 'desc'));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(mapFirestoreDocToQuoteRequest);
+    } catch (error) {
+        console.error("Error fetching open quote requests:", error);
+        return [];
+    }
+}
+
 export async function getQuoteRequestsBySeller(sellerId: string): Promise<QuoteRequest[]> {
     noStore();
     if (!sellerId) return [];

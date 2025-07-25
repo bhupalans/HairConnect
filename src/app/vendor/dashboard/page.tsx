@@ -48,7 +48,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getProductsBySeller, getSellerById, updateProduct, deleteProduct, addProduct, updateSellerProfile, getQuoteRequestsBySeller, markQuoteRequestsAsRead } from "@/lib/data";
-import { MoreHorizontal, PlusCircle, Loader2, Mail, X } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Loader2, Mail, X, ShoppingBag } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Textarea } from "@/components/ui/textarea";
@@ -604,6 +604,7 @@ export default function VendorDashboardPage() {
       <Tabs defaultValue="products" onValueChange={handleTabChange}>
           <TabsList className="mb-4">
             <TabsTrigger value="products">My Products</TabsTrigger>
+            <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
             <TabsTrigger value="quotes" className="relative">
               Quote Requests
               {unreadQuotesCount > 0 && (
@@ -692,6 +693,27 @@ export default function VendorDashboardPage() {
                     )}
                     </TableBody>
                 </Table>
+                </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="marketplace">
+            <Card>
+                <CardHeader>
+                  <CardTitle>Sourcing Marketplace</CardTitle>
+                  <CardDescription>
+                    Discover new business opportunities by browsing open quote requests from buyers across the platform.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="text-center">
+                    <div className="mx-auto w-fit bg-secondary p-4 rounded-full mb-4">
+                      <ShoppingBag className="h-12 w-12 text-primary"/>
+                    </div>
+                    <p className="text-muted-foreground mb-4">
+                      This is your hub for new leads. Find buyers who are actively sourcing products you may be able to provide.
+                    </p>
+                    <Button asChild>
+                      <Link href="/sellers/marketplace">View Open Requests</Link>
+                    </Button>
                 </CardContent>
             </Card>
           </TabsContent>
