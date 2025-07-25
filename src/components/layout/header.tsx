@@ -41,7 +41,7 @@ export function Header() {
   const [isSheetOpen, setSheetOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<'vendor' | 'admin' | 'buyer' | null>(null);
-  const [userProfile, setUserProfile] = useState<Seller | Buyer | null>(null);
+  const [userProfile, setUserProfile] = useState<Partial<Seller | Buyer> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
@@ -63,7 +63,7 @@ export function Header() {
         const adminDocRef = doc(db, "admins", uid);
         const adminDoc = await getDoc(adminDocRef);
         if (adminDoc.exists()) {
-            return { role: "admin", profile: null };
+            return { role: "admin", profile: { name: 'Admin Account' } };
         }
 
         return { role: null, profile: null };
