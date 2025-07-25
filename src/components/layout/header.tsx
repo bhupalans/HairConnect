@@ -63,7 +63,7 @@ export function Header() {
         const adminDocRef = doc(db, "admins", uid);
         const adminDoc = await getDoc(adminDocRef);
         if (adminDoc.exists()) {
-            return { role: "admin", profile: { name: 'Admin Account' } };
+            return { role: "admin", profile: { name: 'Admin', avatarUrl: '' } };
         }
 
         return { role: null, profile: null };
@@ -73,13 +73,14 @@ export function Header() {
       setIsLoading(true);
       if (currentUser) {
         setUser(currentUser);
-        if (currentUser.emailVerified) {
-          const { role, profile } = await fetchUserRole(currentUser.uid);
+        const { role, profile } = await fetchUserRole(currentUser.uid);
+        
+        // Admin users do not need email verification to use their dashboard.
+        if (role === 'admin' || currentUser.emailVerified) {
           setUserRole(role);
           setUserProfile(profile);
         } else {
           // User is logged in but not verified
-          // This state is handled by the verify-email page, but we clear role here
           setUserRole(null);
           setUserProfile(null);
         }
@@ -115,7 +116,8 @@ export function Header() {
       return <Loader2 className="h-6 w-6 animate-spin" />;
     }
     
-    if (user && userRole && user.emailVerified) {
+    // Check for userRole which is now correctly set for admins
+    if (user && userRole) {
        const dashboardPath = getDashboardPath();
        const roleLabel = userRole.charAt(0).toUpperCase() + userRole.slice(1);
        
@@ -156,7 +158,7 @@ export function Header() {
       if (isLoading) {
           return null;
       }
-      if (user && userRole && user.emailVerified) {
+      if (user && userRole) {
           const dashboardPath = getDashboardPath();
           return (
                <div className="flex flex-col gap-4">
