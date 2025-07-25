@@ -109,9 +109,11 @@ export default function SellerMarketplacePage() {
                       <div className="text-xs text-muted-foreground">{req.buyerEmail}</div>
                     </TableCell>
                     <TableCell>{req.quantity}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground whitespace-pre-wrap">
-                      <span className="font-semibold text-foreground">{req.productName}</span><br />
-                      {req.details || 'N/A'}
+                    <TableCell className="text-sm text-muted-foreground">
+                        <div className="flex flex-col gap-1">
+                            <span className="font-semibold text-foreground">{req.productName}</span>
+                            <p className="whitespace-pre-wrap">{req.details}</p>
+                        </div>
                     </TableCell>
                     <TableCell>
                       <Button asChild variant="outline" size="sm">
