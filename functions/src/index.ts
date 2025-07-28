@@ -1,20 +1,26 @@
 
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
+import Stripe from "stripe";
+import * as express from "express";
 
 admin.initializeApp();
 const db = admin.firestore();
 
+// Initialize Stripe with the secret key.
+// IMPORTANT: Set this in your environment variables:
+// firebase functions:config:set stripe.secret="your_stripe_secret_key"
+const stripe = new Stripe(functions.config().stripe.secret, {
+  apiVersion: "2024-04-10",
+});
 
 /**
- * Verifies a seller after a simulated payment.
- * This function is for testing in a preview environment.
- * It directly sets the seller's `isVerified` status to true.
- * @param {object} data - The data object (not used).
+ * Creates a Stripe Checkout session for a one-time payment to verify a seller.
+ * @param {object} data - The data object containing the return URLs.
  * @param {functions.https.CallableContext} context - The context object.
- * @returns {Promise<{success: boolean}>} - A promise that resolves on completion.
+ * @returns {Promise<{url: string}>} - A promise that resolves with the checkout session URL.
  */
-export const verifySeller = functions.https.onCall(
+export const createCheckoutSession = functions.https.onCall(
   async (data, context) => {
     // Check if the user is authenticated.
     if (!context.auth) {
@@ -25,21 +31,102 @@ export const verifySeller = functions.https.onCall(
     }
 
     const uid = context.auth.uid;
-    const sellerRef = db.collection("sellers").doc(uid);
+    const { success_url, cancel_url } = data;
+
+    if (!success_url || !cancel_url) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "The function must be called with success_url and cancel_url."
+      );
+    }
+
+    // IMPORTANT: Create a one-time product and price in your Stripe dashboard
+    // and replace this placeholder with the actual Price ID.
+    const priceId = "price_1PMEqSRO9v6s4D094yGvZkP4"; // Placeholder Price ID, replace with your actual value.
 
     try {
-      await sellerRef.update({ isVerified: true });
-      functions.logger.log(`Successfully verified seller with UID: ${uid}`);
-      return { success: true };
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        mode: "payment",
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+        // Pass the user's UID to the session so we can identify them in the webhook.
+        client_reference_id: uid,
+        success_url: success_url,
+        cancel_url: cancel_url,
+      });
+
+      if (!session.url) {
+        throw new functions.https.HttpsError(
+          "internal",
+          "Could not create a checkout session URL."
+        );
+      }
+
+      return { url: session.url };
     } catch (error) {
-      functions.logger.error(`Failed to update seller ${uid} to verified.`, error);
+      console.error("Stripe Checkout Session Error:", error);
       throw new functions.https.HttpsError(
         "internal",
-        "An error occurred while verifying the seller."
+        "An error occurred while creating the checkout session."
       );
     }
   }
 );
+
+
+const app = express();
+app.post('/', express.raw({ type: 'application/json' }), async (request, response) => {
+    const sig = request.headers['stripe-signature'];
+    // Get this from your Stripe Dashboard webhook settings
+    // IMPORTANT: Set this in your environment variables:
+    // firebase functions:config:set stripe.webhook_secret="your_webhook_secret"
+    const endpointSecret = functions.config().stripe.webhook_secret;
+
+    let event: Stripe.Event;
+
+    try {
+        if (!sig || !endpointSecret) {
+            response.status(400).send('Webhook Error: Missing signature or secret');
+            return;
+        }
+        event = stripe.webhooks.constructEvent(request.body, sig, endpointSecret);
+    } catch (err: any) {
+        response.status(400).send(`Webhook Error: ${err.message}`);
+        return;
+    }
+
+    // Handle the event
+    if (event.type === 'checkout.session.completed') {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const uid = session.client_reference_id;
+
+        if (!uid) {
+            functions.logger.error("Webhook received without a client_reference_id (UID).", session);
+            response.status(400).send('Webhook Error: Missing client_reference_id.');
+            return;
+        }
+
+        try {
+            const sellerRef = db.collection('sellers').doc(uid);
+            await sellerRef.update({ isVerified: true });
+            functions.logger.log(`Successfully verified seller with UID: ${uid}`);
+        } catch (error) {
+            functions.logger.error(`Failed to update seller ${uid} to verified.`, error);
+            // We don't send a 400 here because the webhook itself was valid.
+            // This is an internal error. Stripe will see the 200 and not retry.
+        }
+    }
+
+    // Return a response to acknowledge receipt of the event
+    response.status(200).send();
+});
+
+export const stripeWebhook = functions.https.onRequest(app);
 
 
 /**
