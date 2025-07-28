@@ -4,8 +4,6 @@ exports.cleanupUnverifiedUsers = exports.createCheckoutSession = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const stripe_1 = require("stripe");
-const cors = require("cors");
-const corsHandler = cors({ origin: true });
 admin.initializeApp();
 const db = admin.firestore();
 // Initialize Stripe with the secret key.
