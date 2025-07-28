@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProductCard } from "@/components/product-card";
-import { Mail, Phone, Globe, MapPin, CalendarDays, Loader2, LogIn } from "lucide-react";
+import { Mail, Phone, Globe, MapPin, CalendarDays, Loader2, LogIn, BadgeCheck } from "lucide-react";
 import { format } from "date-fns";
 import type { Seller, Product } from "@/lib/types";
 import { useState, useEffect } from "react";
@@ -48,7 +48,15 @@ export function SellerProfileClientPage({ seller, sellerProducts }: SellerProfil
               <div className="flex flex-col sm:flex-row items-center gap-6">
                  <Image src={seller.avatarUrl} alt={seller.name} width={128} height={128} className="rounded-full border-4 border-background shadow-md" data-ai-hint="professional portrait" />
                  <div className="text-center sm:text-left">
-                    <h1 className="text-3xl md:text-4xl font-headline text-primary">{seller.companyName}</h1>
+                    <div className="flex items-center gap-3 justify-center sm:justify-start">
+                        <h1 className="text-3xl md:text-4xl font-headline text-primary">{seller.companyName}</h1>
+                        {seller.isVerified && (
+                           <div className="flex items-center gap-1 text-blue-600 bg-blue-100 px-3 py-1 rounded-full">
+                                <BadgeCheck className="h-5 w-5" />
+                                <span className="font-semibold text-sm">Verified</span>
+                           </div>
+                        )}
+                    </div>
                     <p className="text-xl text-muted-foreground">{seller.name}</p>
                     <div className="mt-2 flex flex-wrap justify-center sm:justify-start gap-x-6 gap-y-2 text-muted-foreground">
                         <div className="flex items-center gap-2">

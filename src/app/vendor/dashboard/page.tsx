@@ -30,6 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,7 +49,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getProductsBySeller, getSellerById, updateProduct, deleteProduct, addProduct, updateSellerProfile, getQuoteRequestsBySeller, markQuoteRequestsAsRead } from "@/lib/data";
-import { MoreHorizontal, PlusCircle, Loader2, Mail, X, ShoppingBag } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Loader2, Mail, X, ShoppingBag, Terminal, CheckCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Textarea } from "@/components/ui/textarea";
@@ -163,6 +164,7 @@ export default function VendorDashboardPage() {
              location: fetchedSeller.location,
              bio: fetchedSeller.bio,
              contact: fetchedSeller.contact,
+             isVerified: fetchedSeller.isVerified,
           });
           setAvatarPreview(fetchedSeller.avatarUrl);
           setProducts(fetchedProducts);
@@ -600,6 +602,25 @@ export default function VendorDashboardPage() {
         )}
         </div>
       </header>
+
+      {!seller.isVerified ? (
+        <Alert variant="destructive" className="mb-6">
+          <Terminal className="h-4 w-4" />
+          <AlertTitle>Account Not Verified</AlertTitle>
+          <AlertDescription>
+            <div className="flex justify-between items-center">
+              <p>Become a verified seller to build trust with buyers and enhance your visibility.</p>
+              <Button disabled>Become a Verified Seller</Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <Alert className="mb-6 border-green-500 text-green-700">
+           <CheckCircle className="h-4 w-4 text-green-500" />
+           <AlertTitle className="text-green-700">Account Verified</AlertTitle>
+           <AlertDescription>Your profile is marked as verified. Buyers can see your trusted status.</AlertDescription>
+        </Alert>
+      )}
       
       <Tabs defaultValue="products" onValueChange={handleTabChange}>
           <TabsList className="mb-4">

@@ -3,7 +3,7 @@ import Image from "next/image";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Seller, Buyer } from "@/lib/types";
 import { Button } from "./ui/button";
-import { MapPin } from "lucide-react";
+import { MapPin, BadgeCheck } from "lucide-react";
 
 interface UserCardProps {
   user: Seller | Buyer;
@@ -28,9 +28,12 @@ export function UserCard({ user, userType }: UserCardProps) {
           </div>
         </Link>
         <Link href={profileLink} className="block">
-          <CardTitle className="text-xl font-headline leading-tight hover:text-primary transition-colors">
-            {user.name}
-          </CardTitle>
+          <div className="flex items-center gap-2 justify-center">
+            <CardTitle className="text-xl font-headline leading-tight hover:text-primary transition-colors">
+              {user.name}
+            </CardTitle>
+            {user.isVerified && <BadgeCheck className="h-5 w-5 text-blue-600" />}
+          </div>
         </Link>
         {'companyName' in user && user.companyName && (
            <CardDescription className="text-base">{user.companyName}</CardDescription>
