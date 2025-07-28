@@ -44,7 +44,7 @@ export const createCheckoutSession = functions.https.onCall(
     
     // IMPORTANT: Create a one-time product and price in your Stripe dashboard
     // and replace this placeholder with the actual Price ID.
-    const priceId = "price_1PMEqSRO9v6s4D094yGvZkP4"; // Placeholder Price ID
+    const priceId = "price_1RpQKuSSXV7vnN2iDdRKtFTC"; // Placeholder Price ID, replaced a test value.
 
     try {
       const session = await stripe.checkout.sessions.create({
