@@ -30,6 +30,7 @@ export interface Seller {
   avatarUrl: string;
   bio: string;
   memberSince: string;
+  isVerified: boolean;
   productIds: string[];
   contact: {
     email: string;
