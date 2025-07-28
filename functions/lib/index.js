@@ -1,9 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cleanupUnverifiedUsers = exports.createCheckoutSession = void 0;
+exports.stripeWebhook = exports.cleanupUnverifiedUsers = exports.createCheckoutSession = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const stripe_1 = require("stripe");
+const express = require("express");
 admin.initializeApp();
 const db = admin.firestore();
 // Initialize Stripe with the secret key.
@@ -105,4 +106,47 @@ exports.cleanupUnverifiedUsers = functions.pubsub
     }
     return null;
 });
+const app = express();
+app.post('/', express.raw({ type: 'application/json' }), async (request, response) => {
+    const sig = request.headers['stripe-signature'];
+    // Get this from your Stripe Dashboard webhook settings
+    // IMPORTANT: Set this in your environment variables:
+    // firebase functions:config:set stripe.webhook_secret="your_webhook_secret"
+    const endpointSecret = functions.config().stripe.webhook_secret;
+    let event;
+    try {
+        if (!sig || !endpointSecret) {
+            response.status(400).send('Webhook Error: Missing signature or secret');
+            return;
+        }
+        event = stripe.webhooks.constructEvent(request.body, sig, endpointSecret);
+    }
+    catch (err) {
+        response.status(400).send(`Webhook Error: ${err.message}`);
+        return;
+    }
+    // Handle the event
+    if (event.type === 'checkout.session.completed') {
+        const session = event.data.object;
+        const uid = session.client_reference_id;
+        if (!uid) {
+            functions.logger.error("Webhook received without a client_reference_id (UID).", session);
+            response.status(400).send('Webhook Error: Missing client_reference_id.');
+            return;
+        }
+        try {
+            const sellerRef = db.collection('sellers').doc(uid);
+            await sellerRef.update({ isVerified: true });
+            functions.logger.log(`Successfully verified seller with UID: ${uid}`);
+        }
+        catch (error) {
+            functions.logger.error(`Failed to update seller ${uid} to verified.`, error);
+            // We don't send a 400 here because the webhook itself was valid.
+            // This is an internal error. Stripe will see the 200 and not retry.
+        }
+    }
+    // Return a response to acknowledge receipt of the event
+    response.status(200).send();
+});
+exports.stripeWebhook = functions.https.onRequest(app);
 //# sourceMappingURL=index.js.map
