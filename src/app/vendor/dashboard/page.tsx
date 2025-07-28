@@ -641,7 +641,7 @@ export default function VendorDashboardPage() {
           <AlertTitle>Account Not Verified</AlertTitle>
           <AlertDescription>
             <div className="flex justify-between items-center">
-              <p>Become a verified seller to build trust with buyers and enhance your visibility.</p>
+              <p>Your account is not verified. Become a verified seller to build trust with buyers.</p>
               <Button onClick={handleVerification} disabled={isVerifying}>
                 {isVerifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Become a Verified Seller
