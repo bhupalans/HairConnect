@@ -1,6 +1,8 @@
+
 import { initializeApp, getApps, getApp, type FirebaseOptions } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
+import { getFunctions, httpsCallable, connectFunctionsEmulator } from "firebase/functions";
 
 // --- PASTE YOUR FIREBASE CONFIGURATION OBJECT HERE ---
 // You can find this in your Firebase project settings.
@@ -22,5 +24,18 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 const db = getFirestore(app);
 const auth = getAuth(app);
+const functions = getFunctions(app);
 
-export { app, db, auth };
+// To test cloud functions locally, connect to the emulator
+// Make sure you have the Firebase Emulator Suite running
+if (process.env.NODE_ENV === 'development') {
+    try {
+        console.log("Connecting to Firebase emulators");
+        connectFunctionsEmulator(functions, 'localhost', 5001);
+    } catch (e) {
+        console.error("Could not connect to Firebase emulators, continuing with production Functions.", e);
+    }
+}
+
+
+export { app, db, auth, functions, httpsCallable };

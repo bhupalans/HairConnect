@@ -69,7 +69,7 @@ import {
 import { categories } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 import type { Product, Seller, QuoteRequest, ProductImage } from "@/lib/types";
-import { auth } from "@/lib/firebase";
+import { auth, functions, httpsCallable } from "@/lib/firebase";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -111,6 +111,7 @@ export default function VendorDashboardPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isSubmittingProfile, setIsSubmittingProfile] = React.useState(false);
+  const [isRedirectingToCheckout, setIsRedirectingToCheckout] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState("products");
 
 
@@ -420,7 +421,7 @@ export default function VendorDashboardPage() {
 
     } catch (error) {
       console.error("Update profile error:", error);
-      toast({ title: "Update Failed", description: "Could not update your profile. Please try again.", variant: "destructive"});
+      toast({ title: "Update Failed", description: "Could not update your profile.", variant: "destructive"});
     } finally {
       setIsSubmittingProfile(false);
     }
@@ -454,7 +455,33 @@ export default function VendorDashboardPage() {
     } finally {
         setIsSubmitting(false);
     }
-  }
+  };
+
+  const handleVerificationCheckout = async () => {
+    setIsRedirectingToCheckout(true);
+    try {
+      const createCheckoutSession = httpsCallable(functions, 'createCheckoutSession');
+      const result: any = await createCheckoutSession({
+        success_url: `${window.location.origin}/vendor/dashboard?payment_status=success`,
+        cancel_url: `${window.location.origin}/vendor/dashboard?payment_status=cancelled`,
+      });
+
+      if (result.data.url) {
+        window.location.href = result.data.url;
+      } else {
+        throw new Error("No checkout URL returned from function.");
+      }
+    } catch (error) {
+      console.error("Error creating checkout session:", error);
+      toast({
+        title: "Checkout Error",
+        description: "Could not redirect to payment page. Please try again.",
+        variant: "destructive",
+      });
+      setIsRedirectingToCheckout(false);
+    }
+  };
+
 
   if (isLoading || !user || !seller) {
     return (
@@ -610,7 +637,10 @@ export default function VendorDashboardPage() {
           <AlertDescription>
             <div className="flex justify-between items-center">
               <p>Become a verified seller to build trust with buyers and enhance your visibility.</p>
-              <Button disabled>Become a Verified Seller</Button>
+              <Button onClick={handleVerificationCheckout} disabled={isRedirectingToCheckout}>
+                {isRedirectingToCheckout && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Become a Verified Seller
+              </Button>
             </div>
           </AlertDescription>
         </Alert>
