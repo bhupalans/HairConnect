@@ -3,6 +3,7 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import Stripe from "stripe";
 import * as express from "express";
+import * as cors from "cors";
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -21,26 +22,18 @@ try {
     functions.logger.error("Stripe failed to initialize on cold start:", error);
 }
 
+const checkoutApp = express();
+checkoutApp.use(cors({ origin: true }));
 
-/**
- * Creates a Stripe Checkout session for a one-time payment to verify a seller.
- * @param {object} data - The data object containing the return URLs.
- * @param {functions.https.CallableContext} context - The context object.
- * @returns {Promise<{url: string}>} - A promise that resolves with the checkout session URL.
- */
-export const createCheckoutSession = functions.https.onCall(
-  async (data, context) => {
-    functions.logger.log("createCheckoutSession function triggered");
+checkoutApp.post("/", async (req, res) => {
+    functions.logger.log("createCheckoutSession function triggered", { body: req.body });
 
     // --- DIAGNOSTIC CHECK ---
-    // Check if the stripe configuration and secret key exist.
     const stripeConfig = functions.config().stripe;
     if (!stripeConfig || !stripeConfig.secret) {
         functions.logger.error("FATAL: Stripe secret key is not configured in the environment.");
-        throw new functions.https.HttpsError(
-            "failed-precondition",
-            "Stripe secret key is not configured. Please set functions.config().stripe.secret"
-        );
+        res.status(500).send("Stripe secret key is not configured.");
+        return;
     }
     
     // Initialize Stripe inside the function if it wasn't on cold start
@@ -51,86 +44,69 @@ export const createCheckoutSession = functions.https.onCall(
         functions.logger.log("Stripe initialized on-demand inside function handler.");
     }
 
-
-    // Check if the user is authenticated.
-    if (!context.auth) {
-      functions.logger.error("Authentication Error: User is not authenticated.");
-      throw new functions.https.HttpsError(
-        "unauthenticated",
-        "The function must be called while authenticated."
-      );
+    // The httpsCallable function passes auth context in the request headers.
+    // We need to verify it manually for onRequest functions.
+    const idToken = req.headers.authorization?.split('Bearer ')[1];
+    if (!idToken) {
+        functions.logger.error("Authentication Error: No ID token provided.");
+        res.status(401).send("Unauthorized");
+        return;
     }
-    functions.logger.log(`Authenticated user UID: ${context.auth.uid}`);
-
-    const uid = context.auth.uid;
-    const { success_url, cancel_url } = data;
-
-    if (!success_url || !cancel_url) {
-      functions.logger.error("Invalid Argument: Missing success_url or cancel_url.", { data });
-      throw new functions.https.HttpsError(
-        "invalid-argument",
-        "The function must be called with success_url and cancel_url."
-      );
-    }
-    functions.logger.log("Received URLs:", { success_url, cancel_url });
-
-
-    // IMPORTANT: Create a one-time product and price in your Stripe dashboard
-    // and replace this placeholder with the actual Price ID.
-    const priceId = "price_1RpQKuSSXV7vnN2iDdRKtFTC"; // Placeholder Price ID, replaced a test value.
-    functions.logger.log(`Using Stripe Price ID: ${priceId}`);
 
     try {
-      functions.logger.log("Attempting to create Stripe checkout session...");
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ["card"],
-        mode: "payment", // Use 'payment' for one-time fee
-        line_items: [
-          {
-            price: priceId,
-            quantity: 1,
-          },
-        ],
-        // Pass the user's UID to the session so we can identify them in the webhook.
-        client_reference_id: uid,
-        success_url: success_url,
-        cancel_url: cancel_url,
-      });
+        const decodedToken = await admin.auth().verifyIdToken(idToken);
+        const uid = decodedToken.uid;
+        functions.logger.log(`Authenticated user UID: ${uid}`);
 
-      if (!session.url) {
-        functions.logger.error("Stripe session created, but no URL was returned.");
-        throw new functions.https.HttpsError(
-          "internal",
-          "Could not create a checkout session URL."
-        );
-      }
-      
-      functions.logger.log("Stripe session created successfully. URL:", session.url);
-      return { url: session.url };
+        const { success_url, cancel_url } = req.body.data;
+
+        if (!success_url || !cancel_url) {
+            functions.logger.error("Invalid Argument: Missing success_url or cancel_url.", { data: req.body.data });
+            res.status(400).send("The function must be called with success_url and cancel_url.");
+            return;
+        }
+        functions.logger.log("Received URLs:", { success_url, cancel_url });
+
+        const priceId = "price_1RpQKuSSXV7vnN2iDdRKtFTC";
+        functions.logger.log(`Using Stripe Price ID: ${priceId}`);
+
+        functions.logger.log("Attempting to create Stripe checkout session...");
+        const session = await stripe.checkout.sessions.create({
+            payment_method_types: ["card"],
+            mode: "payment",
+            line_items: [{ price: priceId, quantity: 1 }],
+            client_reference_id: uid,
+            success_url: success_url,
+            cancel_url: cancel_url,
+        });
+
+        if (!session.url) {
+            functions.logger.error("Stripe session created, but no URL was returned.");
+            res.status(500).send("Could not create a checkout session URL.");
+            return;
+        }
+
+        functions.logger.log("Stripe session created successfully. URL:", session.url);
+        // For onRequest, we send back the data in the response body.
+        res.status(200).send({ data: { url: session.url } });
 
     } catch (error: any) {
-      functions.logger.error("Stripe API Error:", error);
-      // Log the specific Stripe error message if available
-      if (error.raw) {
-        functions.logger.error("Stripe Raw Error:", error.raw);
-      }
-      throw new functions.https.HttpsError(
-        "internal",
-        `An error occurred while creating the checkout session: ${error.message}`
-      );
+        functions.logger.error("Function execution error:", error);
+        if (error.raw) {
+            functions.logger.error("Stripe Raw Error:", error.raw);
+        }
+        res.status(500).send(`An error occurred: ${error.message}`);
     }
-  }
-);
+});
+
+export const createCheckoutSession = functions.https.onRequest(checkoutApp);
 
 
-const app = express();
+const webhookApp = express();
 
-app.post('/', express.raw({ type: 'application/json' }), async (request, response) => {
+webhookApp.post('/', express.raw({ type: 'application/json' }), async (request, response) => {
     const sig = request.headers['stripe-signature'];
     
-    // Get this from your Stripe Dashboard webhook settings
-    // IMPORTANT: Set this in your environment variables:
-    // firebase functions:config:set stripe.webhook_secret="your_webhook_secret"
     const endpointSecret = functions.config().stripe.webhook_secret;
     
     let event: Stripe.Event;
@@ -146,7 +122,6 @@ app.post('/', express.raw({ type: 'application/json' }), async (request, respons
         return;
     }
 
-    // Handle the event
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object as Stripe.Checkout.Session;
         const uid = session.client_reference_id;
@@ -158,19 +133,15 @@ app.post('/', express.raw({ type: 'application/json' }), async (request, respons
         }
 
         try {
-            // Find the user's document in the 'sellers' collection and update it.
             const sellerRef = db.collection('sellers').doc(uid);
             await sellerRef.update({ isVerified: true });
             functions.logger.log(`Successfully verified seller with UID: ${uid}`);
         } catch (error) {
             functions.logger.error(`Failed to update seller ${uid} to verified.`, error);
-            // We don't send a 400 here because the webhook itself was valid.
-            // This is an internal error. Stripe will see the 200 and not retry.
         }
     }
 
-    // Return a response to acknowledge receipt of the event
     response.status(200).send();
 });
 
-export const stripeWebhook = functions.https.onRequest(app);
+export const stripeWebhook = functions.https.onRequest(webhookApp);

@@ -4,13 +4,14 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { auth, functions, httpsCallable } from "@/lib/firebase";
+import { auth, functions } from "@/lib/firebase";
 import { getSellerById } from "@/lib/data";
 import type { Seller } from "@/lib/types";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { ArrowRight, BadgeCheck, Loader2, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { getFunctions, httpsCallable } from "firebase/functions";
 
 export default function VerifyPaymentPage() {
     const { toast } = useToast();
@@ -54,6 +55,7 @@ export default function VerifyPaymentPage() {
         setIsRedirecting(true);
 
         try {
+            // Use the httpsCallable for the new onRequest function
             const createCheckoutSession = httpsCallable(functions, 'createCheckoutSession');
             const result = await createCheckoutSession({
                 success_url: `${window.location.origin}/payment-status?session_id={CHECKOUT_SESSION_ID}`,
@@ -62,7 +64,8 @@ export default function VerifyPaymentPage() {
             
             const data = result.data as { url: string };
             if (data.url) {
-                router.push(data.url);
+                // Redirect to Stripe's checkout page
+                window.location.href = data.url;
             } else {
                  throw new Error("No checkout URL returned.");
             }
