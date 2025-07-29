@@ -131,14 +131,24 @@ export default function VerifyPaymentPage() {
                         </div>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                         <h3 className="font-semibold text-lg text-center">Subscription Benefits</h3>
-                        <ul className="list-inside list-disc space-y-1 text-muted-foreground text-center">
-                            <li><BadgeCheck className="inline-block h-4 w-4 mr-2 text-green-600"/>Gain a verified badge on your profile</li>
-                            <li><BadgeCheck className="inline-block h-4 w-4 mr-2 text-green-600"/>Build trust and credibility with buyers</li>
-                            <li><BadgeCheck className="inline-block h-4 w-4 mr-2 text-green-600"/>Priority placement in seller listings</li>
-                        </ul>
+                        <div className="space-y-2 text-muted-foreground max-w-md mx-auto">
+                            <div className="flex items-start">
+                                <BadgeCheck className="h-5 w-5 mr-2 text-green-600 mt-0.5 flex-shrink-0"/>
+                                <span>Gain a <span className="font-semibold text-primary">verified badge</span> on your profile and in listings.</span>
+                            </div>
+                            <div className="flex items-start">
+                                <BadgeCheck className="h-5 w-5 mr-2 text-green-600 mt-0.5 flex-shrink-0"/>
+                                <span>Build <span className="font-semibold text-primary">trust and credibility</span> with prospective buyers.</span>
+                            </div>
+                            <div className="flex items-start">
+                                <BadgeCheck className="h-5 w-5 mr-2 text-green-600 mt-0.5 flex-shrink-0"/>
+                                <span>Get access to the <span className="font-semibold text-primary">sourcing marketplace</span> for new leads.</span>
+                            </div>
+                        </div>
                     </div>
+
 
                     <div className="pt-4">
                         <Button onClick={handleProceedToPayment} disabled={isRedirecting} size="lg" className="w-full">
