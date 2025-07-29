@@ -112,14 +112,14 @@ export default function VerifyPaymentPage() {
                     </div>
                     <CardTitle className="text-4xl font-headline mt-4">Become a Verified Seller</CardTitle>
                     <CardDescription className="text-lg">
-                        Confirm your one-time payment to gain a verified badge and build trust with buyers.
+                        Start your monthly subscription to maintain your verified badge and build trust with buyers.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <div className="rounded-lg border bg-secondary/30 p-4 space-y-3">
                         <div className="flex justify-between">
                             <span className="text-muted-foreground">Item</span>
-                            <span className="font-semibold">Seller Verification Fee</span>
+                            <span className="font-semibold">Seller Verification Subscription</span>
                         </div>
                         <div className="flex justify-between">
                             <span className="text-muted-foreground">Billed to</span>
@@ -127,23 +127,23 @@ export default function VerifyPaymentPage() {
                         </div>
                         <div className="flex justify-between items-baseline pt-2 border-t">
                             <span className="text-lg font-semibold">Total</span>
-                            <span className="text-2xl font-bold text-primary">$10.00 (One-time)</span>
+                            <span className="text-2xl font-bold text-primary">$10.00 / month</span>
                         </div>
                     </div>
 
                     <div className="space-y-2">
-                        <h3 className="font-semibold text-lg text-center">Verification Benefits</h3>
+                        <h3 className="font-semibold text-lg text-center">Subscription Benefits</h3>
                         <ul className="list-inside list-disc space-y-1 text-muted-foreground text-center">
                             <li><BadgeCheck className="inline-block h-4 w-4 mr-2 text-green-600"/>Gain a verified badge on your profile</li>
                             <li><BadgeCheck className="inline-block h-4 w-4 mr-2 text-green-600"/>Build trust and credibility with buyers</li>
-                            <li><BadgeCheck className="inline-block h-4 w-4 mr-2 text-green-600"/>Increase your visibility in seller listings</li>
+                            <li><BadgeCheck className="inline-block h-4 w-4 mr-2 text-green-600"/>Priority placement in seller listings</li>
                         </ul>
                     </div>
 
                     <div className="pt-4">
                         <Button onClick={handleProceedToPayment} disabled={isRedirecting} size="lg" className="w-full">
                             {isRedirecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Proceed to Pay
+                            Proceed to Payment
                             {!isRedirecting && <ArrowRight className="ml-2 h-4 w-4" />}
                         </Button>
                     </div>
