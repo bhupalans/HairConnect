@@ -111,7 +111,6 @@ export default function VendorDashboardPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isSubmittingProfile, setIsSubmittingProfile] = React.useState(false);
-  const [isVerifying, setIsVerifying] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState("products");
 
 
@@ -457,37 +456,6 @@ export default function VendorDashboardPage() {
     }
   };
 
-  const handleVerification = async () => {
-    if (!user) {
-      toast({ title: "You must be logged in.", variant: "destructive" });
-      return;
-    }
-    setIsVerifying(true);
-    try {
-      const verifySellerFunction = httpsCallable(functions, 'verifySeller');
-      await verifySellerFunction();
-      
-      // Manually refetch seller data to update the UI
-      await fetchVendorData(user);
-
-      toast({
-        title: "Verification Successful!",
-        description: "Your account is now marked as verified.",
-      });
-
-    } catch (error: any) {
-      console.error("Error verifying seller:", error);
-      toast({
-        title: "Verification Error",
-        description: error.message || "Could not verify your account. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsVerifying(false);
-    }
-  };
-
-
   if (isLoading || !user || !seller) {
     return (
       <div className="container mx-auto px-4 py-8 md:py-12 text-center h-screen flex items-center justify-center">
@@ -642,10 +610,9 @@ export default function VendorDashboardPage() {
           <AlertDescription>
             <div className="flex justify-between items-center">
               <p>Your account is not verified. Become a verified seller to build trust with buyers.</p>
-              <Button onClick={handleVerification} disabled={isVerifying}>
-                {isVerifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Become a Verified Seller
-              </Button>
+                <Button asChild>
+                    <Link href="/vendor/verify-payment">Become a Verified Seller</Link>
+                </Button>
             </div>
           </AlertDescription>
         </Alert>
