@@ -482,7 +482,7 @@ export default function VendorDashboardPage() {
 
       const { url } = await response.json();
       if (url) {
-          window.location.href = url; // Redirect to Stripe Customer Portal
+          window.open(url, '_blank'); // Redirect to Stripe Customer Portal in a new tab
       } else {
           throw new Error("No portal URL returned.");
       }
@@ -493,6 +493,7 @@ export default function VendorDashboardPage() {
             description: error.message || "Could not open the billing portal. Please try again.",
             variant: "destructive",
         });
+    } finally {
         setIsCreatingPortalLink(false);
     }
   };
@@ -1115,6 +1116,8 @@ export default function VendorDashboardPage() {
     </div>
   );
 }
+
+    
 
     
 

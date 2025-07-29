@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.stripeWebhook = exports.createCheckoutSession = void 0;
+exports.createStripePortalLink = exports.stripeWebhook = exports.createCheckoutSession = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const stripe_1 = require("stripe");
@@ -139,4 +139,50 @@ webhookApp.post('/', express.raw({ type: 'application/json' }), async (request, 
     response.status(200).send();
 });
 exports.stripeWebhook = functions.https.onRequest(webhookApp);
+const portalApp = express();
+portalApp.use(cors({ origin: true }));
+portalApp.post('/', async (req, res) => {
+    var _a;
+    functions.logger.log("createStripePortalLink function triggered");
+    const idToken = (_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.split('Bearer ')[1];
+    if (!idToken) {
+        functions.logger.error("Authentication Error: No ID token provided.");
+        res.status(401).json({ message: "Unauthorized" });
+        return;
+    }
+    try {
+        const decodedToken = await admin.auth().verifyIdToken(idToken);
+        const uid = decodedToken.uid;
+        const sellerRef = db.collection('sellers').doc(uid);
+        const sellerSnap = await sellerRef.get();
+        if (!sellerSnap.exists) {
+            functions.logger.error(`Seller document not found for UID: ${uid}`);
+            res.status(404).json({ message: "Seller not found." });
+            return;
+        }
+        const sellerData = sellerSnap.data();
+        const customerId = sellerData === null || sellerData === void 0 ? void 0 : sellerData.stripeCustomerId;
+        if (!customerId) {
+            functions.logger.error(`stripeCustomerId not found for seller UID: ${uid}`);
+            res.status(400).json({ message: "Stripe customer ID not found." });
+            return;
+        }
+        const { return_url } = req.body;
+        if (!return_url) {
+            functions.logger.error("Invalid Argument: Missing return_url.");
+            res.status(400).json({ message: "The function must be called with a return_url." });
+            return;
+        }
+        const portalSession = await stripe.billingPortal.sessions.create({
+            customer: customerId,
+            return_url: return_url,
+        });
+        res.status(200).json({ url: portalSession.url });
+    }
+    catch (error) {
+        functions.logger.error("Portal link creation error:", error);
+        res.status(500).json({ message: `An error occurred: ${error.message}` });
+    }
+});
+exports.createStripePortalLink = functions.https.onRequest(portalApp);
 //# sourceMappingURL=index.js.map
