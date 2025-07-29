@@ -7,12 +7,20 @@ import * as express from "express";
 admin.initializeApp();
 const db = admin.firestore();
 
-// Initialize Stripe with the secret key.
-// IMPORTANT: Set this in your environment variables:
-// firebase functions:config:set stripe.secret="your_stripe_secret_key"
-const stripe = new Stripe(functions.config().stripe.secret, {
-  apiVersion: "2024-04-10",
-});
+// It's better to initialize Stripe once outside the function handler
+// if the configuration is available. If not, we'll do it inside.
+let stripe: Stripe;
+try {
+    const stripeSecret = functions.config().stripe.secret;
+    if (stripeSecret) {
+        stripe = new Stripe(stripeSecret, {
+            apiVersion: "2024-04-10",
+        });
+    }
+} catch (error) {
+    functions.logger.error("Stripe failed to initialize on cold start:", error);
+}
+
 
 /**
  * Creates a Stripe Checkout session for a one-time payment to verify a seller.
@@ -23,6 +31,26 @@ const stripe = new Stripe(functions.config().stripe.secret, {
 export const createCheckoutSession = functions.https.onCall(
   async (data, context) => {
     functions.logger.log("createCheckoutSession function triggered");
+
+    // --- DIAGNOSTIC CHECK ---
+    // Check if the stripe configuration and secret key exist.
+    const stripeConfig = functions.config().stripe;
+    if (!stripeConfig || !stripeConfig.secret) {
+        functions.logger.error("FATAL: Stripe secret key is not configured in the environment.");
+        throw new functions.https.HttpsError(
+            "failed-precondition",
+            "Stripe secret key is not configured. Please set functions.config().stripe.secret"
+        );
+    }
+    
+    // Initialize Stripe inside the function if it wasn't on cold start
+    if (!stripe) {
+        stripe = new Stripe(stripeConfig.secret, {
+            apiVersion: "2024-04-10",
+        });
+        functions.logger.log("Stripe initialized on-demand inside function handler.");
+    }
+
 
     // Check if the user is authenticated.
     if (!context.auth) {
@@ -93,75 +121,6 @@ export const createCheckoutSession = functions.https.onCall(
     }
   }
 );
-
-
-/**
- * A scheduled function that runs every 24 hours to clean up unverified users.
- * It deletes user accounts from Firebase Authentication and their corresponding
- * seller documents from Firestore if they were created more than 24 hours
- * ago and have not verified their email address.
- */
-export const cleanupUnverifiedUsers = functions.pubsub
-  .schedule("every 24 hours")
-  .onRun(async (context) => {
-    functions.logger.log("Starting cleanup of unverified users.");
-
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    let usersToDelete: admin.auth.UserRecord[] = [];
-
-    try {
-      let pageToken: string | undefined;
-      do {
-        const listUsersResult = await admin.auth().listUsers(1000, pageToken);
-        pageToken = listUsersResult.pageToken;
-
-        const unverifiedUsers = listUsersResult.users.filter((user) => {
-          const creationTime = new Date(user.metadata.creationTime);
-          return !user.emailVerified && creationTime < twentyFourHoursAgo;
-        });
-
-        usersToDelete = usersToDelete.concat(unverifiedUsers);
-      } while (pageToken);
-
-      if (usersToDelete.length === 0) {
-        functions.logger.log("No unverified users to delete.");
-        return null;
-      }
-
-      functions.logger.log(`Found ${usersToDelete.length} unverified users to delete.`);
-
-      // Delete from Authentication
-      const deleteAuthPromises = usersToDelete.map((user) => {
-        return admin.auth().deleteUser(user.uid).catch((error) => {
-          functions.logger.error(
-            `Failed to delete user ${user.uid} from Auth:`,
-            error
-          );
-        });
-      });
-
-      // Delete from Firestore
-      const deleteFirestorePromises = usersToDelete.map((user) => {
-        const sellerDocRef = db.collection("sellers").doc(user.uid);
-        return sellerDocRef.delete().catch((error) => {
-          functions.logger.error(
-            `Failed to delete seller doc ${user.uid} from Firestore:`,
-            error
-          );
-        });
-      });
-
-      await Promise.all([...deleteAuthPromises, ...deleteFirestorePromises]);
-
-      functions.logger.log(
-        `Successfully cleaned up ${usersToDelete.length} users.`
-      );
-    } catch (error) {
-      functions.logger.error("Error cleaning up unverified users:", error);
-    }
-
-    return null;
-  });
 
 
 const app = express();
