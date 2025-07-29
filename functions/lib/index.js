@@ -1,18 +1,26 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.stripeWebhook = exports.cleanupUnverifiedUsers = exports.createCheckoutSession = void 0;
+exports.stripeWebhook = exports.createCheckoutSession = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const stripe_1 = require("stripe");
 const express = require("express");
 admin.initializeApp();
 const db = admin.firestore();
-// Initialize Stripe with the secret key.
-// IMPORTANT: Set this in your environment variables:
-// firebase functions:config:set stripe.secret="your_stripe_secret_key"
-const stripe = new stripe_1.default(functions.config().stripe.secret, {
-    apiVersion: "2024-04-10",
-});
+// It's better to initialize Stripe once outside the function handler
+// if the configuration is available. If not, we'll do it inside.
+let stripe;
+try {
+    const stripeSecret = functions.config().stripe.secret;
+    if (stripeSecret) {
+        stripe = new stripe_1.default(stripeSecret, {
+            apiVersion: "2024-04-10",
+        });
+    }
+}
+catch (error) {
+    functions.logger.error("Stripe failed to initialize on cold start:", error);
+}
 /**
  * Creates a Stripe Checkout session for a one-time payment to verify a seller.
  * @param {object} data - The data object containing the return URLs.
@@ -20,19 +28,40 @@ const stripe = new stripe_1.default(functions.config().stripe.secret, {
  * @returns {Promise<{url: string}>} - A promise that resolves with the checkout session URL.
  */
 exports.createCheckoutSession = functions.https.onCall(async (data, context) => {
+    functions.logger.log("createCheckoutSession function triggered");
+    // --- DIAGNOSTIC CHECK ---
+    // Check if the stripe configuration and secret key exist.
+    const stripeConfig = functions.config().stripe;
+    if (!stripeConfig || !stripeConfig.secret) {
+        functions.logger.error("FATAL: Stripe secret key is not configured in the environment.");
+        throw new functions.https.HttpsError("failed-precondition", "Stripe secret key is not configured. Please set functions.config().stripe.secret");
+    }
+    // Initialize Stripe inside the function if it wasn't on cold start
+    if (!stripe) {
+        stripe = new stripe_1.default(stripeConfig.secret, {
+            apiVersion: "2024-04-10",
+        });
+        functions.logger.log("Stripe initialized on-demand inside function handler.");
+    }
     // Check if the user is authenticated.
     if (!context.auth) {
+        functions.logger.error("Authentication Error: User is not authenticated.");
         throw new functions.https.HttpsError("unauthenticated", "The function must be called while authenticated.");
     }
+    functions.logger.log(`Authenticated user UID: ${context.auth.uid}`);
     const uid = context.auth.uid;
     const { success_url, cancel_url } = data;
     if (!success_url || !cancel_url) {
+        functions.logger.error("Invalid Argument: Missing success_url or cancel_url.", { data });
         throw new functions.https.HttpsError("invalid-argument", "The function must be called with success_url and cancel_url.");
     }
+    functions.logger.log("Received URLs:", { success_url, cancel_url });
     // IMPORTANT: Create a one-time product and price in your Stripe dashboard
     // and replace this placeholder with the actual Price ID.
     const priceId = "price_1RpQKuSSXV7vnN2iDdRKtFTC"; // Placeholder Price ID, replaced a test value.
+    functions.logger.log(`Using Stripe Price ID: ${priceId}`);
     try {
+        functions.logger.log("Attempting to create Stripe checkout session...");
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ["card"],
             mode: "payment", // Use 'payment' for one-time fee
@@ -48,63 +77,20 @@ exports.createCheckoutSession = functions.https.onCall(async (data, context) => 
             cancel_url: cancel_url,
         });
         if (!session.url) {
+            functions.logger.error("Stripe session created, but no URL was returned.");
             throw new functions.https.HttpsError("internal", "Could not create a checkout session URL.");
         }
+        functions.logger.log("Stripe session created successfully. URL:", session.url);
         return { url: session.url };
     }
     catch (error) {
-        console.error("Stripe Checkout Session Error:", error);
-        throw new functions.https.HttpsError("internal", "An error occurred while creating the checkout session.");
-    }
-});
-/**
- * A scheduled function that runs every 24 hours to clean up unverified users.
- * It deletes user accounts from Firebase Authentication and their corresponding
- * seller documents from Firestore if they were created more than 24 hours
- * ago and have not verified their email address.
- */
-exports.cleanupUnverifiedUsers = functions.pubsub
-    .schedule("every 24 hours")
-    .onRun(async (context) => {
-    functions.logger.log("Starting cleanup of unverified users.");
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    let usersToDelete = [];
-    try {
-        let pageToken;
-        do {
-            const listUsersResult = await admin.auth().listUsers(1000, pageToken);
-            pageToken = listUsersResult.pageToken;
-            const unverifiedUsers = listUsersResult.users.filter((user) => {
-                const creationTime = new Date(user.metadata.creationTime);
-                return !user.emailVerified && creationTime < twentyFourHoursAgo;
-            });
-            usersToDelete = usersToDelete.concat(unverifiedUsers);
-        } while (pageToken);
-        if (usersToDelete.length === 0) {
-            functions.logger.log("No unverified users to delete.");
-            return null;
+        functions.logger.error("Stripe API Error:", error);
+        // Log the specific Stripe error message if available
+        if (error.raw) {
+            functions.logger.error("Stripe Raw Error:", error.raw);
         }
-        functions.logger.log(`Found ${usersToDelete.length} unverified users to delete.`);
-        // Delete from Authentication
-        const deleteAuthPromises = usersToDelete.map((user) => {
-            return admin.auth().deleteUser(user.uid).catch((error) => {
-                functions.logger.error(`Failed to delete user ${user.uid} from Auth:`, error);
-            });
-        });
-        // Delete from Firestore
-        const deleteFirestorePromises = usersToDelete.map((user) => {
-            const sellerDocRef = db.collection("sellers").doc(user.uid);
-            return sellerDocRef.delete().catch((error) => {
-                functions.logger.error(`Failed to delete seller doc ${user.uid} from Firestore:`, error);
-            });
-        });
-        await Promise.all([...deleteAuthPromises, ...deleteFirestorePromises]);
-        functions.logger.log(`Successfully cleaned up ${usersToDelete.length} users.`);
+        throw new functions.https.HttpsError("internal", `An error occurred while creating the checkout session: ${error.message}`);
     }
-    catch (error) {
-        functions.logger.error("Error cleaning up unverified users:", error);
-    }
-    return null;
 });
 const app = express();
 app.post('/', express.raw({ type: 'application/json' }), async (request, response) => {
