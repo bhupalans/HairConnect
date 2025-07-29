@@ -1,4 +1,3 @@
-
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.stripeWebhook = exports.createCheckoutSession = void 0;
@@ -26,6 +25,7 @@ catch (error) {
 const checkoutApp = express();
 checkoutApp.use(cors({ origin: true }));
 checkoutApp.post("/", async (req, res) => {
+    var _a;
     functions.logger.log("createCheckoutSession function triggered", { body: req.body });
     // --- DIAGNOSTIC CHECK ---
     const stripeConfig = functions.config().stripe;
@@ -43,7 +43,7 @@ checkoutApp.post("/", async (req, res) => {
     }
     // The httpsCallable function passes auth context in the request headers.
     // We need to verify it manually for onRequest functions.
-    const idToken = req.headers.authorization?.split('Bearer ')[1];
+    const idToken = (_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.split('Bearer ')[1];
     if (!idToken) {
         functions.logger.error("Authentication Error: No ID token provided.");
         res.status(401).send("Unauthorized");

@@ -55,25 +55,40 @@ export default function VerifyPaymentPage() {
         setIsRedirecting(true);
 
         try {
-            // Use the httpsCallable for the new onRequest function
-            const createCheckoutSession = httpsCallable(functions, 'createCheckoutSession');
-            const result = await createCheckoutSession({
-                success_url: `${window.location.origin}/payment-status?session_id={CHECKOUT_SESSION_ID}`,
-                cancel_url: window.location.href,
+            // The onRequest function requires the ID token for auth.
+            const token = await user.getIdToken();
+            const functionUrl = 'https://us-central1-hairconnect-db.cloudfunctions.net/createCheckoutSession';
+
+            const response = await fetch(functionUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    success_url: `${window.location.origin}/payment-status?session_id={CHECKOUT_SESSION_ID}`,
+                    cancel_url: window.location.href,
+                })
             });
             
-            const data = result.data as { url: string };
-            if (data.url) {
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to create checkout session.');
+            }
+
+            const session = await response.json();
+
+            if (session.url) {
                 // Redirect to Stripe's checkout page
-                window.location.href = data.url;
+                window.location.href = session.url;
             } else {
                  throw new Error("No checkout URL returned.");
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Stripe checkout error:", error);
             toast({
                 title: "Payment Error",
-                description: "Could not connect to our payment provider. Please try again.",
+                description: error.message || "Could not connect to our payment provider. Please try again.",
                 variant: "destructive",
             });
             setIsRedirecting(false);
