@@ -30,7 +30,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,7 +48,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getProductsBySeller, getSellerById, updateProduct, deleteProduct, addProduct, updateSellerProfile, getQuoteRequestsBySeller, markQuoteRequestsAsRead } from "@/lib/data";
-import { MoreHorizontal, PlusCircle, Loader2, Mail, X, ShoppingBag, Terminal, CheckCircle, PackageOpen, Inbox } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Loader2, Mail, X, ShoppingBag, Terminal, CheckCircle, PackageOpen, Inbox, ShieldAlert } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Textarea } from "@/components/ui/textarea";
@@ -615,28 +614,34 @@ export default function VendorDashboardPage() {
         )}
         </div>
       </header>
-
+        
       {!seller.isVerified ? (
-        <Alert variant="destructive" className="mb-6">
-          <Terminal className="h-4 w-4" />
-          <AlertTitle>Account Not Verified</AlertTitle>
-          <AlertDescription>
-            <div className="flex justify-between items-center">
-              <p>Your account is not verified. Become a verified seller to build trust with buyers.</p>
+        <Card className="mb-6 bg-secondary/40">
+            <CardContent className="p-6 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <ShieldAlert className="h-10 w-10 text-primary/80" />
+                    <div>
+                        <h3 className="font-headline text-xl text-primary">Account Not Verified</h3>
+                        <p className="text-muted-foreground">Become a verified seller to build trust with buyers and enhance your profile.</p>
+                    </div>
+                </div>
                 <Button asChild>
                     <Link href="/vendor/verify-payment">Become a Verified Seller</Link>
                 </Button>
-            </div>
-          </AlertDescription>
-        </Alert>
+            </CardContent>
+        </Card>
       ) : (
-        <Alert className="mb-6 border-green-500 text-green-700">
-           <CheckCircle className="h-4 w-4 text-green-500" />
-           <AlertTitle className="text-green-700">Account Verified</AlertTitle>
-           <AlertDescription>Your profile is marked as verified. Buyers can see your trusted status.</AlertDescription>
-        </Alert>
+        <Card className="mb-6 bg-green-50 border border-green-200">
+             <CardContent className="p-6 flex items-center gap-4">
+                <CheckCircle className="h-10 w-10 text-green-600" />
+                <div>
+                    <h3 className="font-headline text-xl text-green-800">Account Verified</h3>
+                    <p className="text-green-700/80">Your profile is marked as verified. Buyers can see your trusted status.</p>
+                </div>
+            </CardContent>
+        </Card>
       )}
-      
+
       <Tabs defaultValue="products" onValueChange={handleTabChange}>
           <TabsList className="mb-4">
             <TabsTrigger value="products">My Products</TabsTrigger>
@@ -1031,5 +1036,7 @@ export default function VendorDashboardPage() {
     </div>
   );
 }
+
+    
 
     
