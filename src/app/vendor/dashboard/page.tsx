@@ -459,28 +459,30 @@ export default function VendorDashboardPage() {
 
   const handleVerification = async () => {
     if (!user) {
-        toast({ title: "You must be logged in.", variant: "destructive" });
-        return;
+      toast({ title: "You must be logged in.", variant: "destructive" });
+      return;
     }
     setIsVerifying(true);
     try {
-      const createCheckoutSession = httpsCallable(functions, 'createCheckoutSession');
-      const successUrl = `${window.location.href}?payment_status=success`;
-      const cancelUrl = window.location.href;
-
-      const result = await createCheckoutSession({ success_url: successUrl, cancel_url: cancelUrl });
-      const { url } = result.data as { url: string };
+      const verifySellerFunction = httpsCallable(functions, 'verifySeller');
+      await verifySellerFunction();
       
-      // Redirect to Stripe Checkout page
-      window.location.href = url;
+      // Manually refetch seller data to update the UI
+      await fetchVendorData(user);
+
+      toast({
+        title: "Verification Successful!",
+        description: "Your account is now marked as verified.",
+      });
 
     } catch (error: any) {
-      console.error("Error creating checkout session:", error);
+      console.error("Error verifying seller:", error);
       toast({
         title: "Verification Error",
-        description: error.message || "Could not connect to the payment gateway. Please try again.",
+        description: error.message || "Could not verify your account. Please try again.",
         variant: "destructive",
       });
+    } finally {
       setIsVerifying(false);
     }
   };
