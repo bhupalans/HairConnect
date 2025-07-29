@@ -22,29 +22,38 @@ const stripe = new Stripe(functions.config().stripe.secret, {
  */
 export const createCheckoutSession = functions.https.onCall(
   async (data, context) => {
+    functions.logger.log("createCheckoutSession function triggered");
+
     // Check if the user is authenticated.
     if (!context.auth) {
+      functions.logger.error("Authentication Error: User is not authenticated.");
       throw new functions.https.HttpsError(
         "unauthenticated",
         "The function must be called while authenticated."
       );
     }
+    functions.logger.log(`Authenticated user UID: ${context.auth.uid}`);
 
     const uid = context.auth.uid;
     const { success_url, cancel_url } = data;
 
     if (!success_url || !cancel_url) {
+      functions.logger.error("Invalid Argument: Missing success_url or cancel_url.", { data });
       throw new functions.https.HttpsError(
         "invalid-argument",
         "The function must be called with success_url and cancel_url."
       );
     }
+    functions.logger.log("Received URLs:", { success_url, cancel_url });
+
 
     // IMPORTANT: Create a one-time product and price in your Stripe dashboard
     // and replace this placeholder with the actual Price ID.
     const priceId = "price_1RpQKuSSXV7vnN2iDdRKtFTC"; // Placeholder Price ID, replaced a test value.
+    functions.logger.log(`Using Stripe Price ID: ${priceId}`);
 
     try {
+      functions.logger.log("Attempting to create Stripe checkout session...");
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],
         mode: "payment", // Use 'payment' for one-time fee
@@ -61,18 +70,25 @@ export const createCheckoutSession = functions.https.onCall(
       });
 
       if (!session.url) {
+        functions.logger.error("Stripe session created, but no URL was returned.");
         throw new functions.https.HttpsError(
           "internal",
           "Could not create a checkout session URL."
         );
       }
-
+      
+      functions.logger.log("Stripe session created successfully. URL:", session.url);
       return { url: session.url };
-    } catch (error) {
-      console.error("Stripe Checkout Session Error:", error);
+
+    } catch (error: any) {
+      functions.logger.error("Stripe API Error:", error);
+      // Log the specific Stripe error message if available
+      if (error.raw) {
+        functions.logger.error("Stripe Raw Error:", error.raw);
+      }
       throw new functions.https.HttpsError(
         "internal",
-        "An error occurred while creating the checkout session."
+        `An error occurred while creating the checkout session: ${error.message}`
       );
     }
   }

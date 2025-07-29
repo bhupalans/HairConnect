@@ -35,7 +35,7 @@ exports.createCheckoutSession = functions.https.onCall(async (data, context) => 
     try {
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ["card"],
-            mode: "payment",
+            mode: "payment", // Use 'payment' for one-time fee
             line_items: [
                 {
                     price: priceId,
@@ -135,6 +135,7 @@ app.post('/', express.raw({ type: 'application/json' }), async (request, respons
             return;
         }
         try {
+            // Find the user's document in the 'sellers' collection and update it.
             const sellerRef = db.collection('sellers').doc(uid);
             await sellerRef.update({ isVerified: true });
             functions.logger.log(`Successfully verified seller with UID: ${uid}`);
