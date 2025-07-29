@@ -48,7 +48,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getProductsBySeller, getSellerById, updateProduct, deleteProduct, addProduct, updateSellerProfile, getQuoteRequestsBySeller, markQuoteRequestsAsRead } from "@/lib/data";
-import { MoreHorizontal, PlusCircle, Loader2, Mail, X, ShoppingBag, Terminal, CheckCircle, PackageOpen, Inbox, ShieldAlert } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Loader2, Mail, X, ShoppingBag, Terminal, CheckCircle, PackageOpen, Inbox, ShieldAlert, CreditCard } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Textarea } from "@/components/ui/textarea";
@@ -110,6 +110,7 @@ export default function VendorDashboardPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isSubmittingProfile, setIsSubmittingProfile] = React.useState(false);
+  const [isCreatingPortalLink, setIsCreatingPortalLink] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState("products");
 
 
@@ -454,6 +455,47 @@ export default function VendorDashboardPage() {
         setIsSubmitting(false);
     }
   };
+
+  const handleManageSubscription = async () => {
+    if (!user) return;
+    setIsCreatingPortalLink(true);
+
+    try {
+      const token = await user.getIdToken();
+      const functionUrl = 'https://us-central1-hairconnect-db.cloudfunctions.net/createStripePortalLink';
+
+      const response = await fetch(functionUrl, {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+              return_url: window.location.href, // Return to this page
+          })
+      });
+
+      if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to create billing portal link.');
+      }
+
+      const { url } = await response.json();
+      if (url) {
+          window.location.href = url; // Redirect to Stripe Customer Portal
+      } else {
+          throw new Error("No portal URL returned.");
+      }
+    } catch (error: any) {
+        console.error("Stripe portal error:", error);
+        toast({
+            title: "Error",
+            description: error.message || "Could not open the billing portal. Please try again.",
+            variant: "destructive",
+        });
+        setIsCreatingPortalLink(false);
+    }
+  };
   
   const EmptyState = ({ icon: Icon, title, description, action }: { icon: React.ElementType, title: string, description: string, action?: React.ReactNode }) => (
     <div className="text-center py-16">
@@ -653,6 +695,7 @@ export default function VendorDashboardPage() {
               )}
             </TabsTrigger>
             <TabsTrigger value="profile">Profile Settings</TabsTrigger>
+            <TabsTrigger value="billing">Billing</TabsTrigger>
           </TabsList>
           <TabsContent value="products">
             <Card>
@@ -884,6 +927,42 @@ export default function VendorDashboardPage() {
                             </Button>
                         </div>
                     </form>
+                </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="billing">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Billing & Subscription</CardTitle>
+                    <CardDescription>Manage your verified seller subscription and view payment history.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {seller.isVerified && seller.stripeSubscriptionStatus ? (
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center border p-4 rounded-md">
+                                <div>
+                                    <p className="font-medium">Subscription Status</p>
+                                    <Badge variant={seller.stripeSubscriptionStatus === 'active' ? "default" : "destructive"} className="capitalize mt-1">
+                                        {seller.stripeSubscriptionStatus}
+                                    </Badge>
+                                </div>
+                                <Button onClick={handleManageSubscription} disabled={isCreatingPortalLink}>
+                                    {isCreatingPortalLink && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Manage Billing & Invoices
+                                </Button>
+                            </div>
+                            <p className="text-sm text-muted-foreground text-center">
+                                You will be redirected to our secure payment partner, Stripe, to manage your subscription.
+                            </p>
+                        </div>
+                    ) : (
+                        <EmptyState 
+                            icon={CreditCard}
+                            title="No Active Subscription"
+                            description="You are not currently a verified seller. Complete the verification process to gain a verified badge and access the marketplace."
+                            action={<Button asChild><Link href="/vendor/verify-payment">Become a Verified Seller</Link></Button>}
+                        />
+                    )}
                 </CardContent>
             </Card>
           </TabsContent>
