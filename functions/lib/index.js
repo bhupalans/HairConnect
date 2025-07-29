@@ -31,7 +31,7 @@ checkoutApp.post("/", async (req, res) => {
     const stripeConfig = functions.config().stripe;
     if (!stripeConfig || !stripeConfig.secret) {
         functions.logger.error("FATAL: Stripe secret key is not configured in the environment.");
-        res.status(500).send("Stripe secret key is not configured.");
+        res.status(500).json({ message: "Stripe secret key is not configured." });
         return;
     }
     // Initialize Stripe inside the function if it wasn't on cold start
@@ -46,17 +46,17 @@ checkoutApp.post("/", async (req, res) => {
     const idToken = (_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.split('Bearer ')[1];
     if (!idToken) {
         functions.logger.error("Authentication Error: No ID token provided.");
-        res.status(401).send("Unauthorized");
+        res.status(401).json({ message: "Unauthorized" });
         return;
     }
     try {
         const decodedToken = await admin.auth().verifyIdToken(idToken);
         const uid = decodedToken.uid;
         functions.logger.log(`Authenticated user UID: ${uid}`);
-        const { success_url, cancel_url } = req.body.data;
+        const { success_url, cancel_url } = req.body;
         if (!success_url || !cancel_url) {
-            functions.logger.error("Invalid Argument: Missing success_url or cancel_url.", { data: req.body.data });
-            res.status(400).send("The function must be called with success_url and cancel_url.");
+            functions.logger.error("Invalid Argument: Missing success_url or cancel_url.", { data: req.body });
+            res.status(400).json({ message: "The function must be called with success_url and cancel_url." });
             return;
         }
         functions.logger.log("Received URLs:", { success_url, cancel_url });
@@ -73,19 +73,19 @@ checkoutApp.post("/", async (req, res) => {
         });
         if (!session.url) {
             functions.logger.error("Stripe session created, but no URL was returned.");
-            res.status(500).send("Could not create a checkout session URL.");
+            res.status(500).json({ message: "Could not create a checkout session URL." });
             return;
         }
         functions.logger.log("Stripe session created successfully. URL:", session.url);
         // For onRequest, we send back the data in the response body.
-        res.status(200).send({ data: { url: session.url } });
+        res.status(200).json({ url: session.url });
     }
     catch (error) {
         functions.logger.error("Function execution error:", error);
         if (error.raw) {
             functions.logger.error("Stripe Raw Error:", error.raw);
         }
-        res.status(500).send(`An error occurred: ${error.message}`);
+        res.status(500).json({ message: `An error occurred: ${error.message}` });
     }
 });
 exports.createCheckoutSession = functions.https.onRequest(checkoutApp);
