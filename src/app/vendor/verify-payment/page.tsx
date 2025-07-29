@@ -104,7 +104,7 @@ export default function VerifyPaymentPage() {
     }
 
     return (
-        <div className="container mx-auto max-w-2xl px-4 py-8 md:py-16">
+        <div className="container mx-auto max-w-xl px-4 py-8 md:py-16">
             <Card className="shadow-xl">
                 <CardHeader className="text-center">
                     <div className="mx-auto w-fit rounded-full bg-primary/10 p-4">
