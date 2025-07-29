@@ -106,11 +106,7 @@ const webhookApp = express();
 
 // Stripe requires the raw body to construct events.
 // The "verify" option allows us to capture the raw body buffer.
-webhookApp.post('/', express.json({
-  verify: (req: any, res, buf) => {
-    req.rawBody = buf;
-  }
-}), async (request: any, response) => {
+webhookApp.post('/', express.raw({type: 'application/json'}), async (request: any, response) => {
     const sig = request.headers['stripe-signature'];
     const endpointSecret = functions.config().stripe.webhook_secret;
     
@@ -143,8 +139,14 @@ webhookApp.post('/', express.json({
 
         try {
             const sellerRef = db.collection('sellers').doc(uid);
-            await sellerRef.update({ isVerified: true });
-            functions.logger.log(`Successfully verified seller with UID: ${uid}`);
+            // Save the customer and subscription IDs
+            await sellerRef.update({ 
+                isVerified: true,
+                stripeCustomerId: session.customer,
+                stripeSubscriptionId: session.subscription,
+                stripeSubscriptionStatus: 'active'
+            });
+            functions.logger.log(`Successfully verified seller with UID: ${uid} and updated Stripe IDs.`);
         } catch (error) {
             functions.logger.error(`Failed to update seller ${uid} to verified.`, { error });
             // Even if DB update fails, we must acknowledge the webhook to Stripe

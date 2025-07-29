@@ -37,6 +37,9 @@ export interface Seller {
     phone?: string;
     website?: string;
   }
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  stripeSubscriptionStatus?: string;
 }
 
 export interface Buyer {
