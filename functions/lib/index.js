@@ -90,26 +90,36 @@ checkoutApp.post("/", async (req, res) => {
 });
 exports.createCheckoutSession = functions.https.onRequest(checkoutApp);
 const webhookApp = express();
-webhookApp.post('/', express.raw({ type: 'application/json' }), async (request, response) => {
+// Stripe requires the raw body to construct events.
+// The "verify" option allows us to capture the raw body buffer.
+webhookApp.post('/', express.json({
+    verify: (req, res, buf) => {
+        req.rawBody = buf;
+    }
+}), async (request, response) => {
     const sig = request.headers['stripe-signature'];
     const endpointSecret = functions.config().stripe.webhook_secret;
     let event;
     try {
         if (!sig || !endpointSecret) {
+            functions.logger.error("Webhook Error: Missing signature or secret");
             response.status(400).send('Webhook Error: Missing signature or secret');
             return;
         }
-        event = stripe.webhooks.constructEvent(request.body, sig, endpointSecret);
+        // Use the raw body buffer for verification
+        event = stripe.webhooks.constructEvent(request.rawBody, sig, endpointSecret);
     }
     catch (err) {
+        functions.logger.error("Webhook signature verification failed.", { error: err.message });
         response.status(400).send(`Webhook Error: ${err.message}`);
         return;
     }
+    // Handle the event
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
         const uid = session.client_reference_id;
         if (!uid) {
-            functions.logger.error("Webhook received without a client_reference_id (UID).", session);
+            functions.logger.error("Webhook received 'checkout.session.completed' without a client_reference_id (UID).", session);
             response.status(400).send('Webhook Error: Missing client_reference_id.');
             return;
         }
@@ -119,9 +129,11 @@ webhookApp.post('/', express.raw({ type: 'application/json' }), async (request, 
             functions.logger.log(`Successfully verified seller with UID: ${uid}`);
         }
         catch (error) {
-            functions.logger.error(`Failed to update seller ${uid} to verified.`, error);
+            functions.logger.error(`Failed to update seller ${uid} to verified.`, { error });
+            // Even if DB update fails, we must acknowledge the webhook to Stripe
         }
     }
+    // Return a 200 response to acknowledge receipt of the event
     response.status(200).send();
 });
 exports.stripeWebhook = functions.https.onRequest(webhookApp);

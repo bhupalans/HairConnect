@@ -49,7 +49,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getProductsBySeller, getSellerById, updateProduct, deleteProduct, addProduct, updateSellerProfile, getQuoteRequestsBySeller, markQuoteRequestsAsRead } from "@/lib/data";
-import { MoreHorizontal, PlusCircle, Loader2, Mail, X, ShoppingBag, Terminal, CheckCircle } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Loader2, Mail, X, ShoppingBag, Terminal, CheckCircle, PackageOpen, Inbox } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Textarea } from "@/components/ui/textarea";
@@ -455,6 +455,18 @@ export default function VendorDashboardPage() {
         setIsSubmitting(false);
     }
   };
+  
+  const EmptyState = ({ icon: Icon, title, description, action }: { icon: React.ElementType, title: string, description: string, action?: React.ReactNode }) => (
+    <div className="text-center py-16">
+        <div className="mx-auto w-fit bg-secondary p-4 rounded-full mb-4">
+            <Icon className="h-12 w-12 text-primary"/>
+        </div>
+        <h3 className="text-2xl font-headline text-primary">{title}</h3>
+        <p className="text-muted-foreground mt-2 mb-4 max-w-sm mx-auto">{description}</p>
+        {action}
+    </div>
+  );
+
 
   if (isLoading || !user || !seller) {
     return (
@@ -465,6 +477,7 @@ export default function VendorDashboardPage() {
   }
 
   return (
+    <div className="bg-secondary/20 min-h-[calc(100vh-80px)]">
     <div className="container mx-auto px-4 py-8 md:py-12">
       <header className="mb-8 flex justify-between items-start">
         <div>
@@ -645,77 +658,78 @@ export default function VendorDashboardPage() {
                 </CardDescription>
                 </CardHeader>
                 <CardContent>
-                <Table>
-                    <TableHeader>
-                    <TableRow>
-                        <TableHead className="hidden w-[100px] sm:table-cell">
-                        Image
-                        </TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead className="hidden md:table-cell">Price</TableHead>
-                        <TableHead>
-                        <span className="sr-only">Actions</span>
-                        </TableHead>
-                    </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                    {products.length > 0 ? (
-                        products.map((product) => (
-                        <TableRow key={product.id}>
-                            <TableCell className="hidden sm:table-cell">
-                            <Image
-                                src={product.images?.[0]?.url || 'https://placehold.co/64x64'}
-                                alt={product.images?.[0]?.alt || product.name}
-                                width={64}
-                                height={64}
-                                className="rounded-md object-cover"
-                            />
-                            </TableCell>
-                            <TableCell className="font-medium">{product.name}</TableCell>
-                            <TableCell>{product.category}</TableCell>
-                            <TableCell className="hidden md:table-cell">
-                            ${product.price.toFixed(2)}
-                            </TableCell>
-                            <TableCell>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                <Button
-                                    aria-haspopup="true"
-                                    size="icon"
-                                    variant="ghost"
-                                >
-                                    <MoreHorizontal className="h-4 w-4" />
-                                    <span className="sr-only">Toggle menu</span>
-                                </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuItem
-                                    onSelect={() => handleEditClick(product)}
-                                >
-                                    Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    className="text-destructive"
-                                    onSelect={() => handleDeleteClick(product)}
-                                >
-                                    Delete
-                                </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                            </TableCell>
-                        </TableRow>
-                        ))
-                    ) : (
+                {products.length > 0 ? (
+                    <Table>
+                        <TableHeader>
                         <TableRow>
-                        <TableCell colSpan={5} className="text-center h-24">
-                            You haven't added any products yet.
-                        </TableCell>
+                            <TableHead className="hidden w-[100px] sm:table-cell">
+                            Image
+                            </TableHead>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Category</TableHead>
+                            <TableHead className="hidden md:table-cell">Price</TableHead>
+                            <TableHead>
+                            <span className="sr-only">Actions</span>
+                            </TableHead>
                         </TableRow>
-                    )}
-                    </TableBody>
-                </Table>
+                        </TableHeader>
+                        <TableBody>
+                            {products.map((product) => (
+                            <TableRow key={product.id}>
+                                <TableCell className="hidden sm:table-cell">
+                                <Image
+                                    src={product.images?.[0]?.url || 'https://placehold.co/64x64'}
+                                    alt={product.images?.[0]?.alt || product.name}
+                                    width={64}
+                                    height={64}
+                                    className="rounded-md object-cover"
+                                />
+                                </TableCell>
+                                <TableCell className="font-medium">{product.name}</TableCell>
+                                <TableCell>{product.category}</TableCell>
+                                <TableCell className="hidden md:table-cell">
+                                ${product.price.toFixed(2)}
+                                </TableCell>
+                                <TableCell>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                    <Button
+                                        aria-haspopup="true"
+                                        size="icon"
+                                        variant="ghost"
+                                    >
+                                        <MoreHorizontal className="h-4 w-4" />
+                                        <span className="sr-only">Toggle menu</span>
+                                    </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                    <DropdownMenuItem
+                                        onSelect={() => handleEditClick(product)}
+                                    >
+                                        Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        className="text-destructive"
+                                        onSelect={() => handleDeleteClick(product)}
+                                    >
+                                        Delete
+                                    </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                                </TableCell>
+                            </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                ) : (
+                    <EmptyState 
+                        icon={PackageOpen}
+                        title="No Products Yet"
+                        description="You haven't added any products to your store. Add one to get started."
+                        action={<Button onClick={() => setShowAddDialog(true)}>Add Your First Product</Button>}
+                    />
+                )}
                 </CardContent>
             </Card>
           </TabsContent>
@@ -728,15 +742,12 @@ export default function VendorDashboardPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="text-center">
-                    <div className="mx-auto w-fit bg-secondary p-4 rounded-full mb-4">
-                      <ShoppingBag className="h-12 w-12 text-primary"/>
-                    </div>
-                    <p className="text-muted-foreground mb-4">
-                      This is your hub for new leads. Find buyers who are actively sourcing products you may be able to provide.
-                    </p>
-                    <Button asChild>
-                      <Link href="/sellers/marketplace">View Open Requests</Link>
-                    </Button>
+                    <EmptyState
+                        icon={ShoppingBag}
+                        title="Explore the Marketplace"
+                        description="This is your hub for new leads. Find buyers who are actively sourcing products you may be able to provide."
+                        action={<Button asChild><Link href="/sellers/marketplace">View Open Requests</Link></Button>}
+                    />
                 </CardContent>
             </Card>
           </TabsContent>
@@ -749,53 +760,53 @@ export default function VendorDashboardPage() {
                 </CardDescription>
                 </CardHeader>
                 <CardContent>
-                <Table>
-                    <TableHeader>
-                    <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Buyer</TableHead>
-                        <TableHead>Product</TableHead>
-                        <TableHead>Details</TableHead>
-                        <TableHead>Action</TableHead>
-                    </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                    {quoteRequests.length > 0 ? (
-                        quoteRequests.map((req) => (
-                        <TableRow key={req.id} className={!req.isRead ? 'bg-secondary/60' : ''}>
-                            <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                                {format(new Date(req.date), "dd MMM yyyy")}
-                            </TableCell>
-                            <TableCell>
-                                <div className="font-medium">{req.buyerName}</div>
-                                <div className="text-xs text-muted-foreground">{req.buyerEmail}</div>
-                            </TableCell>
-                            <TableCell>
-                                <div className="font-medium">{req.productName}</div>
-                                <div className="text-xs text-muted-foreground">Qty: {req.quantity}</div>
-                            </TableCell>
-                            <TableCell className="max-w-[300px] text-sm text-muted-foreground whitespace-pre-wrap">
-                                {req.details || 'N/A'}
-                            </TableCell>
-                            <TableCell>
-                               <Button asChild variant="outline" size="sm">
-                                    <a href={`mailto:${req.buyerEmail}?subject=Re: Your Quote Request for ${req.productName}`}>
-                                        <Mail className="mr-2 h-4 w-4"/>
-                                        Contact
-                                    </a>
-                               </Button>
-                            </TableCell>
-                        </TableRow>
-                        ))
-                    ) : (
+                {quoteRequests.length > 0 ? (
+                    <Table>
+                        <TableHeader>
                         <TableRow>
-                        <TableCell colSpan={5} className="text-center h-24">
-                            You have no quote requests yet.
-                        </TableCell>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Buyer</TableHead>
+                            <TableHead>Product</TableHead>
+                            <TableHead>Details</TableHead>
+                            <TableHead>Action</TableHead>
                         </TableRow>
-                    )}
-                    </TableBody>
-                </Table>
+                        </TableHeader>
+                        <TableBody>
+                            {quoteRequests.map((req) => (
+                            <TableRow key={req.id} className={!req.isRead ? 'bg-secondary/60' : ''}>
+                                <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                                    {format(new Date(req.date), "dd MMM yyyy")}
+                                </TableCell>
+                                <TableCell>
+                                    <div className="font-medium">{req.buyerName}</div>
+                                    <div className="text-xs text-muted-foreground">{req.buyerEmail}</div>
+                                </TableCell>
+                                <TableCell>
+                                    <div className="font-medium">{req.productName}</div>
+                                    <div className="text-xs text-muted-foreground">Qty: {req.quantity}</div>
+                                </TableCell>
+                                <TableCell className="max-w-[300px] text-sm text-muted-foreground whitespace-pre-wrap">
+                                    {req.details || 'N/A'}
+                                </TableCell>
+                                <TableCell>
+                                   <Button asChild variant="outline" size="sm">
+                                        <a href={`mailto:${req.buyerEmail}?subject=Re: Your Quote Request for ${req.productName}`}>
+                                            <Mail className="mr-2 h-4 w-4"/>
+                                            Contact
+                                        </a>
+                                   </Button>
+                                </TableCell>
+                            </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                 ) : (
+                    <EmptyState 
+                        icon={Inbox}
+                        title="No Quote Requests Yet"
+                        description="When a buyer requests a quote for one of your products, it will appear here."
+                    />
+                )}
                 </CardContent>
             </Card>
           </TabsContent>
@@ -1017,5 +1028,8 @@ export default function VendorDashboardPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </div>
   );
 }
+
+    
