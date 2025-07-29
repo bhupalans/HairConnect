@@ -65,7 +65,7 @@ checkoutApp.post("/", async (req, res) => {
         functions.logger.log("Attempting to create Stripe checkout session...");
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ["card"],
-            mode: "payment",
+            mode: "subscription",
             line_items: [{ price: priceId, quantity: 1 }],
             client_reference_id: uid,
             success_url: success_url,
