@@ -165,6 +165,9 @@ export default function VendorDashboardPage() {
              bio: fetchedSeller.bio,
              contact: fetchedSeller.contact,
              isVerified: fetchedSeller.isVerified,
+             stripeCustomerId: fetchedSeller.stripeCustomerId,
+             stripeSubscriptionId: fetchedSeller.stripeSubscriptionId,
+             stripeSubscriptionStatus: fetchedSeller.stripeSubscriptionStatus,
           });
           setAvatarPreview(fetchedSeller.avatarUrl);
           setProducts(fetchedProducts);
@@ -405,7 +408,17 @@ export default function VendorDashboardPage() {
     setIsSubmittingProfile(true);
 
     try {
-      const dataToUpdate: Partial<Seller> = { ...profileData };
+      // Exclude verification and stripe fields from the client-side update
+      const { 
+        isVerified, 
+        stripeCustomerId, 
+        stripeSubscriptionId, 
+        stripeSubscriptionStatus, 
+        ...profileDataToUpdate 
+      } = profileData;
+
+      const dataToUpdate: Partial<Seller> = { ...profileDataToUpdate };
+      
       if (dataToUpdate.contact?.website) {
         dataToUpdate.contact.website = dataToUpdate.contact.website.replace(/^(https?:\/\/)/, '');
       }
@@ -1116,9 +1129,3 @@ export default function VendorDashboardPage() {
     </div>
   );
 }
-
-    
-
-    
-
-    
