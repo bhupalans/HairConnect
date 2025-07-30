@@ -44,6 +44,12 @@ export function LoginForm() {
             type: "manual",
             message: "Invalid email or password. Please try again.",
         });
+      } else if (error.code === 'auth/too-many-requests') {
+        toast({
+          title: "Access Temporarily Disabled",
+          description: "Too many failed login attempts. Please reset your password or try again later.",
+          variant: "destructive",
+        });
       } else {
         toast({
           title: "Login Failed",
