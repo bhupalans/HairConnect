@@ -32,6 +32,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import type { Buyer, QuoteRequest, Seller } from "@/lib/types";
 import { auth } from "@/lib/firebase";
@@ -48,6 +49,22 @@ const initialProfileState: Partial<Buyer> = {
     bio: "",
     contact: { email: "", phone: "", website: "" },
 };
+
+const renderStatusBadge = (status: QuoteRequest['status']) => {
+    switch (status) {
+        case 'new':
+            return <Badge variant="secondary">Sent</Badge>;
+        case 'viewed':
+            return <Badge variant="default" className="bg-blue-600">Viewed by Seller</Badge>;
+        case 'responded':
+            return <Badge variant="default" className="bg-green-600">Responded</Badge>;
+        case 'archived':
+            return <Badge variant="outline">Archived</Badge>;
+        default:
+            return <Badge variant="secondary">Sent</Badge>;
+    }
+}
+
 
 export default function BuyerDashboardPage() {
   const { toast } = useToast();
@@ -200,7 +217,7 @@ export default function BuyerDashboardPage() {
                         <TableHead>Date</TableHead>
                         <TableHead>Product</TableHead>
                         <TableHead>Vendor</TableHead>
-                        <TableHead>Quantity</TableHead>
+                        <TableHead>Status</TableHead>
                         <TableHead>Details</TableHead>
                     </TableRow>
                     </TableHeader>
@@ -217,6 +234,7 @@ export default function BuyerDashboardPage() {
                                 ) : (
                                     <span className="font-medium">{req.productName}</span>
                                 )}
+                                <div className="text-xs text-muted-foreground">Qty: {req.quantity}</div>
                             </TableCell>
                             <TableCell>
                                 {req.sellerId !== 'N/A' ? (
@@ -225,7 +243,9 @@ export default function BuyerDashboardPage() {
                                     <span>General Inquiry</span>
                                 )}
                             </TableCell>
-                            <TableCell>{req.quantity}</TableCell>
+                            <TableCell>
+                                {renderStatusBadge(req.status)}
+                            </TableCell>
                             <TableCell className="max-w-[300px] text-sm text-muted-foreground whitespace-pre-wrap">
                                 {req.details || 'N/A'}
                             </TableCell>
@@ -233,7 +253,7 @@ export default function BuyerDashboardPage() {
                         ))
                     ) : (
                         <TableRow>
-                        <TableCell colSpan={5} className="text-center h-24">
+                        <TableCell colSpan={6} className="text-center h-24">
                             You haven't sent any quote requests yet.
                         </TableCell>
                         </TableRow>
