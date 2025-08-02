@@ -24,7 +24,7 @@ const mapFirestoreDocToQuoteRequest = (docSnapshot: any): QuoteRequest => {
         sellerId: data.sellerId || 'N/A',
         quantity: data.quantity || '',
         details: data.details || '',
-        isRead: data.isRead || false,
+        status: data.status || 'new', // Default to 'new' if status is not set
         productName: data.productName || 'General Inquiry',
     };
 };
@@ -113,12 +113,12 @@ export const getBuyerById = async (id:string): Promise<Buyer | null> => {
     return null;
 };
 
-export async function addQuoteRequest(data: Omit<QuoteRequest, 'id' | 'date' | 'isRead'>) {
+export async function addQuoteRequest(data: Omit<QuoteRequest, 'id' | 'date' | 'status'>) {
     try {
         const quoteCollectionRef = collection(db, 'quote-requests');
         await addDoc(quoteCollectionRef, {
             ...data,
-            isRead: false, // Set new requests as unread
+            status: 'new', // Set new requests with a 'new' status
             createdAt: serverTimestamp(), // Use server timestamp for creation date
         });
     } catch (error) {
@@ -181,30 +181,31 @@ export async function getQuoteRequestsByBuyer(buyerId: string): Promise<QuoteReq
     }
 }
 
-
-export async function markQuoteRequestsAsRead(sellerId: string): Promise<void> {
-    if (!sellerId) return;
+export async function updateQuoteStatus(quoteId: string, status: QuoteRequest['status']): Promise<void> {
+    if (!quoteId) return;
     try {
-        const quotesRef = collection(db, "quote-requests");
-        const q = query(quotesRef, where("sellerId", "==", sellerId), where("isRead", "==", false));
-        const querySnapshot = await getDocs(q);
-        
-        if (querySnapshot.empty) {
-            return; // No unread requests to mark
-        }
-
-        const batch = writeBatch(db);
-        querySnapshot.forEach(docSnapshot => {
-            batch.update(docSnapshot.ref, { isRead: true });
-        });
-
-        await batch.commit();
+        const quoteRef = doc(db, "quote-requests", quoteId);
+        await updateDoc(quoteRef, { status: status });
     } catch (error) {
-        console.error("Error marking quote requests as read:", error);
-        // We don't re-throw here because failing to mark as read is not a critical UI error.
-        // The user can still view the requests. We just log it.
+        console.error(`Error updating quote ${quoteId} to status ${status}:`, error);
+        throw error;
     }
 }
+
+export async function markQuoteAsViewed(quoteId: string): Promise<void> {
+    if (!quoteId) return;
+    try {
+        const quoteRef = doc(db, "quote-requests", quoteId);
+        const quoteSnap = await getDoc(quoteRef);
+        if (quoteSnap.exists() && quoteSnap.data().status === 'new') {
+            await updateDoc(quoteRef, { status: 'viewed' });
+        }
+    } catch (error) {
+        console.error(`Error marking quote ${quoteId} as viewed:`, error);
+        // Do not re-throw, as this is a non-critical background action
+    }
+}
+
 
 export async function addProduct(
   data: Omit<Product, 'id' | 'images' | 'sellerId'>,
@@ -630,7 +631,7 @@ export async function getSavedSellers(buyerId: string): Promise<Seller[]> {
         }
         
         // Firestore 'in' query is limited to 30 items. 
-        // For this app, it's a reasonable limit. For larger scale, pagination or a different data model would be needed.
+        // For this app, it's a reasonable limit. For larger scale, a different data model would be needed.
         if (savedSellerIds.length > 30) {
             console.warn("Fetching more than 30 saved sellers is not supported in this query.");
         }
@@ -687,3 +688,4 @@ export async function getContactMessages(): Promise<ContactMessage[]> {
 }
 
     
+
