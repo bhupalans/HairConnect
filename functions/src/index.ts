@@ -154,9 +154,8 @@ webhookApp.post('/', express.raw({type: 'application/json'}), async (request: an
         case 'customer.subscription.deleted': // Handles cancellations
             const customerId = session.customer;
             const subscriptionStatus = session.status;
-            const isCanceled = event.type === 'customer.subscription.deleted' || session.cancel_at_period_end;
             
-            functions.logger.log(`Subscription updated for customer ${customerId}. New status: ${subscriptionStatus}. Canceled: ${isCanceled}`);
+            functions.logger.log(`Subscription updated for customer ${customerId}. New status: ${subscriptionStatus}.`);
 
             // Find the seller by their Stripe customer ID
             const sellersRef = db.collection('sellers');
@@ -170,15 +169,16 @@ webhookApp.post('/', express.raw({type: 'application/json'}), async (request: an
 
             querySnapshot.forEach(async (doc) => {
                 const sellerRef = doc.ref;
-                const newStatus = isCanceled ? 'canceled' : subscriptionStatus;
-                const newVerificationStatus = newStatus === 'active';
+                // isVerified is true ONLY if the status from Stripe is 'active'.
+                // This correctly handles grace periods for cancellations.
+                const newVerificationStatus = subscriptionStatus === 'active';
                 
                 try {
                     await sellerRef.update({
-                        stripeSubscriptionStatus: newStatus,
+                        stripeSubscriptionStatus: subscriptionStatus,
                         isVerified: newVerificationStatus
                     });
-                    functions.logger.log(`Updated seller ${doc.id} subscription status to ${newStatus} and verification to ${newVerificationStatus}.`);
+                    functions.logger.log(`Updated seller ${doc.id} subscription status to ${subscriptionStatus} and verification to ${newVerificationStatus}.`);
                 } catch (error) {
                     functions.logger.error(`Failed to update seller ${doc.id} subscription status.`, { error });
                 }
