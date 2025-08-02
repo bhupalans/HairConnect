@@ -3,7 +3,7 @@
 import type { Product, Seller, Buyer, QuoteRequest, ContactMessage, ProductImage } from './types';
 import { unstable_noStore as noStore } from 'next/cache';
 import { db, auth } from './firebase';
-import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp, query, orderBy, Timestamp, updateDoc, where, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp, query, orderBy, Timestamp, updateDoc, where, setDoc, deleteDoc, writeBatch, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { generateAltText } from '@/ai/flows/generate-alt-text-flow';
@@ -583,6 +583,71 @@ export async function deleteBuyer(buyerId: string) {
     }
 }
 
+
+export async function saveSeller(buyerId: string, sellerId: string) {
+    if (!buyerId || !sellerId) return;
+    const buyerRef = doc(db, "buyers", buyerId);
+    try {
+        await updateDoc(buyerRef, {
+            savedSellerIds: arrayUnion(sellerId)
+        });
+    } catch (error) {
+        console.error("Error saving seller:", error);
+        throw error;
+    }
+}
+
+export async function unsaveSeller(buyerId: string, sellerId: string) {
+    if (!buyerId || !sellerId) return;
+    const buyerRef = doc(db, "buyers", buyerId);
+    try {
+        await updateDoc(buyerRef, {
+            savedSellerIds: arrayRemove(sellerId)
+        });
+    } catch (error) {
+        console.error("Error unsaving seller:", error);
+        throw error;
+    }
+}
+
+export async function getSavedSellers(buyerId: string): Promise<Seller[]> {
+    noStore();
+    if (!buyerId) return [];
+
+    try {
+        const buyerRef = doc(db, 'buyers', buyerId);
+        const buyerSnap = await getDoc(buyerRef);
+        if (!buyerSnap.exists()) {
+            console.log("Buyer document not found.");
+            return [];
+        }
+
+        const buyerData = buyerSnap.data() as Buyer;
+        const savedSellerIds = buyerData.savedSellerIds;
+
+        if (!savedSellerIds || savedSellerIds.length === 0) {
+            return [];
+        }
+        
+        // Firestore 'in' query is limited to 30 items. 
+        // For this app, it's a reasonable limit. For larger scale, pagination or a different data model would be needed.
+        if (savedSellerIds.length > 30) {
+            console.warn("Fetching more than 30 saved sellers is not supported in this query.");
+        }
+
+        const sellersRef = collection(db, 'sellers');
+        const q = query(sellersRef, where('__name__', 'in', savedSellerIds.slice(0, 30)));
+        
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Seller));
+
+    } catch (error) {
+        console.error("Error fetching saved sellers:", error);
+        throw error;
+    }
+}
+
+
 // Contact Messages
 export async function addContactMessage(data: Omit<ContactMessage, 'id' | 'date'>) {
     try {
@@ -620,3 +685,5 @@ export async function getContactMessages(): Promise<ContactMessage[]> {
         return [];
     }
 }
+
+    
