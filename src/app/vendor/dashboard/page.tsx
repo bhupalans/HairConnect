@@ -47,7 +47,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getProductsBySeller, getSellerById, updateProduct, deleteProduct, addProduct, updateSellerProfile, getQuoteRequestsBySeller, markQuoteRequestsAsRead } from "@/lib/data";
+import { getProductsBySeller, getSellerById, updateProduct, deleteProduct, addProduct, updateSellerProfile, getQuoteRequestsBySeller, markQuoteAsViewed } from "@/lib/data";
 import { MoreHorizontal, PlusCircle, Loader2, Mail, X, ShoppingBag, Terminal, CheckCircle, PackageOpen, Inbox, ShieldAlert, CreditCard } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -144,7 +144,7 @@ export default function VendorDashboardPage() {
   const [isAvatarRemoved, setIsAvatarRemoved] = React.useState(false);
 
   const unreadQuotesCount = React.useMemo(() => {
-    return quoteRequests.filter(q => !q.isRead).length;
+    return quoteRequests.filter(q => q.status === 'new').length;
   }, [quoteRequests]);
 
 
@@ -204,11 +204,14 @@ export default function VendorDashboardPage() {
   const handleTabChange = async (value: string) => {
     setActiveTab(value);
     if (value === 'quotes' && user && unreadQuotesCount > 0) {
-      // Mark as read in the background
-      await markQuoteRequestsAsRead(user.uid);
+      // Mark all new quotes as viewed in the background
+      const newQuoteIds = quoteRequests.filter(q => q.status === 'new').map(q => q.id);
+      const updatePromises = newQuoteIds.map(id => markQuoteAsViewed(id));
+      await Promise.all(updatePromises);
+      
       // Optimistically update the UI
       setQuoteRequests(currentQuotes => 
-        currentQuotes.map(q => ({ ...q, isRead: true }))
+        currentQuotes.map(q => q.status === 'new' ? { ...q, status: 'viewed' } : q)
       );
     }
   };
@@ -825,7 +828,7 @@ export default function VendorDashboardPage() {
                         </TableHeader>
                         <TableBody>
                             {quoteRequests.map((req) => (
-                            <TableRow key={req.id} className={!req.isRead ? 'bg-secondary/60' : ''}>
+                            <TableRow key={req.id} className={req.status === 'new' ? 'bg-secondary/60' : ''}>
                                 <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                                     {format(new Date(req.date), "dd MMM yyyy")}
                                 </TableCell>
@@ -1119,3 +1122,5 @@ export default function VendorDashboardPage() {
     </div>
   );
 }
+
+    
