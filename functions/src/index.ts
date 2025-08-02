@@ -127,31 +127,68 @@ webhookApp.post('/', express.raw({type: 'application/json'}), async (request: an
     }
 
     // Handle the event
-    if (event.type === 'checkout.session.completed') {
-        const session = event.data.object as Stripe.Checkout.Session;
-        const uid = session.client_reference_id;
+    const session = event.data.object as any; // Use `any` for easier property access across event types
 
-        if (!uid) {
-            functions.logger.error("Webhook received 'checkout.session.completed' without a client_reference_id (UID).", session);
-            response.status(400).send('Webhook Error: Missing client_reference_id.');
-            return;
-        }
+    switch (event.type) {
+        case 'checkout.session.completed':
+            const uid = session.client_reference_id;
+            if (!uid) {
+                functions.logger.error("Webhook received 'checkout.session.completed' without a client_reference_id (UID).", session);
+                break;
+            }
+            try {
+                const sellerRef = db.collection('sellers').doc(uid);
+                await sellerRef.update({ 
+                    isVerified: true,
+                    stripeCustomerId: session.customer,
+                    stripeSubscriptionId: session.subscription,
+                    stripeSubscriptionStatus: 'active'
+                });
+                functions.logger.log(`Successfully verified seller with UID: ${uid} and updated Stripe IDs.`);
+            } catch (error) {
+                functions.logger.error(`Failed to update seller ${uid} to verified.`, { error });
+            }
+            break;
 
-        try {
-            const sellerRef = db.collection('sellers').doc(uid);
-            // Save the customer and subscription IDs
-            await sellerRef.update({ 
-                isVerified: true,
-                stripeCustomerId: session.customer,
-                stripeSubscriptionId: session.subscription,
-                stripeSubscriptionStatus: 'active'
+        case 'customer.subscription.updated':
+        case 'customer.subscription.deleted': // Handles cancellations
+            const customerId = session.customer;
+            const subscriptionStatus = session.status;
+            const isCanceled = event.type === 'customer.subscription.deleted' || session.cancel_at_period_end;
+            
+            functions.logger.log(`Subscription updated for customer ${customerId}. New status: ${subscriptionStatus}. Canceled: ${isCanceled}`);
+
+            // Find the seller by their Stripe customer ID
+            const sellersRef = db.collection('sellers');
+            const q = sellersRef.where('stripeCustomerId', '==', customerId);
+            const querySnapshot = await q.get();
+
+            if (querySnapshot.empty) {
+                functions.logger.error(`Could not find seller for stripeCustomerId: ${customerId}`);
+                break;
+            }
+
+            querySnapshot.forEach(async (doc) => {
+                const sellerRef = doc.ref;
+                const newStatus = isCanceled ? 'canceled' : subscriptionStatus;
+                const newVerificationStatus = newStatus === 'active';
+                
+                try {
+                    await sellerRef.update({
+                        stripeSubscriptionStatus: newStatus,
+                        isVerified: newVerificationStatus
+                    });
+                    functions.logger.log(`Updated seller ${doc.id} subscription status to ${newStatus} and verification to ${newVerificationStatus}.`);
+                } catch (error) {
+                    functions.logger.error(`Failed to update seller ${doc.id} subscription status.`, { error });
+                }
             });
-            functions.logger.log(`Successfully verified seller with UID: ${uid} and updated Stripe IDs.`);
-        } catch (error) {
-            functions.logger.error(`Failed to update seller ${uid} to verified.`, { error });
-            // Even if DB update fails, we must acknowledge the webhook to Stripe
-        }
+            break;
+
+        default:
+            functions.logger.log(`Unhandled event type ${event.type}`);
     }
+
 
     // Return a 200 response to acknowledge receipt of the event
     response.status(200).send();
