@@ -671,7 +671,7 @@ export default function VendorDashboardPage() {
         </div>
       </header>
         
-      {!seller.isVerified ? (
+      {!seller.isVerified && (
         <Card className="mb-6 bg-secondary/40">
             <CardContent className="p-6 flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -684,16 +684,6 @@ export default function VendorDashboardPage() {
                 <Button asChild>
                     <Link href="/vendor/verify-payment">Become a Verified Seller</Link>
                 </Button>
-            </CardContent>
-        </Card>
-      ) : (
-        <Card className="mb-6 bg-green-50 border border-green-200">
-             <CardContent className="p-6 flex items-center gap-4">
-                <CheckCircle className="h-10 w-10 text-green-600" />
-                <div>
-                    <h3 className="font-headline text-xl text-green-800">Account Verified</h3>
-                    <p className="text-green-700/80">Your profile is marked as verified. Buyers can see your trusted status.</p>
-                </div>
             </CardContent>
         </Card>
       )}

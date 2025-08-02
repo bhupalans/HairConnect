@@ -51,9 +51,9 @@ export function SellerProfileClientPage({ seller, sellerProducts }: SellerProfil
                     <div className="flex items-center gap-3 justify-center sm:justify-start">
                         <h1 className="text-3xl md:text-4xl font-headline text-primary">{seller.companyName}</h1>
                         {seller.isVerified && (
-                           <div className="flex items-center gap-1 text-blue-600 bg-blue-100 px-3 py-1 rounded-full">
+                           <div className="flex items-center gap-1 text-blue-600 bg-blue-100 px-3 py-1 rounded-full text-sm font-semibold">
                                 <BadgeCheck className="h-5 w-5" />
-                                <span className="font-semibold text-sm">Verified</span>
+                                <span>Verified</span>
                            </div>
                         )}
                     </div>

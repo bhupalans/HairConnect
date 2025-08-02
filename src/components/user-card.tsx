@@ -30,13 +30,13 @@ export function UserCard({ user, userType }: UserCardProps) {
         <Link href={profileLink} className="block">
           <div className="flex items-center gap-2 justify-center">
             <CardTitle className="text-xl font-headline leading-tight hover:text-primary transition-colors">
-              {user.name}
+              {'companyName' in user && user.companyName ? user.companyName : user.name}
             </CardTitle>
-            {user.isVerified && <BadgeCheck className="h-5 w-5 text-blue-600" />}
+            {user.isVerified && <BadgeCheck className="h-5 w-5 text-blue-600 flex-shrink-0" />}
           </div>
         </Link>
         {'companyName' in user && user.companyName && (
-           <CardDescription className="text-base">{user.companyName}</CardDescription>
+           <CardDescription className="text-base">{user.name}</CardDescription>
         )}
         <div className="flex items-center text-muted-foreground mt-2">
             <MapPin className="h-4 w-4 mr-1"/>
