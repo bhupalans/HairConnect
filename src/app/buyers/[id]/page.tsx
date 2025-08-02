@@ -6,7 +6,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mail, MapPin, CalendarDays, BarChart3, Clock, Bookmark, Building, User, Briefcase } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
 import type { Buyer } from "@/lib/types";
 import { Separator } from "@/components/ui/separator";
 
@@ -97,30 +97,6 @@ export default async function BuyerProfilePage({ params }: { params: { id: strin
                         </div>
                     )}
                  </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                    <CardTitle className="font-headline text-xl flex items-center gap-2">
-                        <BarChart3 />
-                        Activity Snapshot
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                    <div className="flex justify-between">
-                        <span className="text-muted-foreground">Quote Requests Sent</span>
-                        <span className="font-semibold">{buyer.quoteRequestCount || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span className="text-muted-foreground">Saved Vendors</span>
-                        <span className="font-semibold">{buyer.savedSellerIds?.length || 0}</span>
-                    </div>
-                    {buyer.lastActivity && (
-                         <div className="flex justify-between">
-                            <span className="text-muted-foreground">Last Active</span>
-                            <span className="font-semibold">{formatDistanceToNow(new Date(buyer.lastActivity))} ago</span>
-                        </div>
-                    )}
-                </CardContent>
               </Card>
           </div>
 

@@ -108,36 +108,7 @@ export const getBuyerById = async (id: string): Promise<Buyer | null> => {
   const docSnap = await getDoc(docRef);
 
   if (docSnap.exists()) {
-    const buyerData = docSnap.data() as Omit<Buyer, "id">;
-
-    // Fetch the count of quote requests for this buyer
-    const quotesQuery = query(
-      collection(db, "quote-requests"),
-      where("buyerId", "==", id)
-    );
-    const quotesSnapshot = await getCountFromServer(quotesQuery);
-    const quoteRequestCount = quotesSnapshot.data().count;
-
-    // Get the latest quote request to determine last activity
-    const latestQuoteQuery = query(
-      collection(db, "quote-requests"),
-      where("buyerId", "==", id),
-      orderBy("createdAt", "desc")
-    );
-    const latestQuoteSnap = await getDocs(latestQuoteQuery);
-    const lastActivity =
-      latestQuoteSnap.docs.length > 0
-        ? (latestQuoteSnap.docs[0].data().createdAt as Timestamp)
-            .toDate()
-            .toISOString()
-        : buyerData.memberSince; // Fallback to memberSince if no quotes
-
-    return {
-      id: docSnap.id,
-      ...buyerData,
-      quoteRequestCount,
-      lastActivity,
-    } as Buyer;
+    return { id: docSnap.id, ...docSnap.data() } as Buyer;
   }
   
   console.log(`Buyer with id ${id} not found in Firestore.`);
