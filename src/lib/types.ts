@@ -56,6 +56,7 @@ export interface Buyer {
     phone?: string;
     website?: string;
   }
+  savedSellerIds?: string[];
 }
 
 export interface QuoteRequest {
