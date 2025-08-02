@@ -3,7 +3,7 @@
 import type { Product, Seller, Buyer, QuoteRequest, ContactMessage, ProductImage } from './types';
 import { unstable_noStore as noStore } from 'next/cache';
 import { db, auth } from './firebase';
-import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp, query, orderBy, Timestamp, updateDoc, where, setDoc, deleteDoc, writeBatch, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp, query, orderBy, Timestamp, updateDoc, where, setDoc, deleteDoc, writeBatch, arrayUnion, arrayRemove,getCountFromServer } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { generateAltText } from '@/ai/flows/generate-alt-text-flow';
@@ -101,16 +101,47 @@ export const getProductsBySeller = async (sellerId: string): Promise<Product[]> 
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
 };
 
-export const getBuyerById = async (id:string): Promise<Buyer | null> => {
-    noStore();
-    if (!id) return null;
-    const docRef = doc(db, 'buyers', id);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-        return { id: docSnap.id, ...docSnap.data() } as Buyer;
-    }
-    console.log(`Buyer with id ${id} not found in Firestore.`);
-    return null;
+export const getBuyerById = async (id: string): Promise<Buyer | null> => {
+  noStore();
+  if (!id) return null;
+  const docRef = doc(db, "buyers", id);
+  const docSnap = await getDoc(docRef);
+
+  if (docSnap.exists()) {
+    const buyerData = docSnap.data() as Omit<Buyer, "id">;
+
+    // Fetch the count of quote requests for this buyer
+    const quotesQuery = query(
+      collection(db, "quote-requests"),
+      where("buyerId", "==", id)
+    );
+    const quotesSnapshot = await getCountFromServer(quotesQuery);
+    const quoteRequestCount = quotesSnapshot.data().count;
+
+    // Get the latest quote request to determine last activity
+    const latestQuoteQuery = query(
+      collection(db, "quote-requests"),
+      where("buyerId", "==", id),
+      orderBy("createdAt", "desc")
+    );
+    const latestQuoteSnap = await getDocs(latestQuoteQuery);
+    const lastActivity =
+      latestQuoteSnap.docs.length > 0
+        ? (latestQuoteSnap.docs[0].data().createdAt as Timestamp)
+            .toDate()
+            .toISOString()
+        : buyerData.memberSince; // Fallback to memberSince if no quotes
+
+    return {
+      id: docSnap.id,
+      ...buyerData,
+      quoteRequestCount,
+      lastActivity,
+    } as Buyer;
+  }
+  
+  console.log(`Buyer with id ${id} not found in Firestore.`);
+  return null;
 };
 
 export async function addQuoteRequest(data: Omit<QuoteRequest, 'id' | 'date' | 'status'>) {
@@ -688,4 +719,3 @@ export async function getContactMessages(): Promise<ContactMessage[]> {
 }
 
     
-

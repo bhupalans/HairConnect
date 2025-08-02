@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React from "react";
@@ -32,6 +33,13 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import type { Buyer, QuoteRequest, Seller } from "@/lib/types";
@@ -48,6 +56,8 @@ const initialProfileState: Partial<Buyer> = {
     location: "",
     bio: "",
     contact: { email: "", phone: "", website: "" },
+    buyerType: "other",
+    yearsInBusiness: "0-2",
 };
 
 const renderStatusBadge = (status: QuoteRequest['status']) => {
@@ -99,6 +109,8 @@ export default function BuyerDashboardPage() {
              location: fetchedBuyer.location,
              bio: fetchedBuyer.bio,
              contact: fetchedBuyer.contact,
+             buyerType: fetchedBuyer.buyerType,
+             yearsInBusiness: fetchedBuyer.yearsInBusiness,
           });
           setAvatarPreview(fetchedBuyer.avatarUrl);
           setQuoteRequests(fetchedQuotes);
@@ -334,10 +346,45 @@ export default function BuyerDashboardPage() {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="profile-bio">Bio / Sourcing Needs</Label>
+                            <Label htmlFor="profile-bio">About Your Business</Label>
                             <Textarea id="profile-bio" value={profileData.bio || ''} onChange={e => setProfileData(p => ({...p, bio: e.target.value}))} className="min-h-[150px]"/>
                         </div>
                         
+                        <Separator />
+
+                        <h3 className="text-lg font-medium">Business Details</h3>
+                        <div className="grid md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="buyer-type">Type of Business</Label>
+                                <Select value={profileData.buyerType} onValueChange={(value: Buyer['buyerType']) => setProfileData(p => ({...p, buyerType: value}))}>
+                                    <SelectTrigger id="buyer-type">
+                                        <SelectValue placeholder="Select your business type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="salon">Salon Owner</SelectItem>
+                                        <SelectItem value="distributor">Distributor / Wholesaler</SelectItem>
+                                        <SelectItem value="stylist">Independent Stylist</SelectItem>
+                                        <SelectItem value="retailer">Retailer</SelectItem>
+                                        <SelectItem value="other">Other</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="years-in-business">Years in Business</Label>
+                                <Select value={profileData.yearsInBusiness} onValueChange={(value: Buyer['yearsInBusiness']) => setProfileData(p => ({...p, yearsInBusiness: value}))}>
+                                    <SelectTrigger id="years-in-business">
+                                        <SelectValue placeholder="Select years in business" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="0-2">0-2 years</SelectItem>
+                                        <SelectItem value="2-5">2-5 years</SelectItem>
+                                        <SelectItem value="5-10">5-10 years</SelectItem>
+                                        <SelectItem value="10+">10+ years</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
                         <Separator />
 
                         <h3 className="text-lg font-medium">Contact Details</h3>
@@ -371,5 +418,3 @@ export default function BuyerDashboardPage() {
     </div>
   );
 }
-
-    

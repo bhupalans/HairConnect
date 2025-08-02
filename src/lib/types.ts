@@ -55,9 +55,14 @@ export interface Buyer {
     email: string;
     phone?: string;
     website?: string;
-  }
+  };
   savedSellerIds?: string[];
+  lastActivity?: string; // ISO date string
+  quoteRequestCount?: number;
+  buyerType?: 'salon' | 'distributor' | 'stylist' | 'retailer' | 'other';
+  yearsInBusiness?: '0-2' | '2-5' | '5-10' | '10+';
 }
+
 
 export interface QuoteRequest {
   id: string;
