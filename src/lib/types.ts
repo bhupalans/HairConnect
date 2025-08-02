@@ -43,7 +43,7 @@ export interface Seller {
 }
 
 export interface Buyer {
-  id: string;
+  id:string;
   name: string;
   companyName?: string;
   location: string;

@@ -3,7 +3,7 @@
 import type { Product, Seller, Buyer, QuoteRequest, ContactMessage, ProductImage } from './types';
 import { unstable_noStore as noStore } from 'next/cache';
 import { db, auth } from './firebase';
-import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp, query, orderBy, Timestamp, updateDoc, where, setDoc, deleteDoc, writeBatch, arrayUnion, arrayRemove,getCountFromServer } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp, query, orderBy, Timestamp, updateDoc, where, setDoc, deleteDoc, writeBatch, arrayUnion, arrayRemove, getCountFromServer, runTransaction, increment } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { generateAltText } from '@/ai/flows/generate-alt-text-flow';
@@ -108,7 +108,20 @@ export const getBuyerById = async (id: string): Promise<Buyer | null> => {
   const docSnap = await getDoc(docRef);
 
   if (docSnap.exists()) {
-    return { id: docSnap.id, ...docSnap.data() } as Buyer;
+    const data = docSnap.data();
+    // Safely get the count of saved sellers
+    const savedSellerCount = Array.isArray(data.savedSellerIds) ? data.savedSellerIds.length : 0;
+    
+    return {
+        id: docSnap.id,
+        ...data,
+        // The 'lastActivity' and 'quoteRequestCount' fields are now read directly from the doc
+        // We just need to ensure they have default values if they don't exist
+        lastActivity: data.lastActivity || data.memberSince,
+        quoteRequestCount: data.quoteRequestCount || 0,
+        // Add the saved seller count to the returned object
+        savedSellerIds: data.savedSellerIds || [],
+    } as Buyer;
   }
   
   console.log(`Buyer with id ${id} not found in Firestore.`);
@@ -117,15 +130,29 @@ export const getBuyerById = async (id: string): Promise<Buyer | null> => {
 
 export async function addQuoteRequest(data: Omit<QuoteRequest, 'id' | 'date' | 'status'>) {
     try {
-        const quoteCollectionRef = collection(db, 'quote-requests');
-        await addDoc(quoteCollectionRef, {
-            ...data,
-            status: 'new', // Set new requests with a 'new' status
-            createdAt: serverTimestamp(), // Use server timestamp for creation date
+        await runTransaction(db, async (transaction) => {
+            // Step 1: Create the new quote request document
+            const quoteCollectionRef = collection(db, 'quote-requests');
+            const newQuoteRef = doc(quoteCollectionRef); // Create a new doc reference
+            transaction.set(newQuoteRef, {
+                ...data,
+                status: 'new',
+                createdAt: serverTimestamp(),
+            });
+
+            // Step 2: If the buyer is not anonymous, update their profile
+            if (data.buyerId !== 'anonymous') {
+                const buyerRef = doc(db, 'buyers', data.buyerId);
+                // Atomically increment the quote request count and update last activity date
+                transaction.update(buyerRef, {
+                    quoteRequestCount: increment(1),
+                    lastActivity: new Date().toISOString()
+                });
+            }
         });
     } catch (error) {
-        console.error("Error adding document: ", error);
-        throw error; // Re-throw the error to be handled by the caller
+        console.error("Error adding quote request in transaction: ", error);
+        throw error;
     }
 }
 
@@ -505,6 +532,7 @@ export async function addBuyer(
     await sendEmailVerification(user);
 
     // Step 3: Create a corresponding buyer document in Firestore
+    const memberSince = new Date().toISOString();
     await setDoc(doc(db, "buyers", user.uid), {
       name: values.name,
       companyName: values.companyName || '',
@@ -512,7 +540,9 @@ export async function addBuyer(
       bio: values.bio,
       isVerified: false, // Buyers start as unverified
       avatarUrl: `https://placehold.co/100x100?text=${values.name.charAt(0)}`,
-      memberSince: new Date().toISOString(),
+      memberSince: memberSince,
+      lastActivity: memberSince,
+      quoteRequestCount: 0, // Initialize count to 0
       contact: {
         email: user.email,
         phone: fullPhoneNumber,
@@ -688,5 +718,3 @@ export async function getContactMessages(): Promise<ContactMessage[]> {
         return [];
     }
 }
-
-    
