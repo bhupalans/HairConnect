@@ -6,13 +6,16 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProductCard } from "@/components/product-card";
-import { Mail, Phone, Globe, MapPin, CalendarDays, Loader2, LogIn, BadgeCheck } from "lucide-react";
+import { Mail, Phone, Globe, MapPin, CalendarDays, Loader2, LogIn, BadgeCheck, Bookmark, BookmarkCheck } from "lucide-react";
 import { format } from "date-fns";
-import type { Seller, Product } from "@/lib/types";
-import { useState, useEffect } from "react";
+import type { Seller, Product, Buyer } from "@/lib/types";
+import { useState, useEffect, useCallback } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { usePathname } from "next/navigation";
+import { getBuyerById, saveSeller, unsaveSeller } from "@/lib/data";
+import { useToast } from "@/hooks/use-toast";
+
 
 interface SellerProfileClientPageProps {
   seller: Seller;
@@ -20,16 +23,104 @@ interface SellerProfileClientPageProps {
 }
 
 export function SellerProfileClientPage({ seller, sellerProducts }: SellerProfileClientPageProps) {
+  const { toast } = useToast();
   const [currentUser, setCurrentUser] = useState<User | null | undefined>(undefined);
+  const [buyer, setBuyer] = useState<Buyer | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
   const isLoading = currentUser === undefined;
   const pathname = usePathname();
 
+  const fetchBuyerAndCheckSavedStatus = useCallback(async (user: User) => {
+    const fetchedBuyer = await getBuyerById(user.uid);
+    if (fetchedBuyer) {
+      setBuyer(fetchedBuyer);
+      if (fetchedBuyer.savedSellerIds?.includes(seller.id)) {
+        setIsSaved(true);
+      } else {
+        setIsSaved(false);
+      }
+    } else {
+        setBuyer(null); // User is not a buyer (could be a seller or admin)
+    }
+  }, [seller.id]);
+
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
+      if (user) {
+        await fetchBuyerAndCheckSavedStatus(user);
+      } else {
+        setBuyer(null);
+        setIsSaved(false);
+      }
     });
     return () => unsubscribe();
-  }, []);
+  }, [fetchBuyerAndCheckSavedStatus]);
+  
+  const handleSaveToggle = async () => {
+    if (!currentUser || !buyer) {
+        toast({ title: "Please log in as a buyer to save vendors.", variant: "destructive" });
+        return;
+    }
+    setIsSaving(true);
+    try {
+        if (isSaved) {
+            await unsaveSeller(currentUser.uid, seller.id);
+            setIsSaved(false);
+            toast({ title: "Vendor Removed", description: `${seller.companyName} has been removed from your saved vendors.`});
+        } else {
+            await saveSeller(currentUser.uid, seller.id);
+            setIsSaved(true);
+            toast({ title: "Vendor Saved!", description: `${seller.companyName} has been added to your saved vendors.`});
+        }
+    } catch (error) {
+        console.error("Failed to toggle save state:", error);
+        toast({ title: "Error", description: "Could not update your saved vendors list.", variant: "destructive" });
+    } finally {
+        setIsSaving(false);
+    }
+  };
+  
+  const renderActionButtons = () => {
+    // Not logged in or still loading
+    if (isLoading || !currentUser) {
+       return (
+            <div className="flex items-center gap-4">
+                 <Button asChild>
+                    <a href={`mailto:${seller.contact.email}`}><Mail className="mr-2 h-4 w-4" /> Contact Seller</a>
+                </Button>
+                <Button asChild variant="secondary">
+                    <Link href={`/login?redirect=${pathname}`}><Bookmark className="mr-2 h-4 w-4" /> Login to Save Vendor</Link>
+                </Button>
+            </div>
+       )
+    }
+    
+    // Logged in as a buyer
+    if (buyer) {
+        return (
+             <div className="flex items-center gap-4">
+                 <Button asChild>
+                    <a href={`mailto:${seller.contact.email}`}><Mail className="mr-2 h-4 w-4" /> Contact Seller</a>
+                </Button>
+                <Button variant="outline" onClick={handleSaveToggle} disabled={isSaving}>
+                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : (isSaved ? <BookmarkCheck className="mr-2 h-4 w-4 text-primary"/> : <Bookmark className="mr-2 h-4 w-4"/>)}
+                    {isSaving ? 'Saving...' : (isSaved ? 'Saved' : 'Save Vendor')}
+                </Button>
+             </div>
+        )
+    }
+    
+    // Logged in, but not as a buyer (i.e. a seller or admin)
+    return (
+        <Button asChild>
+            <a href={`mailto:${seller.contact.email}`}><Mail className="mr-2 h-4 w-4" /> Contact Seller</a>
+        </Button>
+    )
+  }
 
 
   if (isLoading) {
@@ -74,15 +165,7 @@ export function SellerProfileClientPage({ seller, sellerProducts }: SellerProfil
           <CardContent className="px-8 pb-8 pt-6">
             <p className="text-base max-w-3xl">{seller.bio}</p>
             <div className="mt-6">
-              {currentUser ? (
-                <Button asChild>
-                    <a href={`mailto:${seller.contact.email}`}><Mail className="mr-2 h-4 w-4" /> Contact Seller</a>
-                </Button>
-              ) : (
-                <Button asChild variant="secondary">
-                    <Link href={`/login?redirect=${pathname}`}><LogIn className="mr-2 h-4 w-4" /> Login to Contact Seller</Link>
-                </Button>
-              )}
+              {renderActionButtons()}
             </div>
           </CardContent>
         </Card>
@@ -132,7 +215,7 @@ export function SellerProfileClientPage({ seller, sellerProducts }: SellerProfil
                       <CardTitle className="font-headline text-2xl">Contact Information</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-muted-foreground">Please <Link href="/login" className="text-primary underline">login</Link> or <Link href="/register" className="text-primary underline">register</Link> to view the seller's contact details.</p>
+                    <p className="text-muted-foreground">Please <Link href={`/login?redirect=${pathname}`} className="text-primary underline">login</Link> or <Link href="/register" className="text-primary underline">register</Link> to view the seller's contact details.</p>
                   </CardContent>
               </Card>
             )}
