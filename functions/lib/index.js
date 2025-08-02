@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createStripePortalLink = exports.stripeWebhook = exports.createCheckoutSession = void 0;
+exports.cleanupUnverifiedUsers = exports.createStripePortalLink = exports.stripeWebhook = exports.createCheckoutSession = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const stripe_1 = require("stripe");
@@ -185,4 +185,62 @@ portalApp.post('/', async (req, res) => {
     }
 });
 exports.createStripePortalLink = functions.https.onRequest(portalApp);
+/**
+ * A scheduled function that runs every 24 hours to clean up unverified users.
+ * It deletes user accounts from Firebase Authentication and their corresponding
+ * seller or buyer documents from Firestore if they were created more than 24 hours
+ * ago and have not verified their email address. It ignores specific admin emails.
+ */
+exports.cleanupUnverifiedUsers = functions.pubsub
+    .schedule("every 24 hours")
+    .onRun(async (context) => {
+    functions.logger.log("Starting cleanup of unverified users.");
+    const emailsToIgnore = ["admin@hairconnect.com", "admin@hairbuysell.com"];
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    let usersToDelete = [];
+    try {
+        let pageToken;
+        do {
+            const listUsersResult = await admin.auth().listUsers(1000, pageToken);
+            pageToken = listUsersResult.pageToken;
+            const unverifiedUsers = listUsersResult.users.filter((user) => {
+                // Do not delete if the user's email is in the ignore list
+                if (user.email && emailsToIgnore.includes(user.email)) {
+                    return false;
+                }
+                const creationTime = new Date(user.metadata.creationTime);
+                return !user.emailVerified && creationTime < twentyFourHoursAgo;
+            });
+            usersToDelete = usersToDelete.concat(unverifiedUsers);
+        } while (pageToken);
+        if (usersToDelete.length === 0) {
+            functions.logger.log("No unverified users to delete.");
+            return null;
+        }
+        functions.logger.log(`Found ${usersToDelete.length} unverified users to delete.`);
+        const deletePromises = [];
+        for (const user of usersToDelete) {
+            // Delete from Authentication
+            deletePromises.push(admin.auth().deleteUser(user.uid).catch((error) => {
+                functions.logger.error(`Failed to delete user ${user.uid} from Auth:`, error);
+            }));
+            // Attempt to delete from both 'sellers' and 'buyers' collections
+            const sellerDocRef = db.collection("sellers").doc(user.uid);
+            deletePromises.push(sellerDocRef.delete().catch((error) => {
+                // It's okay if this fails (e.g., doc doesn't exist), so we don't log an error unless it's a real issue.
+                // For simplicity, we'll just let it fail silently if the user is a buyer.
+            }));
+            const buyerDocRef = db.collection("buyers").doc(user.uid);
+            deletePromises.push(buyerDocRef.delete().catch((error) => {
+                // Same as above, fail silently if the user was a seller.
+            }));
+        }
+        await Promise.all(deletePromises);
+        functions.logger.log(`Successfully cleaned up ${usersToDelete.length} users.`);
+    }
+    catch (error) {
+        functions.logger.error("Error cleaning up unverified users:", error);
+    }
+    return null;
+});
 //# sourceMappingURL=index.js.map
