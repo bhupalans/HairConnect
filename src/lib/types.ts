@@ -69,7 +69,7 @@ export interface QuoteRequest {
   sellerId: string;
   quantity: string;
   details?: string;
-  isRead: boolean;
+  status: 'new' | 'viewed' | 'responded' | 'archived';
   productName?: string;
 }
 
