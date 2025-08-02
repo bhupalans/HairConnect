@@ -21,8 +21,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getBuyerById, getQuoteRequestsByBuyer, updateBuyerProfile } from "@/lib/data";
-import { Loader2, User } from "lucide-react";
+import { getBuyerById, getQuoteRequestsByBuyer, updateBuyerProfile, getSavedSellers } from "@/lib/data";
+import { Loader2, User, Bookmark } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,12 +33,13 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import type { Buyer, QuoteRequest } from "@/lib/types";
+import type { Buyer, QuoteRequest, Seller } from "@/lib/types";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, type User as FirebaseUser } from "firebase/auth";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { UserCard } from "@/components/user-card";
 
 const initialProfileState: Partial<Buyer> = {
     companyName: "",
@@ -55,6 +56,7 @@ export default function BuyerDashboardPage() {
   const [user, setUser] = React.useState<FirebaseUser | null>(null);
   const [buyer, setBuyer] = React.useState<Buyer | null>(null);
   const [quoteRequests, setQuoteRequests] = React.useState<QuoteRequest[]>([]);
+  const [savedSellers, setSavedSellers] = React.useState<Seller[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSubmittingProfile, setIsSubmittingProfile] = React.useState(false);
 
@@ -66,9 +68,10 @@ export default function BuyerDashboardPage() {
 
   const fetchBuyerData = React.useCallback(async (currentUser: FirebaseUser) => {
     try {
-        const [fetchedBuyer, fetchedQuotes] = await Promise.all([
+        const [fetchedBuyer, fetchedQuotes, fetchedSavedSellers] = await Promise.all([
             getBuyerById(currentUser.uid),
-            getQuoteRequestsByBuyer(currentUser.uid)
+            getQuoteRequestsByBuyer(currentUser.uid),
+            getSavedSellers(currentUser.uid)
         ]);
         
         if (fetchedBuyer) {
@@ -82,6 +85,7 @@ export default function BuyerDashboardPage() {
           });
           setAvatarPreview(fetchedBuyer.avatarUrl);
           setQuoteRequests(fetchedQuotes);
+          setSavedSellers(fetchedSavedSellers);
         } else {
           toast({ title: "Buyer Profile Not Found", description: "We couldn't find your profile. Please contact support.", variant: "destructive"});
         }
@@ -178,6 +182,7 @@ export default function BuyerDashboardPage() {
       <Tabs defaultValue="quotes">
           <TabsList className="mb-4">
             <TabsTrigger value="quotes">My Quote Requests</TabsTrigger>
+            <TabsTrigger value="saved-vendors">Saved Vendors</TabsTrigger>
             <TabsTrigger value="profile">Profile Settings</TabsTrigger>
           </TabsList>
           <TabsContent value="quotes">
@@ -236,6 +241,38 @@ export default function BuyerDashboardPage() {
                     </TableBody>
                 </Table>
                 </CardContent>
+            </Card>
+          </TabsContent>
+           <TabsContent value="saved-vendors">
+            <Card>
+              <CardHeader>
+                <CardTitle>My Saved Vendors</CardTitle>
+                <CardDescription>
+                  Your curated list of preferred vendors for quick access.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {savedSellers.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {savedSellers.map((seller) => (
+                      <UserCard key={seller.id} user={seller} userType="seller" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-16">
+                    <div className="mx-auto w-fit bg-secondary p-4 rounded-full mb-4">
+                      <Bookmark className="h-12 w-12 text-primary" />
+                    </div>
+                    <h3 className="text-2xl font-headline text-primary">No Saved Vendors Yet</h3>
+                    <p className="text-muted-foreground mt-2 mb-4 max-w-sm mx-auto">
+                      You can save vendors by clicking the "Save Vendor" button on their profile pages.
+                    </p>
+                    <Button asChild>
+                      <Link href="/sellers">Browse Sellers</Link>
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
             </Card>
           </TabsContent>
           <TabsContent value="profile">
@@ -314,3 +351,5 @@ export default function BuyerDashboardPage() {
     </div>
   );
 }
+
+    
