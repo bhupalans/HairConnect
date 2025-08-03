@@ -86,6 +86,8 @@ export default function BuyerDashboardPage() {
   const [savedSellers, setSavedSellers] = React.useState<Seller[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSubmittingProfile, setIsSubmittingProfile] = React.useState(false);
+  const [isCreatingPortalLink, setIsCreatingPortalLink] = React.useState(false);
+
 
   const [profileData, setProfileData] = React.useState<Partial<Buyer>>(initialProfileState);
   const [newAvatarFile, setNewAvatarFile] = React.useState<File | null>(null);
@@ -189,6 +191,48 @@ export default function BuyerDashboardPage() {
       setIsSubmittingProfile(false);
     }
   }
+
+  const handleManageSubscription = async () => {
+    if (!user) return;
+    setIsCreatingPortalLink(true);
+
+    try {
+      const token = await user.getIdToken();
+      const functionUrl = 'https://us-central1-hairconnect-db.cloudfunctions.net/createBuyerStripePortalLink';
+
+      const response = await fetch(functionUrl, {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+              return_url: window.location.href,
+          })
+      });
+
+      if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to create billing portal link.');
+      }
+
+      const { url } = await response.json();
+      if (url) {
+          window.open(url, '_blank');
+      } else {
+          throw new Error("No portal URL returned.");
+      }
+    } catch (error: any) {
+        console.error("Stripe portal error:", error);
+        toast({
+            title: "Error",
+            description: error.message || "Could not open the billing portal. Please try again.",
+            variant: "destructive",
+        });
+    } finally {
+        setIsCreatingPortalLink(false);
+    }
+  };
 
 
   if (isLoading || !user || !buyer) {
@@ -450,7 +494,8 @@ export default function BuyerDashboardPage() {
                                         {buyer.stripeSubscriptionStatus}
                                     </Badge>
                                 </div>
-                                <Button disabled>
+                                <Button onClick={handleManageSubscription} disabled={isCreatingPortalLink}>
+                                    {isCreatingPortalLink && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     Manage Billing
                                 </Button>
                             </div>

@@ -22,33 +22,28 @@ try {
     functions.logger.error("Stripe failed to initialize on cold start:", error);
 }
 
-const checkoutApp = express();
-checkoutApp.use(cors({ origin: true }));
+// --- SELLER WORKFLOW ---
 
-checkoutApp.post("/", async (req, res) => {
-    functions.logger.log("createCheckoutSession function triggered", { body: req.body });
+const sellerCheckoutApp = express();
+sellerCheckoutApp.use(cors({ origin: true }));
 
-    // --- DIAGNOSTIC CHECK ---
+sellerCheckoutApp.post("/", async (req, res) => {
+    functions.logger.log("createCheckoutSession (Seller) function triggered", { body: req.body });
+
     const stripeConfig = functions.config().stripe;
     if (!stripeConfig || !stripeConfig.secret) {
-        functions.logger.error("FATAL: Stripe secret key is not configured in the environment.");
+        functions.logger.error("FATAL: Stripe secret key is not configured.");
         res.status(500).json({ message: "Stripe secret key is not configured." });
         return;
     }
     
-    // Initialize Stripe inside the function if it wasn't on cold start
     if (!stripe) {
-        stripe = new Stripe(stripeConfig.secret, {
-            apiVersion: "2024-04-10",
-        });
-        functions.logger.log("Stripe initialized on-demand inside function handler.");
+        stripe = new Stripe(stripeConfig.secret, { apiVersion: "2024-04-10" });
     }
 
-    // The httpsCallable function passes auth context in the request headers.
-    // We need to verify it manually for onRequest functions.
     const idToken = req.headers.authorization?.split('Bearer ')[1];
     if (!idToken) {
-        functions.logger.error("Authentication Error: No ID token provided.");
+        functions.logger.error("Auth Error: No ID token provided.");
         res.status(401).json({ message: "Unauthorized" });
         return;
     }
@@ -56,21 +51,15 @@ checkoutApp.post("/", async (req, res) => {
     try {
         const decodedToken = await admin.auth().verifyIdToken(idToken);
         const uid = decodedToken.uid;
-        functions.logger.log(`Authenticated user UID: ${uid}`);
-
         const { success_url, cancel_url } = req.body;
 
         if (!success_url || !cancel_url) {
-            functions.logger.error("Invalid Argument: Missing success_url or cancel_url.", { data: req.body });
-            res.status(400).json({ message: "The function must be called with success_url and cancel_url." });
+            res.status(400).json({ message: "Missing success_url or cancel_url." });
             return;
         }
-        functions.logger.log("Received URLs:", { success_url, cancel_url });
 
         const priceId = "price_1RpQKuSSXV7vnN2iDdRKtFTC";
-        functions.logger.log(`Using Stripe Price ID: ${priceId}`);
 
-        functions.logger.log("Attempting to create Stripe checkout session...");
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ["card"],
             mode: "subscription",
@@ -81,197 +70,107 @@ checkoutApp.post("/", async (req, res) => {
         });
 
         if (!session.url) {
-            functions.logger.error("Stripe session created, but no URL was returned.");
-            res.status(500).json({ message: "Could not create a checkout session URL." });
+            res.status(500).json({ message: "Could not create checkout session URL." });
             return;
         }
 
-        functions.logger.log("Stripe session created successfully. URL:", session.url);
-        // For onRequest, we send back the data in the response body.
         res.status(200).json({ url: session.url });
 
     } catch (error: any) {
-        functions.logger.error("Function execution error:", error);
-        if (error.raw) {
-            functions.logger.error("Stripe Raw Error:", error.raw);
-        }
+        functions.logger.error("Function error (Seller Checkout):", error);
         res.status(500).json({ message: `An error occurred: ${error.message}` });
     }
 });
+export const createCheckoutSession = functions.https.onRequest(sellerCheckoutApp);
 
-export const createCheckoutSession = functions.https.onRequest(checkoutApp);
 
-
-const webhookApp = express();
-
-// Stripe requires the raw body to construct events.
-// The "verify" option allows us to capture the raw body buffer.
-webhookApp.post('/', express.raw({type: 'application/json'}), async (request: any, response) => {
+const sellerWebhookApp = express();
+sellerWebhookApp.post('/', express.raw({type: 'application/json'}), async (request: any, response) => {
     const sig = request.headers['stripe-signature'];
     const endpointSecret = functions.config().stripe.webhook_secret;
-    
     let event: Stripe.Event;
 
     try {
         if (!sig || !endpointSecret) {
-            functions.logger.error("Webhook Error: Missing signature or secret");
-            response.status(400).send('Webhook Error: Missing signature or secret');
-            return;
+            return response.status(400).send('Webhook Error: Missing signature or secret');
         }
-        // Use the raw body buffer for verification
         event = stripe.webhooks.constructEvent(request.rawBody, sig, endpointSecret);
     } catch (err: any) {
-        functions.logger.error("Webhook signature verification failed.", { error: err.message });
-        response.status(400).send(`Webhook Error: ${err.message}`);
-        return;
+        return response.status(400).send(`Webhook Error: ${err.message}`);
     }
 
-    // Handle the event
-    const session = event.data.object as any; // Use `any` for easier property access across event types
+    const session = event.data.object as any;
 
     switch (event.type) {
         case 'checkout.session.completed':
             const uid = session.client_reference_id;
-            if (!uid) {
-                functions.logger.error("Webhook received 'checkout.session.completed' without a client_reference_id (UID).", session);
-                break;
-            }
+            if (!uid) { break; }
             try {
-                 // Check if the user is a seller
                 const sellerRef = db.collection('sellers').doc(uid);
-                const sellerDoc = await sellerRef.get();
-
-                if (sellerDoc.exists()) {
-                    await sellerRef.update({ 
-                        isVerified: true,
-                        stripeCustomerId: session.customer,
-                        stripeSubscriptionId: session.subscription,
-                        stripeSubscriptionStatus: 'active'
-                    });
-                    functions.logger.log(`Successfully verified seller with UID: ${uid} and updated Stripe IDs.`);
-                } else {
-                    // If not a seller, check if the user is a buyer
-                    const buyerRef = db.collection('buyers').doc(uid);
-                    const buyerDoc = await buyerRef.get();
-                    if (buyerDoc.exists()) {
-                         await buyerRef.update({ 
-                            isVerified: true,
-                            stripeCustomerId: session.customer,
-                            stripeSubscriptionId: session.subscription,
-                            stripeSubscriptionStatus: 'active'
-                        });
-                        functions.logger.log(`Successfully verified buyer with UID: ${uid} and updated Stripe IDs.`);
-                    } else {
-                        functions.logger.error(`Webhook for checkout.session.completed received for UID ${uid}, but user is not found in sellers or buyers collections.`);
-                    }
-                }
+                await sellerRef.update({ 
+                    isVerified: true,
+                    stripeCustomerId: session.customer,
+                    stripeSubscriptionId: session.subscription,
+                    stripeSubscriptionStatus: 'active'
+                });
             } catch (error) {
-                functions.logger.error(`Failed to update user ${uid} to verified.`, { error });
+                functions.logger.error(`Failed to verify seller ${uid}.`, { error });
             }
             break;
 
         case 'customer.subscription.updated':
-        case 'customer.subscription.deleted': // Handles cancellations
+        case 'customer.subscription.deleted':
             const customerId = session.customer;
             const subscriptionStatus = session.status;
+            const newVerificationStatus = subscriptionStatus === 'active';
             
-            functions.logger.log(`Subscription updated for customer ${customerId}. New status: ${subscriptionStatus}.`);
-            
-            // This function will find a user (buyer or seller) by stripeCustomerId and update their status.
-            const updateUserSubscriptionStatus = async (collectionName: 'sellers' | 'buyers') => {
-                 const usersRef = db.collection(collectionName);
-                 const q = usersRef.where('stripeCustomerId', '==', customerId);
-                 const querySnapshot = await q.get();
+            const sellersRef = db.collection('sellers');
+            const q = sellersRef.where('stripeCustomerId', '==', customerId);
+            const querySnapshot = await q.get();
 
-                 if (querySnapshot.empty) {
-                     return false; // Not found in this collection
-                 }
-
-                 querySnapshot.forEach(async (doc) => {
-                     const userRef = doc.ref;
-                     const newVerificationStatus = subscriptionStatus === 'active';
-                     
-                     try {
-                         await userRef.update({
-                             stripeSubscriptionStatus: subscriptionStatus,
-                             isVerified: newVerificationStatus
-                         });
-                         functions.logger.log(`Updated ${collectionName} ${doc.id} subscription status to ${subscriptionStatus} and verification to ${newVerificationStatus}.`);
-                     } catch (error) {
-                         functions.logger.error(`Failed to update ${collectionName} ${doc.id} subscription status.`, { error });
-                     }
-                 });
-                 return true; // Found and processed
-            };
-            
-            const foundInSellers = await updateUserSubscriptionStatus('sellers');
-            if (!foundInSellers) {
-                // If not found in sellers, try buyers
-                const foundInBuyers = await updateUserSubscriptionStatus('buyers');
-                if (!foundInBuyers) {
-                    functions.logger.error(`Could not find user for stripeCustomerId: ${customerId} in sellers or buyers.`);
+            querySnapshot.forEach(async (doc) => {
+                try {
+                    await doc.ref.update({
+                        stripeSubscriptionStatus: subscriptionStatus,
+                        isVerified: newVerificationStatus
+                    });
+                } catch (error) {
+                    functions.logger.error(`Failed to update seller ${doc.id} subscription.`, { error });
                 }
-            }
+            });
             break;
-
-        default:
-            functions.logger.log(`Unhandled event type ${event.type}`);
     }
-
-
-    // Return a 200 response to acknowledge receipt of the event
     response.status(200).send();
 });
+export const stripeWebhook = functions.https.onRequest(sellerWebhookApp);
 
-export const stripeWebhook = functions.https.onRequest(webhookApp);
 
-const portalApp = express();
-portalApp.use(cors({ origin: true }));
-
-portalApp.post('/', async (req, res) => {
-    functions.logger.log("createStripePortalLink function triggered");
-
+const sellerPortalApp = express();
+sellerPortalApp.use(cors({ origin: true }));
+sellerPortalApp.post('/', async (req, res) => {
     const idToken = req.headers.authorization?.split('Bearer ')[1];
     if (!idToken) {
-        functions.logger.error("Authentication Error: No ID token provided.");
-        res.status(401).json({ message: "Unauthorized" });
-        return;
+        return res.status(401).json({ message: "Unauthorized" });
     }
 
     try {
         const decodedToken = await admin.auth().verifyIdToken(idToken);
         const uid = decodedToken.uid;
-        
-        // Find the user in either sellers or buyers collection to get the stripeCustomerId
-        let customerId: string | undefined;
         const sellerRef = db.collection('sellers').doc(uid);
         const sellerSnap = await sellerRef.get();
         
-        if (sellerSnap.exists()) {
-            customerId = sellerSnap.data()?.stripeCustomerId;
-        } else {
-            const buyerRef = db.collection('buyers').doc(uid);
-            const buyerSnap = await buyerRef.get();
-            if (buyerSnap.exists()) {
-                customerId = buyerSnap.data()?.stripeCustomerId;
-            } else {
-                functions.logger.error(`User document not found for UID: ${uid} in sellers or buyers.`);
-                res.status(404).json({ message: "User not found." });
-                return;
-            }
+        if (!sellerSnap.exists()) {
+            return res.status(404).json({ message: "Seller not found." });
         }
         
+        const customerId = sellerSnap.data()?.stripeCustomerId;
         if (!customerId) {
-            functions.logger.error(`stripeCustomerId not found for user UID: ${uid}`);
-            res.status(400).json({ message: "Stripe customer ID not found." });
-            return;
+            return res.status(400).json({ message: "Stripe customer ID not found." });
         }
 
         const { return_url } = req.body;
         if (!return_url) {
-            functions.logger.error("Invalid Argument: Missing return_url.");
-            res.status(400).json({ message: "The function must be called with a return_url." });
-            return;
+            return res.status(400).json({ message: "Missing return_url." });
         }
 
         const portalSession = await stripe.billingPortal.sessions.create({
@@ -282,19 +181,165 @@ portalApp.post('/', async (req, res) => {
         res.status(200).json({ url: portalSession.url });
 
     } catch (error: any) {
-        functions.logger.error("Portal link creation error:", error);
         res.status(500).json({ message: `An error occurred: ${error.message}` });
     }
 });
+export const createStripePortalLink = functions.https.onRequest(sellerPortalApp);
 
-export const createStripePortalLink = functions.https.onRequest(portalApp);
 
-/**
- * A scheduled function that runs every 24 hours to clean up unverified users.
- * It deletes user accounts from Firebase Authentication and their corresponding
- * seller or buyer documents from Firestore if they were created more than 24 hours
- * ago and have not verified their email address. It ignores specific admin emails.
- */
+// --- BUYER WORKFLOW (NEW & SEPARATE) ---
+
+const buyerCheckoutApp = express();
+buyerCheckoutApp.use(cors({ origin: true }));
+
+buyerCheckoutApp.post("/", async (req, res) => {
+    functions.logger.log("createBuyerCheckoutSession function triggered", { body: req.body });
+
+    if (!stripe) {
+        stripe = new Stripe(functions.config().stripe.secret, { apiVersion: "2024-04-10" });
+    }
+
+    const idToken = req.headers.authorization?.split('Bearer ')[1];
+    if (!idToken) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+        const decodedToken = await admin.auth().verifyIdToken(idToken);
+        const uid = decodedToken.uid;
+        const { success_url, cancel_url } = req.body;
+        
+        if (!success_url || !cancel_url) {
+            return res.status(400).json({ message: "Missing success_url or cancel_url." });
+        }
+
+        // IMPORTANT: Replace this with your actual Buyer Verification Price ID from Stripe
+        const priceId = "price_BUYER_VERIFICATION_PLACEHOLDER"; 
+        
+        const session = await stripe.checkout.sessions.create({
+            payment_method_types: ["card"],
+            mode: "subscription",
+            line_items: [{ price: priceId, quantity: 1 }],
+            client_reference_id: uid,
+            success_url: success_url,
+            cancel_url: cancel_url,
+        });
+
+        res.status(200).json({ url: session.url });
+
+    } catch (error: any) {
+        functions.logger.error("Function error (Buyer Checkout):", error);
+        res.status(500).json({ message: `An error occurred: ${error.message}` });
+    }
+});
+export const createBuyerCheckoutSession = functions.https.onRequest(buyerCheckoutApp);
+
+
+const buyerPortalApp = express();
+buyerPortalApp.use(cors({ origin: true }));
+buyerPortalApp.post('/', async (req, res) => {
+    const idToken = req.headers.authorization?.split('Bearer ')[1];
+    if (!idToken) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+        const decodedToken = await admin.auth().verifyIdToken(idToken);
+        const uid = decodedToken.uid;
+        const buyerRef = db.collection('buyers').doc(uid);
+        const buyerSnap = await buyerRef.get();
+        
+        if (!buyerSnap.exists()) {
+            return res.status(404).json({ message: "Buyer not found." });
+        }
+        
+        const customerId = buyerSnap.data()?.stripeCustomerId;
+        if (!customerId) {
+            return res.status(400).json({ message: "Stripe customer ID not found." });
+        }
+
+        const { return_url } = req.body;
+        if (!return_url) {
+            return res.status(400).json({ message: "Missing return_url." });
+        }
+
+        const portalSession = await stripe.billingPortal.sessions.create({
+            customer: customerId,
+            return_url: return_url,
+        });
+
+        res.status(200).json({ url: portalSession.url });
+
+    } catch (error: any) {
+        res.status(500).json({ message: `An error occurred: ${error.message}` });
+    }
+});
+export const createBuyerStripePortalLink = functions.https.onRequest(buyerPortalApp);
+
+
+const buyerWebhookApp = express();
+buyerWebhookApp.post('/', express.raw({type: 'application/json'}), async (request: any, response) => {
+    const sig = request.headers['stripe-signature'];
+    const endpointSecret = functions.config().stripe.buyer_webhook_secret; // Use a separate secret for buyers
+    let event: Stripe.Event;
+
+    try {
+        if (!sig || !endpointSecret) {
+            return response.status(400).send('Webhook Error: Missing buyer signature or secret');
+        }
+        event = stripe.webhooks.constructEvent(request.rawBody, sig, endpointSecret);
+    } catch (err: any) {
+        return response.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    const session = event.data.object as any;
+
+    switch (event.type) {
+        case 'checkout.session.completed':
+            const uid = session.client_reference_id;
+            if (!uid) { break; }
+            try {
+                const buyerRef = db.collection('buyers').doc(uid);
+                await buyerRef.update({ 
+                    isVerified: true,
+                    stripeCustomerId: session.customer,
+                    stripeSubscriptionId: session.subscription,
+                    stripeSubscriptionStatus: 'active'
+                });
+            } catch (error) {
+                functions.logger.error(`Failed to verify buyer ${uid}.`, { error });
+            }
+            break;
+
+        case 'customer.subscription.updated':
+        case 'customer.subscription.deleted':
+            const customerId = session.customer;
+            const subscriptionStatus = session.status;
+            const newVerificationStatus = subscriptionStatus === 'active';
+            
+            const buyersRef = db.collection('buyers');
+            const q = buyersRef.where('stripeCustomerId', '==', customerId);
+            const querySnapshot = await q.get();
+
+            querySnapshot.forEach(async (doc) => {
+                try {
+                    await doc.ref.update({
+                        stripeSubscriptionStatus: subscriptionStatus,
+                        isVerified: newVerificationStatus
+                    });
+                } catch (error) {
+                    functions.logger.error(`Failed to update buyer ${doc.id} subscription.`, { error });
+                }
+            });
+            break;
+    }
+    response.status(200).send();
+});
+export const buyerStripeWebhook = functions.https.onRequest(buyerWebhookApp);
+
+
+// --- GENERAL FUNCTIONS ---
+
 export const cleanupUnverifiedUsers = functions.pubsub
   .schedule("every 24 hours")
   .onRun(async (context) => {
@@ -311,7 +356,6 @@ export const cleanupUnverifiedUsers = functions.pubsub
         pageToken = listUsersResult.pageToken;
 
         const unverifiedUsers = listUsersResult.users.filter((user) => {
-          // Do not delete if the user's email is in the ignore list
           if (user.email && emailsToIgnore.includes(user.email)) {
             return false;
           }
@@ -328,44 +372,24 @@ export const cleanupUnverifiedUsers = functions.pubsub
       }
 
       functions.logger.log(`Found ${usersToDelete.length} unverified users to delete.`);
-
       const deletePromises: Promise<any>[] = [];
 
       for (const user of usersToDelete) {
-        // Delete from Authentication
-        deletePromises.push(
-            admin.auth().deleteUser(user.uid).catch((error) => {
-                functions.logger.error(`Failed to delete user ${user.uid} from Auth:`, error);
-            })
-        );
+        deletePromises.push(admin.auth().deleteUser(user.uid).catch((error) => {
+            functions.logger.error(`Failed to delete user ${user.uid} from Auth:`, error);
+        }));
         
-        // Attempt to delete from both 'sellers' and 'buyers' collections
         const sellerDocRef = db.collection("sellers").doc(user.uid);
-        deletePromises.push(
-            sellerDocRef.delete().catch((error) => {
-                // It's okay if this fails (e.g., doc doesn't exist), so we don't log an error unless it's a real issue.
-                // For simplicity, we'll just let it fail silently if the user is a buyer.
-            })
-        );
+        deletePromises.push(sellerDocRef.delete().catch(() => { /* Fail silently */ }));
 
         const buyerDocRef = db.collection("buyers").doc(user.uid);
-        deletePromises.push(
-            buyerDocRef.delete().catch((error) => {
-                // Same as above, fail silently if the user was a seller.
-            })
-        );
+        deletePromises.push(buyerDocRef.delete().catch(() => { /* Fail silently */ }));
       }
 
       await Promise.all(deletePromises);
-
-      functions.logger.log(
-        `Successfully cleaned up ${usersToDelete.length} users.`
-      );
+      functions.logger.log(`Successfully cleaned up ${usersToDelete.length} users.`);
     } catch (error) {
       functions.logger.error("Error cleaning up unverified users:", error);
     }
-
     return null;
   });
-
-    

@@ -26,7 +26,7 @@ export default function BuyerVerifyPaymentPage() {
                 setUser(currentUser);
                 const buyerProfile = await getBuyerById(currentUser.uid);
                 if (buyerProfile) {
-                    if (buyerProfile.isVerified) {
+                    if (buyerProfile.isVerified && buyerProfile.stripeSubscriptionStatus === 'active') {
                         toast({ title: "Already Verified", description: "Your account is already verified." });
                         router.push('/buyer/dashboard');
                         return;
@@ -55,7 +55,8 @@ export default function BuyerVerifyPaymentPage() {
 
         try {
             const token = await user.getIdToken();
-            const functionUrl = 'https://us-central1-hairconnect-db.cloudfunctions.net/createCheckoutSession';
+            // This is the new, dedicated endpoint for buyers
+            const functionUrl = 'https://us-central1-hairconnect-db.cloudfunctions.net/createBuyerCheckoutSession';
 
             const response = await fetch(functionUrl, {
                 method: 'POST',
