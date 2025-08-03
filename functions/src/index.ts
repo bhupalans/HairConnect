@@ -1,4 +1,4 @@
-git
+
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import Stripe from "stripe";
@@ -137,16 +137,36 @@ webhookApp.post('/', express.raw({type: 'application/json'}), async (request: an
                 break;
             }
             try {
+                 // Check if the user is a seller
                 const sellerRef = db.collection('sellers').doc(uid);
-                await sellerRef.update({ 
-                    isVerified: true,
-                    stripeCustomerId: session.customer,
-                    stripeSubscriptionId: session.subscription,
-                    stripeSubscriptionStatus: 'active'
-                });
-                functions.logger.log(`Successfully verified seller with UID: ${uid} and updated Stripe IDs.`);
+                const sellerDoc = await sellerRef.get();
+
+                if (sellerDoc.exists()) {
+                    await sellerRef.update({ 
+                        isVerified: true,
+                        stripeCustomerId: session.customer,
+                        stripeSubscriptionId: session.subscription,
+                        stripeSubscriptionStatus: 'active'
+                    });
+                    functions.logger.log(`Successfully verified seller with UID: ${uid} and updated Stripe IDs.`);
+                } else {
+                    // If not a seller, check if the user is a buyer
+                    const buyerRef = db.collection('buyers').doc(uid);
+                    const buyerDoc = await buyerRef.get();
+                    if (buyerDoc.exists()) {
+                         await buyerRef.update({ 
+                            isVerified: true,
+                            stripeCustomerId: session.customer,
+                            stripeSubscriptionId: session.subscription,
+                            stripeSubscriptionStatus: 'active'
+                        });
+                        functions.logger.log(`Successfully verified buyer with UID: ${uid} and updated Stripe IDs.`);
+                    } else {
+                        functions.logger.error(`Webhook for checkout.session.completed received for UID ${uid}, but user is not found in sellers or buyers collections.`);
+                    }
+                }
             } catch (error) {
-                functions.logger.error(`Failed to update seller ${uid} to verified.`, { error });
+                functions.logger.error(`Failed to update user ${uid} to verified.`, { error });
             }
             break;
 
@@ -156,33 +176,42 @@ webhookApp.post('/', express.raw({type: 'application/json'}), async (request: an
             const subscriptionStatus = session.status;
             
             functions.logger.log(`Subscription updated for customer ${customerId}. New status: ${subscriptionStatus}.`);
+            
+            // This function will find a user (buyer or seller) by stripeCustomerId and update their status.
+            const updateUserSubscriptionStatus = async (collectionName: 'sellers' | 'buyers') => {
+                 const usersRef = db.collection(collectionName);
+                 const q = usersRef.where('stripeCustomerId', '==', customerId);
+                 const querySnapshot = await q.get();
 
-            // Find the seller by their Stripe customer ID
-            const sellersRef = db.collection('sellers');
-            const q = sellersRef.where('stripeCustomerId', '==', customerId);
-            const querySnapshot = await q.get();
+                 if (querySnapshot.empty) {
+                     return false; // Not found in this collection
+                 }
 
-            if (querySnapshot.empty) {
-                functions.logger.error(`Could not find seller for stripeCustomerId: ${customerId}`);
-                break;
-            }
-
-            querySnapshot.forEach(async (doc) => {
-                const sellerRef = doc.ref;
-                // isVerified is true ONLY if the status from Stripe is 'active'.
-                // This correctly handles grace periods for cancellations.
-                const newVerificationStatus = subscriptionStatus === 'active';
-                
-                try {
-                    await sellerRef.update({
-                        stripeSubscriptionStatus: subscriptionStatus,
-                        isVerified: newVerificationStatus
-                    });
-                    functions.logger.log(`Updated seller ${doc.id} subscription status to ${subscriptionStatus} and verification to ${newVerificationStatus}.`);
-                } catch (error) {
-                    functions.logger.error(`Failed to update seller ${doc.id} subscription status.`, { error });
+                 querySnapshot.forEach(async (doc) => {
+                     const userRef = doc.ref;
+                     const newVerificationStatus = subscriptionStatus === 'active';
+                     
+                     try {
+                         await userRef.update({
+                             stripeSubscriptionStatus: subscriptionStatus,
+                             isVerified: newVerificationStatus
+                         });
+                         functions.logger.log(`Updated ${collectionName} ${doc.id} subscription status to ${subscriptionStatus} and verification to ${newVerificationStatus}.`);
+                     } catch (error) {
+                         functions.logger.error(`Failed to update ${collectionName} ${doc.id} subscription status.`, { error });
+                     }
+                 });
+                 return true; // Found and processed
+            };
+            
+            const foundInSellers = await updateUserSubscriptionStatus('sellers');
+            if (!foundInSellers) {
+                // If not found in sellers, try buyers
+                const foundInBuyers = await updateUserSubscriptionStatus('buyers');
+                if (!foundInBuyers) {
+                    functions.logger.error(`Could not find user for stripeCustomerId: ${customerId} in sellers or buyers.`);
                 }
-            });
+            }
             break;
 
         default:
@@ -213,20 +242,27 @@ portalApp.post('/', async (req, res) => {
         const decodedToken = await admin.auth().verifyIdToken(idToken);
         const uid = decodedToken.uid;
         
+        // Find the user in either sellers or buyers collection to get the stripeCustomerId
+        let customerId: string | undefined;
         const sellerRef = db.collection('sellers').doc(uid);
         const sellerSnap = await sellerRef.get();
-
-        if (!sellerSnap.exists) {
-            functions.logger.error(`Seller document not found for UID: ${uid}`);
-            res.status(404).json({ message: "Seller not found." });
-            return;
+        
+        if (sellerSnap.exists()) {
+            customerId = sellerSnap.data()?.stripeCustomerId;
+        } else {
+            const buyerRef = db.collection('buyers').doc(uid);
+            const buyerSnap = await buyerRef.get();
+            if (buyerSnap.exists()) {
+                customerId = buyerSnap.data()?.stripeCustomerId;
+            } else {
+                functions.logger.error(`User document not found for UID: ${uid} in sellers or buyers.`);
+                res.status(404).json({ message: "User not found." });
+                return;
+            }
         }
-
-        const sellerData = sellerSnap.data();
-        const customerId = sellerData?.stripeCustomerId;
-
+        
         if (!customerId) {
-            functions.logger.error(`stripeCustomerId not found for seller UID: ${uid}`);
+            functions.logger.error(`stripeCustomerId not found for user UID: ${uid}`);
             res.status(400).json({ message: "Stripe customer ID not found." });
             return;
         }
@@ -331,3 +367,5 @@ export const cleanupUnverifiedUsers = functions.pubsub
 
     return null;
   });
+
+    

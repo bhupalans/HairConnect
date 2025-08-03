@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Mail, MapPin, CalendarDays, BarChart3, Clock, Bookmark, Building, User, Briefcase, ShoppingBag } from "lucide-react";
+import { Mail, MapPin, CalendarDays, BarChart3, Clock, Bookmark, Building, User, Briefcase, ShoppingBag, BadgeCheck } from "lucide-react";
 import { format } from "date-fns";
 import type { Buyer } from "@/lib/types";
 import { Separator } from "@/components/ui/separator";
@@ -39,7 +39,15 @@ export default async function BuyerProfilePage({ params }: { params: { id: strin
                   <div className="flex flex-col sm:flex-row items-center gap-6">
                      <Image src={buyer.avatarUrl} alt={buyer.name} width={128} height={128} className="rounded-full border-4 border-background shadow-md" data-ai-hint="professional portrait" />
                      <div className="text-center sm:text-left">
-                        <h1 className="text-3xl md:text-4xl font-headline text-primary">{buyer.companyName || buyer.name}</h1>
+                        <div className="flex items-center gap-3 justify-center sm:justify-start">
+                            <h1 className="text-3xl md:text-4xl font-headline text-primary">{buyer.companyName || buyer.name}</h1>
+                            {buyer.isVerified && (
+                               <div className="flex items-center gap-1 text-blue-600 bg-blue-100 px-3 py-1 rounded-full text-sm font-semibold">
+                                    <BadgeCheck className="h-5 w-5" />
+                                    <span>Verified</span>
+                               </div>
+                            )}
+                        </div>
                         {buyer.companyName && <p className="text-xl text-muted-foreground">{buyer.name}</p>}
                         <div className="mt-2 flex flex-wrap justify-center sm:justify-start gap-x-6 gap-y-2 text-muted-foreground">
                             <div className="flex items-center gap-2">
@@ -128,3 +136,5 @@ export default async function BuyerProfilePage({ params }: { params: { id: strin
     </div>
   );
 }
+
+    

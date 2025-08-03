@@ -23,7 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getBuyerById, getQuoteRequestsByBuyer, updateBuyerProfile, getSavedSellers } from "@/lib/data";
-import { Loader2, User, Bookmark } from "lucide-react";
+import { Loader2, User, Bookmark, ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Textarea } from "@/components/ui/textarea";
@@ -111,6 +111,7 @@ export default function BuyerDashboardPage() {
              contact: fetchedBuyer.contact,
              buyerType: fetchedBuyer.buyerType,
              yearsInBusiness: fetchedBuyer.yearsInBusiness,
+             isVerified: fetchedBuyer.isVerified,
           });
           setAvatarPreview(fetchedBuyer.avatarUrl);
           setQuoteRequests(fetchedQuotes);
@@ -207,6 +208,23 @@ export default function BuyerDashboardPage() {
           </p>
         </div>
       </header>
+
+      {!buyer.isVerified && (
+        <Card className="mb-6 bg-secondary/40 border-primary/20 border">
+            <CardContent className="p-6 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <ShieldCheck className="h-10 w-10 text-primary/80" />
+                    <div>
+                        <h3 className="font-headline text-xl text-primary">Become a Verified Buyer</h3>
+                        <p className="text-muted-foreground">Build trust with sellers and get better responses with a Verified badge.</p>
+                    </div>
+                </div>
+                <Button asChild>
+                    <Link href="/buyer/verify-payment">Get Verified Now</Link>
+                </Button>
+            </CardContent>
+        </Card>
+      )}
       
       <Tabs defaultValue="quotes">
           <TabsList className="mb-4">
@@ -418,3 +436,5 @@ export default function BuyerDashboardPage() {
     </div>
   );
 }
+
+    

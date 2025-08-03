@@ -61,6 +61,9 @@ export interface Buyer {
   quoteRequestCount?: number;
   buyerType?: 'salon' | 'distributor' | 'stylist' | 'retailer' | 'other';
   yearsInBusiness?: '0-2' | '2-5' | '5-10' | '10+';
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  stripeSubscriptionStatus?: string;
 }
 
 
@@ -99,3 +102,5 @@ export interface BuyerRegistrationData {
   localPhone?: string;
   bio: string;
 }
+
+    
