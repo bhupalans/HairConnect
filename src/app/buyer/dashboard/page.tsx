@@ -23,7 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getBuyerById, getQuoteRequestsByBuyer, updateBuyerProfile, getSavedSellers } from "@/lib/data";
-import { Loader2, User, Bookmark, ShieldCheck } from "lucide-react";
+import { Loader2, User, Bookmark, ShieldCheck, CreditCard } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Textarea } from "@/components/ui/textarea";
@@ -112,6 +112,7 @@ export default function BuyerDashboardPage() {
              buyerType: fetchedBuyer.buyerType,
              yearsInBusiness: fetchedBuyer.yearsInBusiness,
              isVerified: fetchedBuyer.isVerified,
+             stripeSubscriptionStatus: fetchedBuyer.stripeSubscriptionStatus,
           });
           setAvatarPreview(fetchedBuyer.avatarUrl);
           setQuoteRequests(fetchedQuotes);
@@ -231,6 +232,7 @@ export default function BuyerDashboardPage() {
             <TabsTrigger value="quotes">My Quote Requests</TabsTrigger>
             <TabsTrigger value="saved-vendors">Saved Vendors</TabsTrigger>
             <TabsTrigger value="profile">Profile Settings</TabsTrigger>
+            <TabsTrigger value="billing">Billing</TabsTrigger>
           </TabsList>
           <TabsContent value="quotes">
             <Card>
@@ -432,9 +434,44 @@ export default function BuyerDashboardPage() {
                 </CardContent>
             </Card>
           </TabsContent>
+           <TabsContent value="billing">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Billing & Subscription</CardTitle>
+                    <CardDescription>Manage your verified buyer subscription and view payment history.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {buyer.isVerified && buyer.stripeSubscriptionStatus ? (
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center border p-4 rounded-md">
+                                <div>
+                                    <p className="font-medium">Subscription Status</p>
+                                    <Badge variant={buyer.stripeSubscriptionStatus === 'active' ? "default" : "destructive"} className="capitalize mt-1">
+                                        {buyer.stripeSubscriptionStatus}
+                                    </Badge>
+                                </div>
+                                <Button disabled>
+                                    Manage Billing
+                                </Button>
+                            </div>
+                             <p className="text-sm text-muted-foreground text-center">
+                                You will be redirected to our secure payment partner, Stripe, to manage your subscription.
+                            </p>
+                        </div>
+                    ) : (
+                       <div className="text-center py-16">
+                            <div className="mx-auto w-fit bg-secondary p-4 rounded-full mb-4">
+                                <CreditCard className="h-12 w-12 text-primary"/>
+                            </div>
+                            <h3 className="text-2xl font-headline text-primary">No Active Subscription</h3>
+                            <p className="text-muted-foreground mt-2 mb-4 max-w-sm mx-auto">You are not currently a verified buyer. Upgrade to gain a verified badge and build more trust with sellers.</p>
+                            <Button asChild><Link href="/buyer/verify-payment">Become a Verified Buyer</Link></Button>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+          </TabsContent>
       </Tabs>
     </div>
   );
 }
-
-    
