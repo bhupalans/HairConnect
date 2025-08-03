@@ -22,7 +22,8 @@ try {
     functions.logger.error("Stripe failed to initialize on cold start:", error);
 }
 
-// --- SELLER WORKFLOW ---
+
+// --- SELLER WORKFLOW (UNCHANGED) ---
 
 const sellerCheckoutApp = express();
 sellerCheckoutApp.use(cors({ origin: true }));
@@ -196,8 +197,15 @@ buyerCheckoutApp.use(cors({ origin: true }));
 buyerCheckoutApp.post("/", async (req, res) => {
     functions.logger.log("createBuyerCheckoutSession function triggered", { body: req.body });
 
+    const stripeConfig = functions.config().stripe;
+    if (!stripeConfig || !stripeConfig.secret) {
+        functions.logger.error("FATAL: Stripe secret key is not configured.");
+        res.status(500).json({ message: "Stripe secret key is not configured." });
+        return;
+    }
+
     if (!stripe) {
-        stripe = new Stripe(functions.config().stripe.secret, { apiVersion: "2024-04-10" });
+        stripe = new Stripe(stripeConfig.secret, { apiVersion: "2024-04-10" });
     }
 
     const idToken = req.headers.authorization?.split('Bearer ')[1];
@@ -214,7 +222,6 @@ buyerCheckoutApp.post("/", async (req, res) => {
             return res.status(400).json({ message: "Missing success_url or cancel_url." });
         }
 
-        // IMPORTANT: Replace this with your actual Buyer Verification Price ID from Stripe
         const priceId = "price_1RrvUxSSXV7vnN2iBXB030CS"; 
         
         const session = await stripe.checkout.sessions.create({
@@ -234,6 +241,80 @@ buyerCheckoutApp.post("/", async (req, res) => {
     }
 });
 export const createBuyerCheckoutSession = functions.https.onRequest(buyerCheckoutApp);
+
+
+const buyerWebhookApp = express();
+buyerWebhookApp.post('/', express.raw({type: 'application/json'}), async (request: any, response) => {
+    const sig = request.headers['stripe-signature'];
+    const endpointSecret = functions.config().stripe.buyer_webhook_secret; // Use a separate secret for buyers
+    let event: Stripe.Event;
+
+    try {
+        if (!sig || !endpointSecret) {
+            functions.logger.error("Webhook Error: Missing buyer signature or secret");
+            return response.status(400).send('Webhook Error: Missing buyer signature or secret');
+        }
+        event = stripe.webhooks.constructEvent(request.rawBody, sig, endpointSecret);
+    } catch (err: any) {
+        functions.logger.error("Webhook signature verification failed for buyer.", { error: err.message });
+        return response.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    const session = event.data.object as any;
+    
+    // This webhook only handles buyers.
+    const updateBuyerSubscription = async (customerId: string, status: string) => {
+        const buyersRef = db.collection('buyers');
+        const q = buyersRef.where('stripeCustomerId', '==', customerId);
+        const querySnapshot = await q.get();
+
+        if (querySnapshot.empty) {
+            functions.logger.warn(`Webhook received subscription update for non-existent buyer customer ID: ${customerId}`);
+            return;
+        }
+
+        querySnapshot.forEach(async (doc) => {
+            try {
+                await doc.ref.update({
+                    stripeSubscriptionStatus: status,
+                    isVerified: status === 'active'
+                });
+                functions.logger.log(`Updated buyer ${doc.id} subscription status to ${status}.`);
+            } catch (error) {
+                functions.logger.error(`Failed to update buyer ${doc.id} subscription.`, { error });
+            }
+        });
+    };
+
+    switch (event.type) {
+        case 'checkout.session.completed':
+            const uid = session.client_reference_id;
+            if (!uid) { 
+                functions.logger.error("Webhook received 'checkout.session.completed' for buyer without a client_reference_id (UID).", session);
+                break; 
+            }
+            try {
+                const buyerRef = db.collection('buyers').doc(uid);
+                await buyerRef.update({ 
+                    isVerified: true,
+                    stripeCustomerId: session.customer,
+                    stripeSubscriptionId: session.subscription,
+                    stripeSubscriptionStatus: 'active'
+                });
+                functions.logger.log(`Successfully verified buyer with UID: ${uid}.`);
+            } catch (error) {
+                functions.logger.error(`Failed to verify buyer ${uid}.`, { error });
+            }
+            break;
+
+        case 'customer.subscription.updated':
+        case 'customer.subscription.deleted':
+            await updateBuyerSubscription(session.customer, session.status);
+            break;
+    }
+    response.status(200).send();
+});
+export const buyerStripeWebhook = functions.https.onRequest(buyerWebhookApp);
 
 
 const buyerPortalApp = express();
@@ -256,7 +337,7 @@ buyerPortalApp.post('/', async (req, res) => {
         
         const customerId = buyerSnap.data()?.stripeCustomerId;
         if (!customerId) {
-            return res.status(400).json({ message: "Stripe customer ID not found." });
+            return res.status(400).json({ message: "Stripe customer ID not found for this buyer." });
         }
 
         const { return_url } = req.body;
@@ -272,75 +353,13 @@ buyerPortalApp.post('/', async (req, res) => {
         res.status(200).json({ url: portalSession.url });
 
     } catch (error: any) {
-        res.status(500).json({ message: `An error occurred: ${error.message}` });
+        res.status(500).json({ message: `An error occurred creating buyer portal link: ${error.message}` });
     }
 });
 export const createBuyerStripePortalLink = functions.https.onRequest(buyerPortalApp);
 
 
-const buyerWebhookApp = express();
-buyerWebhookApp.post('/', express.raw({type: 'application/json'}), async (request: any, response) => {
-    const sig = request.headers['stripe-signature'];
-    const endpointSecret = functions.config().stripe.buyer_webhook_secret; // Use a separate secret for buyers
-    let event: Stripe.Event;
-
-    try {
-        if (!sig || !endpointSecret) {
-            return response.status(400).send('Webhook Error: Missing buyer signature or secret');
-        }
-        event = stripe.webhooks.constructEvent(request.rawBody, sig, endpointSecret);
-    } catch (err: any) {
-        return response.status(400).send(`Webhook Error: ${err.message}`);
-    }
-
-    const session = event.data.object as any;
-    
-    // This webhook only handles buyers.
-    const updateBuyerSubscription = async (customerId: string, status: string) => {
-        const buyersRef = db.collection('buyers');
-        const q = buyersRef.where('stripeCustomerId', '==', customerId);
-        const querySnapshot = await q.get();
-
-        querySnapshot.forEach(async (doc) => {
-            try {
-                await doc.ref.update({
-                    stripeSubscriptionStatus: status,
-                    isVerified: status === 'active'
-                });
-            } catch (error) {
-                functions.logger.error(`Failed to update buyer ${doc.id} subscription.`, { error });
-            }
-        });
-    };
-
-    switch (event.type) {
-        case 'checkout.session.completed':
-            const uid = session.client_reference_id;
-            if (!uid) { break; }
-            try {
-                const buyerRef = db.collection('buyers').doc(uid);
-                await buyerRef.update({ 
-                    isVerified: true,
-                    stripeCustomerId: session.customer,
-                    stripeSubscriptionId: session.subscription,
-                    stripeSubscriptionStatus: 'active'
-                });
-            } catch (error) {
-                functions.logger.error(`Failed to verify buyer ${uid}.`, { error });
-            }
-            break;
-
-        case 'customer.subscription.updated':
-        case 'customer.subscription.deleted':
-            await updateBuyerSubscription(session.customer, session.status);
-            break;
-    }
-    response.status(200).send();
-});
-export const buyerStripeWebhook = functions.https.onRequest(buyerWebhookApp);
-
-
-// --- GENERAL FUNCTIONS ---
+// --- GENERAL FUNCTIONS (UNCHANGED) ---
 
 export const cleanupUnverifiedUsers = functions.pubsub
   .schedule("every 24 hours")
