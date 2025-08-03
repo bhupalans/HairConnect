@@ -22,29 +22,31 @@ try {
     functions.logger.error("Stripe failed to initialize on cold start:", error);
 }
 
-
-// --- SELLER WORKFLOW (UNCHANGED) ---
+// --- SELLER WORKFLOW (UNCHANGED FROM ORIGINAL) ---
 
 const sellerCheckoutApp = express();
 sellerCheckoutApp.use(cors({ origin: true }));
 
 sellerCheckoutApp.post("/", async (req, res) => {
-    functions.logger.log("createCheckoutSession (Seller) function triggered", { body: req.body });
+    functions.logger.log("createCheckoutSession function triggered", { body: req.body });
 
     const stripeConfig = functions.config().stripe;
     if (!stripeConfig || !stripeConfig.secret) {
-        functions.logger.error("FATAL: Stripe secret key is not configured.");
+        functions.logger.error("FATAL: Stripe secret key is not configured in the environment.");
         res.status(500).json({ message: "Stripe secret key is not configured." });
         return;
     }
     
     if (!stripe) {
-        stripe = new Stripe(stripeConfig.secret, { apiVersion: "2024-04-10" });
+        stripe = new Stripe(stripeConfig.secret, {
+            apiVersion: "2024-04-10",
+        });
+        functions.logger.log("Stripe initialized on-demand inside function handler.");
     }
 
     const idToken = req.headers.authorization?.split('Bearer ')[1];
     if (!idToken) {
-        functions.logger.error("Auth Error: No ID token provided.");
+        functions.logger.error("Authentication Error: No ID token provided.");
         res.status(401).json({ message: "Unauthorized" });
         return;
     }
@@ -52,15 +54,21 @@ sellerCheckoutApp.post("/", async (req, res) => {
     try {
         const decodedToken = await admin.auth().verifyIdToken(idToken);
         const uid = decodedToken.uid;
+        functions.logger.log(`Authenticated user UID: ${uid}`);
+
         const { success_url, cancel_url } = req.body;
 
         if (!success_url || !cancel_url) {
-            res.status(400).json({ message: "Missing success_url or cancel_url." });
+            functions.logger.error("Invalid Argument: Missing success_url or cancel_url.", { data: req.body });
+            res.status(400).json({ message: "The function must be called with success_url and cancel_url." });
             return;
         }
+        functions.logger.log("Received URLs:", { success_url, cancel_url });
 
-        const priceId = "price_1RpQKuSSXV7vnN2iDdRKtFTC"; // Seller Price ID
+        const priceId = "price_1RpQKuSSXV7vnN2iDdRKtFTC";
+        functions.logger.log(`Using Stripe Price ID for Seller: ${priceId}`);
 
+        functions.logger.log("Attempting to create Stripe checkout session for seller...");
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ["card"],
             mode: "subscription",
@@ -71,14 +79,19 @@ sellerCheckoutApp.post("/", async (req, res) => {
         });
 
         if (!session.url) {
-            res.status(500).json({ message: "Could not create checkout session URL." });
+            functions.logger.error("Stripe session created, but no URL was returned.");
+            res.status(500).json({ message: "Could not create a checkout session URL." });
             return;
         }
 
+        functions.logger.log("Stripe session created successfully. URL:", session.url);
         res.status(200).json({ url: session.url });
 
     } catch (error: any) {
-        functions.logger.error("Function error (Seller Checkout):", error);
+        functions.logger.error("Function execution error:", error);
+        if (error.raw) {
+            functions.logger.error("Stripe Raw Error:", error.raw);
+        }
         res.status(500).json({ message: `An error occurred: ${error.message}` });
     }
 });
@@ -89,14 +102,17 @@ const sellerWebhookApp = express();
 sellerWebhookApp.post('/', express.raw({type: 'application/json'}), async (request: any, response) => {
     const sig = request.headers['stripe-signature'];
     const endpointSecret = functions.config().stripe.webhook_secret;
+    
     let event: Stripe.Event;
 
     try {
         if (!sig || !endpointSecret) {
+            functions.logger.error("Webhook Error: Missing seller signature or secret");
             return response.status(400).send('Webhook Error: Missing seller signature or secret');
         }
         event = stripe.webhooks.constructEvent(request.rawBody, sig, endpointSecret);
     } catch (err: any) {
+        functions.logger.error("Webhook signature verification failed for seller.", { error: err.message });
         return response.status(400).send(`Webhook Error: ${err.message}`);
     }
 
@@ -151,8 +167,7 @@ sellerPortalApp.use(cors({ origin: true }));
 sellerPortalApp.post('/', async (req, res) => {
     const idToken = req.headers.authorization?.split('Bearer ')[1];
     if (!idToken) {
-        res.status(401).json({ message: "Unauthorized" });
-        return;
+        return res.status(401).json({ message: "Unauthorized" });
     }
 
     try {
@@ -162,20 +177,17 @@ sellerPortalApp.post('/', async (req, res) => {
         const sellerSnap = await sellerRef.get();
         
         if (!sellerSnap.exists) {
-            res.status(404).json({ message: "Seller not found." });
-            return;
+            return res.status(404).json({ message: "Seller not found." });
         }
         
         const customerId = sellerSnap.data()?.stripeCustomerId;
         if (!customerId) {
-            res.status(400).json({ message: "Stripe customer ID not found." });
-            return;
+            return res.status(400).json({ message: "Stripe customer ID not found." });
         }
 
         const { return_url } = req.body;
         if (!return_url) {
-            res.status(400).json({ message: "Missing return_url." });
-            return;
+            return res.status(400).json({ message: "Missing return_url." });
         }
 
         const portalSession = await stripe.billingPortal.sessions.create({
@@ -183,10 +195,10 @@ sellerPortalApp.post('/', async (req, res) => {
             return_url: return_url,
         });
 
-        res.status(200).json({ url: portalSession.url });
+        return res.status(200).json({ url: portalSession.url });
 
     } catch (error: any) {
-        res.status(500).json({ message: `An error occurred: ${error.message}` });
+        return res.status(500).json({ message: `An error occurred: ${error.message}` });
     }
 });
 export const createStripePortalLink = functions.https.onRequest(sellerPortalApp);
@@ -203,8 +215,7 @@ buyerCheckoutApp.post("/", async (req, res) => {
     const stripeConfig = functions.config().stripe;
     if (!stripeConfig || !stripeConfig.secret) {
         functions.logger.error("FATAL: Stripe secret key is not configured.");
-        res.status(500).json({ message: "Stripe secret key is not configured." });
-        return;
+        return res.status(500).json({ message: "Stripe secret key is not configured." });
     }
 
     if (!stripe) {
@@ -213,8 +224,7 @@ buyerCheckoutApp.post("/", async (req, res) => {
 
     const idToken = req.headers.authorization?.split('Bearer ')[1];
     if (!idToken) {
-        res.status(401).json({ message: "Unauthorized" });
-        return;
+        return res.status(401).json({ message: "Unauthorized" });
     }
 
     try {
@@ -223,11 +233,10 @@ buyerCheckoutApp.post("/", async (req, res) => {
         const { success_url, cancel_url } = req.body;
         
         if (!success_url || !cancel_url) {
-            res.status(400).json({ message: "Missing success_url or cancel_url." });
-            return;
+            return res.status(400).json({ message: "Missing success_url or cancel_url." });
         }
 
-        const priceId = "price_BUYER_VERIFICATION_PLACEHOLDER"; 
+        const priceId = "price_BUYER_VERIFICATION_PLACEHOLDER";
         
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ["card"],
@@ -238,11 +247,11 @@ buyerCheckoutApp.post("/", async (req, res) => {
             cancel_url: cancel_url,
         });
 
-        res.status(200).json({ url: session.url });
+        return res.status(200).json({ url: session.url });
 
     } catch (error: any) {
         functions.logger.error("Function error (Buyer Checkout):", error);
-        res.status(500).json({ message: `An error occurred: ${error.message}` });
+        return res.status(500).json({ message: `An error occurred: ${error.message}` });
     }
 });
 export const createBuyerCheckoutSession = functions.https.onRequest(buyerCheckoutApp);
@@ -251,7 +260,6 @@ export const createBuyerCheckoutSession = functions.https.onRequest(buyerCheckou
 const buyerWebhookApp = express();
 buyerWebhookApp.post('/', express.raw({type: 'application/json'}), async (request: any, response) => {
     const sig = request.headers['stripe-signature'];
-    // IMPORTANT: Use a separate webhook secret for buyers
     const endpointSecret = functions.config().stripe.buyer_webhook_secret;
     let event: Stripe.Event;
 
@@ -268,7 +276,6 @@ buyerWebhookApp.post('/', express.raw({type: 'application/json'}), async (reques
 
     const session = event.data.object as any;
     
-    // This webhook only handles buyers.
     const updateBuyerSubscription = async (customerId: string, status: string) => {
         const buyersRef = db.collection('buyers');
         const q = buyersRef.where('stripeCustomerId', '==', customerId);
@@ -328,8 +335,7 @@ buyerPortalApp.use(cors({ origin: true }));
 buyerPortalApp.post('/', async (req, res) => {
     const idToken = req.headers.authorization?.split('Bearer ')[1];
     if (!idToken) {
-        res.status(401).json({ message: "Unauthorized" });
-        return;
+        return res.status(401).json({ message: "Unauthorized" });
     }
 
     try {
@@ -339,20 +345,17 @@ buyerPortalApp.post('/', async (req, res) => {
         const buyerSnap = await buyerRef.get();
         
         if (!buyerSnap.exists) {
-            res.status(404).json({ message: "Buyer not found." });
-            return;
+            return res.status(404).json({ message: "Buyer not found." });
         }
         
         const customerId = buyerSnap.data()?.stripeCustomerId;
         if (!customerId) {
-            res.status(400).json({ message: "Stripe customer ID not found for this buyer." });
-            return;
+            return res.status(400).json({ message: "Stripe customer ID not found for this buyer." });
         }
 
         const { return_url } = req.body;
         if (!return_url) {
-            res.status(400).json({ message: "Missing return_url." });
-            return;
+            return res.status(400).json({ message: "Missing return_url." });
         }
 
         const portalSession = await stripe.billingPortal.sessions.create({
@@ -360,10 +363,10 @@ buyerPortalApp.post('/', async (req, res) => {
             return_url: return_url,
         });
 
-        res.status(200).json({ url: portalSession.url });
+        return res.status(200).json({ url: portalSession.url });
 
     } catch (error: any) {
-        res.status(500).json({ message: `An error occurred creating buyer portal link: ${error.message}` });
+        return res.status(500).json({ message: `An error occurred creating buyer portal link: ${error.message}` });
     }
 });
 export const createBuyerStripePortalLink = functions.https.onRequest(buyerPortalApp);
@@ -424,3 +427,5 @@ export const cleanupUnverifiedUsers = functions.pubsub
     }
     return null;
   });
+
+    

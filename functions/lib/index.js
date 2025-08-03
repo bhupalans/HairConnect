@@ -87,7 +87,6 @@ sellerWebhookApp.post('/', express.raw({ type: 'application/json' }), async (req
         return response.status(400).send(`Webhook Error: ${err.message}`);
     }
     const session = event.data.object;
-    // This webhook only handles sellers.
     const updateUserSubscription = async (customerId, status) => {
         const sellersRef = db.collection('sellers');
         const q = sellersRef.where('stripeCustomerId', '==', customerId);
@@ -218,7 +217,8 @@ exports.createBuyerCheckoutSession = functions.https.onRequest(buyerCheckoutApp)
 const buyerWebhookApp = express();
 buyerWebhookApp.post('/', express.raw({ type: 'application/json' }), async (request, response) => {
     const sig = request.headers['stripe-signature'];
-    const endpointSecret = functions.config().stripe.buyer_webhook_secret; // Use a separate secret for buyers
+    // IMPORTANT: Use a separate webhook secret for buyers
+    const endpointSecret = functions.config().stripe.buyer_webhook_secret;
     let event;
     try {
         if (!sig || !endpointSecret) {
