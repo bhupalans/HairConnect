@@ -22,6 +22,7 @@ try {
     functions.logger.error("Stripe failed to initialize on cold start:", error);
 }
 
+
 // --- SELLER WORKFLOW (UNCHANGED) ---
 
 const sellerCheckoutApp = express();
@@ -101,7 +102,6 @@ sellerWebhookApp.post('/', express.raw({type: 'application/json'}), async (reque
 
     const session = event.data.object as any;
 
-    // This webhook only handles sellers.
     const updateUserSubscription = async (customerId: string, status: string) => {
         const sellersRef = db.collection('sellers');
         const q = sellersRef.where('stripeCustomerId', '==', customerId);
@@ -227,7 +227,7 @@ buyerCheckoutApp.post("/", async (req, res) => {
             return;
         }
 
-        const priceId = "price_1RrvUxSSXV7vnN2iBXB030CS"; 
+        const priceId = "price_BUYER_VERIFICATION_PLACEHOLDER"; 
         
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ["card"],
@@ -251,7 +251,8 @@ export const createBuyerCheckoutSession = functions.https.onRequest(buyerCheckou
 const buyerWebhookApp = express();
 buyerWebhookApp.post('/', express.raw({type: 'application/json'}), async (request: any, response) => {
     const sig = request.headers['stripe-signature'];
-    const endpointSecret = functions.config().stripe.buyer_webhook_secret; // Use a separate secret for buyers
+    // IMPORTANT: Use a separate webhook secret for buyers
+    const endpointSecret = functions.config().stripe.buyer_webhook_secret;
     let event: Stripe.Event;
 
     try {
