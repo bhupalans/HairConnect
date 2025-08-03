@@ -22,7 +22,6 @@ try {
     functions.logger.error("Stripe failed to initialize on cold start:", error);
 }
 
-
 // --- SELLER WORKFLOW (UNCHANGED) ---
 
 const sellerCheckoutApp = express();

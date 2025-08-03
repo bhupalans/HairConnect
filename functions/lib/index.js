@@ -137,23 +137,27 @@ sellerPortalApp.post('/', async (req, res) => {
     var _a, _b;
     const idToken = (_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.split('Bearer ')[1];
     if (!idToken) {
-        return res.status(401).json({ message: "Unauthorized" });
+        res.status(401).json({ message: "Unauthorized" });
+        return;
     }
     try {
         const decodedToken = await admin.auth().verifyIdToken(idToken);
         const uid = decodedToken.uid;
         const sellerRef = db.collection('sellers').doc(uid);
         const sellerSnap = await sellerRef.get();
-        if (!sellerSnap.exists()) {
-            return res.status(404).json({ message: "Seller not found." });
+        if (!sellerSnap.exists) {
+            res.status(404).json({ message: "Seller not found." });
+            return;
         }
         const customerId = (_b = sellerSnap.data()) === null || _b === void 0 ? void 0 : _b.stripeCustomerId;
         if (!customerId) {
-            return res.status(400).json({ message: "Stripe customer ID not found." });
+            res.status(400).json({ message: "Stripe customer ID not found." });
+            return;
         }
         const { return_url } = req.body;
         if (!return_url) {
-            return res.status(400).json({ message: "Missing return_url." });
+            res.status(400).json({ message: "Missing return_url." });
+            return;
         }
         const portalSession = await stripe.billingPortal.sessions.create({
             customer: customerId,
@@ -183,14 +187,16 @@ buyerCheckoutApp.post("/", async (req, res) => {
     }
     const idToken = (_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.split('Bearer ')[1];
     if (!idToken) {
-        return res.status(401).json({ message: "Unauthorized" });
+        res.status(401).json({ message: "Unauthorized" });
+        return;
     }
     try {
         const decodedToken = await admin.auth().verifyIdToken(idToken);
         const uid = decodedToken.uid;
         const { success_url, cancel_url } = req.body;
         if (!success_url || !cancel_url) {
-            return res.status(400).json({ message: "Missing success_url or cancel_url." });
+            res.status(400).json({ message: "Missing success_url or cancel_url." });
+            return;
         }
         const priceId = "price_1RrvUxSSXV7vnN2iBXB030CS";
         const session = await stripe.checkout.sessions.create({
@@ -283,23 +289,27 @@ buyerPortalApp.post('/', async (req, res) => {
     var _a, _b;
     const idToken = (_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.split('Bearer ')[1];
     if (!idToken) {
-        return res.status(401).json({ message: "Unauthorized" });
+        res.status(401).json({ message: "Unauthorized" });
+        return;
     }
     try {
         const decodedToken = await admin.auth().verifyIdToken(idToken);
         const uid = decodedToken.uid;
         const buyerRef = db.collection('buyers').doc(uid);
         const buyerSnap = await buyerRef.get();
-        if (!buyerSnap.exists()) {
-            return res.status(404).json({ message: "Buyer not found." });
+        if (!buyerSnap.exists) {
+            res.status(404).json({ message: "Buyer not found." });
+            return;
         }
         const customerId = (_b = buyerSnap.data()) === null || _b === void 0 ? void 0 : _b.stripeCustomerId;
         if (!customerId) {
-            return res.status(400).json({ message: "Stripe customer ID not found for this buyer." });
+            res.status(400).json({ message: "Stripe customer ID not found for this buyer." });
+            return;
         }
         const { return_url } = req.body;
         if (!return_url) {
-            return res.status(400).json({ message: "Missing return_url." });
+            res.status(400).json({ message: "Missing return_url." });
+            return;
         }
         const portalSession = await stripe.billingPortal.sessions.create({
             customer: customerId,
