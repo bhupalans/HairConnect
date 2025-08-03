@@ -152,7 +152,8 @@ sellerPortalApp.use(cors({ origin: true }));
 sellerPortalApp.post('/', async (req, res) => {
     const idToken = req.headers.authorization?.split('Bearer ')[1];
     if (!idToken) {
-        return res.status(401).json({ message: "Unauthorized" });
+        res.status(401).json({ message: "Unauthorized" });
+        return;
     }
 
     try {
@@ -161,18 +162,21 @@ sellerPortalApp.post('/', async (req, res) => {
         const sellerRef = db.collection('sellers').doc(uid);
         const sellerSnap = await sellerRef.get();
         
-        if (!sellerSnap.exists()) {
-            return res.status(404).json({ message: "Seller not found." });
+        if (!sellerSnap.exists) {
+            res.status(404).json({ message: "Seller not found." });
+            return;
         }
         
         const customerId = sellerSnap.data()?.stripeCustomerId;
         if (!customerId) {
-            return res.status(400).json({ message: "Stripe customer ID not found." });
+            res.status(400).json({ message: "Stripe customer ID not found." });
+            return;
         }
 
         const { return_url } = req.body;
         if (!return_url) {
-            return res.status(400).json({ message: "Missing return_url." });
+            res.status(400).json({ message: "Missing return_url." });
+            return;
         }
 
         const portalSession = await stripe.billingPortal.sessions.create({
@@ -210,7 +214,8 @@ buyerCheckoutApp.post("/", async (req, res) => {
 
     const idToken = req.headers.authorization?.split('Bearer ')[1];
     if (!idToken) {
-        return res.status(401).json({ message: "Unauthorized" });
+        res.status(401).json({ message: "Unauthorized" });
+        return;
     }
 
     try {
@@ -219,7 +224,8 @@ buyerCheckoutApp.post("/", async (req, res) => {
         const { success_url, cancel_url } = req.body;
         
         if (!success_url || !cancel_url) {
-            return res.status(400).json({ message: "Missing success_url or cancel_url." });
+            res.status(400).json({ message: "Missing success_url or cancel_url." });
+            return;
         }
 
         const priceId = "price_1RrvUxSSXV7vnN2iBXB030CS"; 
@@ -322,7 +328,8 @@ buyerPortalApp.use(cors({ origin: true }));
 buyerPortalApp.post('/', async (req, res) => {
     const idToken = req.headers.authorization?.split('Bearer ')[1];
     if (!idToken) {
-        return res.status(401).json({ message: "Unauthorized" });
+        res.status(401).json({ message: "Unauthorized" });
+        return;
     }
 
     try {
@@ -331,18 +338,21 @@ buyerPortalApp.post('/', async (req, res) => {
         const buyerRef = db.collection('buyers').doc(uid);
         const buyerSnap = await buyerRef.get();
         
-        if (!buyerSnap.exists()) {
-            return res.status(404).json({ message: "Buyer not found." });
+        if (!buyerSnap.exists) {
+            res.status(404).json({ message: "Buyer not found." });
+            return;
         }
         
         const customerId = buyerSnap.data()?.stripeCustomerId;
         if (!customerId) {
-            return res.status(400).json({ message: "Stripe customer ID not found for this buyer." });
+            res.status(400).json({ message: "Stripe customer ID not found for this buyer." });
+            return;
         }
 
         const { return_url } = req.body;
         if (!return_url) {
-            return res.status(400).json({ message: "Missing return_url." });
+            res.status(400).json({ message: "Missing return_url." });
+            return;
         }
 
         const portalSession = await stripe.billingPortal.sessions.create({
