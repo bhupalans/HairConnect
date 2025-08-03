@@ -46,7 +46,7 @@ function PaymentStatusContent() {
         </p>
         <div>
           <Button asChild>
-            <Link href="/vendor/dashboard">Go to My Dashboard</Link>
+            <Link href="/login">Go to My Dashboard</Link>
           </Button>
         </div>
       </CardContent>

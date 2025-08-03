@@ -251,7 +251,7 @@ buyerCheckoutApp.post("/", async (req, res) => {
             return;
         }
 
-        const priceId = "price_BUYER_VERIFICATION_PLACEHOLDER";
+        const priceId = "price_1RrvUxSSXV7vnN2iBXB030CS";
         
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ["card"],

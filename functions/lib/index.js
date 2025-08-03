@@ -85,6 +85,42 @@ sellerCheckoutApp.post("/", async (req, res) => {
     }
 });
 exports.createCheckoutSession = functions.https.onRequest(sellerCheckoutApp);
+/**
+ * Handles the logic for processing a seller-related Stripe event.
+ * @param {Stripe.Event} event The Stripe event object.
+ */
+async function handleSellerEvent(event) {
+    const session = event.data.object;
+    const updateUserSubscription = async (customerId, status) => {
+        const sellersRef = db.collection('sellers');
+        const q = sellersRef.where('stripeCustomerId', '==', customerId);
+        const querySnapshot = await q.get();
+        querySnapshot.forEach(async (doc) => {
+            await doc.ref.update({
+                stripeSubscriptionStatus: status,
+                isVerified: status === 'active'
+            });
+        });
+    };
+    switch (event.type) {
+        case 'checkout.session.completed':
+            const uid = session.client_reference_id;
+            if (uid) {
+                const sellerRef = db.collection('sellers').doc(uid);
+                await sellerRef.update({
+                    isVerified: true,
+                    stripeCustomerId: session.customer,
+                    stripeSubscriptionId: session.subscription,
+                    stripeSubscriptionStatus: 'active'
+                });
+            }
+            break;
+        case 'customer.subscription.updated':
+        case 'customer.subscription.deleted':
+            await updateUserSubscription(session.customer, session.status);
+            break;
+    }
+}
 const sellerWebhookApp = express();
 sellerWebhookApp.post('/', express.raw({ type: 'application/json' }), async (request, response) => {
     const sig = request.headers['stripe-signature'];
@@ -93,49 +129,25 @@ sellerWebhookApp.post('/', express.raw({ type: 'application/json' }), async (req
     try {
         if (!sig || !endpointSecret) {
             functions.logger.error("Webhook Error: Missing seller signature or secret");
-            return response.status(400).send('Webhook Error: Missing seller signature or secret');
+            response.status(400).send('Webhook Error: Missing seller signature or secret');
+            return;
         }
         event = stripe.webhooks.constructEvent(request.rawBody, sig, endpointSecret);
     }
     catch (err) {
         functions.logger.error("Webhook signature verification failed for seller.", { error: err.message });
-        return response.status(400).send(`Webhook Error: ${err.message}`);
+        response.status(400).send(`Webhook Error: ${err.message}`);
+        return;
     }
     try {
-        const session = event.data.object;
-        const updateUserSubscription = async (customerId, status) => {
-            const sellersRef = db.collection('sellers');
-            const q = sellersRef.where('stripeCustomerId', '==', customerId);
-            const querySnapshot = await q.get();
-            querySnapshot.forEach(async (doc) => {
-                await doc.ref.update({
-                    stripeSubscriptionStatus: status,
-                    isVerified: status === 'active'
-                });
-            });
-        };
-        switch (event.type) {
-            case 'checkout.session.completed':
-                const uid = session.client_reference_id;
-                if (uid) {
-                    const sellerRef = db.collection('sellers').doc(uid);
-                    await sellerRef.update({
-                        isVerified: true,
-                        stripeCustomerId: session.customer,
-                        stripeSubscriptionId: session.subscription,
-                        stripeSubscriptionStatus: 'active'
-                    });
-                }
-                break;
-            case 'customer.subscription.updated':
-            case 'customer.subscription.deleted':
-                await updateUserSubscription(session.customer, session.status);
-                break;
-        }
+        await handleSellerEvent(event);
     }
     catch (error) {
         functions.logger.error("Error processing seller webhook event:", error);
-        // Still send a 200 to Stripe to prevent retries for this logic error
+        // We don't re-throw, but we also don't want to send a 200 to Stripe
+        // for our own internal logic errors. Stripe will retry.
+        response.status(500).send('Internal server error processing webhook');
+        return;
     }
     response.status(200).send();
 });
@@ -146,7 +158,8 @@ sellerPortalApp.post('/', async (req, res) => {
     var _a, _b;
     const idToken = (_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.split('Bearer ')[1];
     if (!idToken) {
-        return res.status(401).json({ message: "Unauthorized" });
+        res.status(401).json({ message: "Unauthorized" });
+        return;
     }
     try {
         const decodedToken = await admin.auth().verifyIdToken(idToken);
@@ -154,24 +167,27 @@ sellerPortalApp.post('/', async (req, res) => {
         const sellerRef = db.collection('sellers').doc(uid);
         const sellerSnap = await sellerRef.get();
         if (!sellerSnap.exists) {
-            return res.status(404).json({ message: "Seller not found." });
+            res.status(404).json({ message: "Seller not found." });
+            return;
         }
         const customerId = (_b = sellerSnap.data()) === null || _b === void 0 ? void 0 : _b.stripeCustomerId;
         if (!customerId) {
-            return res.status(400).json({ message: "Stripe customer ID not found." });
+            res.status(400).json({ message: "Stripe customer ID not found." });
+            return;
         }
         const { return_url } = req.body;
         if (!return_url) {
-            return res.status(400).json({ message: "Missing return_url." });
+            res.status(400).json({ message: "Missing return_url." });
+            return;
         }
         const portalSession = await stripe.billingPortal.sessions.create({
             customer: customerId,
             return_url: return_url,
         });
-        return res.status(200).json({ url: portalSession.url });
+        res.status(200).json({ url: portalSession.url });
     }
     catch (error) {
-        return res.status(500).json({ message: `An error occurred: ${error.message}` });
+        res.status(500).json({ message: `An error occurred: ${error.message}` });
     }
 });
 exports.createStripePortalLink = functions.https.onRequest(sellerPortalApp);
@@ -184,23 +200,26 @@ buyerCheckoutApp.post("/", async (req, res) => {
     const stripeConfig = functions.config().stripe;
     if (!stripeConfig || !stripeConfig.secret) {
         functions.logger.error("FATAL: Stripe secret key is not configured.");
-        return res.status(500).json({ message: "Stripe secret key is not configured." });
+        res.status(500).json({ message: "Stripe secret key is not configured." });
+        return;
     }
     if (!stripe) {
         stripe = new stripe_1.default(stripeConfig.secret, { apiVersion: "2024-04-10" });
     }
     const idToken = (_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.split('Bearer ')[1];
     if (!idToken) {
-        return res.status(401).json({ message: "Unauthorized" });
+        res.status(401).json({ message: "Unauthorized" });
+        return;
     }
     try {
         const decodedToken = await admin.auth().verifyIdToken(idToken);
         const uid = decodedToken.uid;
         const { success_url, cancel_url } = req.body;
         if (!success_url || !cancel_url) {
-            return res.status(400).json({ message: "Missing success_url or cancel_url." });
+            res.status(400).json({ message: "Missing success_url or cancel_url." });
+            return;
         }
-        const priceId = "price_BUYER_VERIFICATION_PLACEHOLDER";
+        const priceId = "price_1RrvUxSSXV7vnN2iBXB030CS";
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ["card"],
             mode: "subscription",
@@ -209,14 +228,59 @@ buyerCheckoutApp.post("/", async (req, res) => {
             success_url: success_url,
             cancel_url: cancel_url,
         });
-        return res.status(200).json({ url: session.url });
+        res.status(200).json({ url: session.url });
     }
     catch (error) {
         functions.logger.error("Function error (Buyer Checkout):", error);
-        return res.status(500).json({ message: `An error occurred: ${error.message}` });
+        res.status(500).json({ message: `An error occurred: ${error.message}` });
     }
 });
 exports.createBuyerCheckoutSession = functions.https.onRequest(buyerCheckoutApp);
+/**
+ * Handles the logic for processing a buyer-related Stripe event.
+ * @param {Stripe.Event} event The Stripe event object.
+ */
+async function handleBuyerEvent(event) {
+    const session = event.data.object;
+    const updateBuyerSubscription = async (customerId, status) => {
+        const buyersRef = db.collection('buyers');
+        const q = buyersRef.where('stripeCustomerId', '==', customerId);
+        const querySnapshot = await q.get();
+        if (querySnapshot.empty) {
+            functions.logger.warn(`Webhook received subscription update for non-existent buyer customer ID: ${customerId}`);
+            return;
+        }
+        querySnapshot.forEach(async (doc) => {
+            await doc.ref.update({
+                stripeSubscriptionStatus: status,
+                isVerified: status === 'active'
+            });
+            functions.logger.log(`Updated buyer ${doc.id} subscription status to ${status}.`);
+        });
+    };
+    switch (event.type) {
+        case 'checkout.session.completed':
+            const uid = session.client_reference_id;
+            if (uid) {
+                const buyerRef = db.collection('buyers').doc(uid);
+                await buyerRef.update({
+                    isVerified: true,
+                    stripeCustomerId: session.customer,
+                    stripeSubscriptionId: session.subscription,
+                    stripeSubscriptionStatus: 'active'
+                });
+                functions.logger.log(`Successfully verified buyer with UID: ${uid}.`);
+            }
+            else {
+                functions.logger.error("Webhook received 'checkout.session.completed' for buyer without a client_reference_id (UID).", session);
+            }
+            break;
+        case 'customer.subscription.updated':
+        case 'customer.subscription.deleted':
+            await updateBuyerSubscription(session.customer, session.status);
+            break;
+    }
+}
 const buyerWebhookApp = express();
 buyerWebhookApp.post('/', express.raw({ type: 'application/json' }), async (request, response) => {
     const sig = request.headers['stripe-signature'];
@@ -225,57 +289,23 @@ buyerWebhookApp.post('/', express.raw({ type: 'application/json' }), async (requ
     try {
         if (!sig || !endpointSecret) {
             functions.logger.error("Webhook Error: Missing buyer signature or secret");
-            return response.status(400).send('Webhook Error: Missing buyer signature or secret');
+            response.status(400).send('Webhook Error: Missing buyer signature or secret');
+            return;
         }
         event = stripe.webhooks.constructEvent(request.rawBody, sig, endpointSecret);
     }
     catch (err) {
         functions.logger.error("Webhook signature verification failed for buyer.", { error: err.message });
-        return response.status(400).send(`Webhook Error: ${err.message}`);
+        response.status(400).send(`Webhook Error: ${err.message}`);
+        return;
     }
     try {
-        const session = event.data.object;
-        const updateBuyerSubscription = async (customerId, status) => {
-            const buyersRef = db.collection('buyers');
-            const q = buyersRef.where('stripeCustomerId', '==', customerId);
-            const querySnapshot = await q.get();
-            if (querySnapshot.empty) {
-                functions.logger.warn(`Webhook received subscription update for non-existent buyer customer ID: ${customerId}`);
-                return;
-            }
-            querySnapshot.forEach(async (doc) => {
-                await doc.ref.update({
-                    stripeSubscriptionStatus: status,
-                    isVerified: status === 'active'
-                });
-                functions.logger.log(`Updated buyer ${doc.id} subscription status to ${status}.`);
-            });
-        };
-        switch (event.type) {
-            case 'checkout.session.completed':
-                const uid = session.client_reference_id;
-                if (uid) {
-                    const buyerRef = db.collection('buyers').doc(uid);
-                    await buyerRef.update({
-                        isVerified: true,
-                        stripeCustomerId: session.customer,
-                        stripeSubscriptionId: session.subscription,
-                        stripeSubscriptionStatus: 'active'
-                    });
-                    functions.logger.log(`Successfully verified buyer with UID: ${uid}.`);
-                }
-                else {
-                    functions.logger.error("Webhook received 'checkout.session.completed' for buyer without a client_reference_id (UID).", session);
-                }
-                break;
-            case 'customer.subscription.updated':
-            case 'customer.subscription.deleted':
-                await updateBuyerSubscription(session.customer, session.status);
-                break;
-        }
+        await handleBuyerEvent(event);
     }
     catch (error) {
         functions.logger.error("Error processing buyer webhook event:", error);
+        response.status(500).send('Internal server error processing webhook');
+        return;
     }
     response.status(200).send();
 });
@@ -286,7 +316,8 @@ buyerPortalApp.post('/', async (req, res) => {
     var _a, _b;
     const idToken = (_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.split('Bearer ')[1];
     if (!idToken) {
-        return res.status(401).json({ message: "Unauthorized" });
+        res.status(401).json({ message: "Unauthorized" });
+        return;
     }
     try {
         const decodedToken = await admin.auth().verifyIdToken(idToken);
@@ -294,24 +325,27 @@ buyerPortalApp.post('/', async (req, res) => {
         const buyerRef = db.collection('buyers').doc(uid);
         const buyerSnap = await buyerRef.get();
         if (!buyerSnap.exists) {
-            return res.status(404).json({ message: "Buyer not found." });
+            res.status(404).json({ message: "Buyer not found." });
+            return;
         }
         const customerId = (_b = buyerSnap.data()) === null || _b === void 0 ? void 0 : _b.stripeCustomerId;
         if (!customerId) {
-            return res.status(400).json({ message: "Stripe customer ID not found for this buyer." });
+            res.status(400).json({ message: "Stripe customer ID not found for this buyer." });
+            return;
         }
         const { return_url } = req.body;
         if (!return_url) {
-            return res.status(400).json({ message: "Missing return_url." });
+            res.status(400).json({ message: "Missing return_url." });
+            return;
         }
         const portalSession = await stripe.billingPortal.sessions.create({
             customer: customerId,
             return_url: return_url,
         });
-        return res.status(200).json({ url: portalSession.url });
+        res.status(200).json({ url: portalSession.url });
     }
     catch (error) {
-        return res.status(500).json({ message: `An error occurred creating buyer portal link: ${error.message}` });
+        res.status(500).json({ message: `An error occurred creating buyer portal link: ${error.message}` });
     }
 });
 exports.createBuyerStripePortalLink = functions.https.onRequest(buyerPortalApp);
