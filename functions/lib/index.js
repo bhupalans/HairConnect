@@ -101,46 +101,41 @@ sellerWebhookApp.post('/', express.raw({ type: 'application/json' }), async (req
         functions.logger.error("Webhook signature verification failed for seller.", { error: err.message });
         return response.status(400).send(`Webhook Error: ${err.message}`);
     }
-    const session = event.data.object;
-    const updateUserSubscription = async (customerId, status) => {
-        const sellersRef = db.collection('sellers');
-        const q = sellersRef.where('stripeCustomerId', '==', customerId);
-        const querySnapshot = await q.get();
-        querySnapshot.forEach(async (doc) => {
-            try {
+    try {
+        const session = event.data.object;
+        const updateUserSubscription = async (customerId, status) => {
+            const sellersRef = db.collection('sellers');
+            const q = sellersRef.where('stripeCustomerId', '==', customerId);
+            const querySnapshot = await q.get();
+            querySnapshot.forEach(async (doc) => {
                 await doc.ref.update({
                     stripeSubscriptionStatus: status,
                     isVerified: status === 'active'
                 });
-            }
-            catch (error) {
-                functions.logger.error(`Failed to update seller ${doc.id} subscription.`, { error });
-            }
-        });
-    };
-    switch (event.type) {
-        case 'checkout.session.completed':
-            const uid = session.client_reference_id;
-            if (!uid) {
+            });
+        };
+        switch (event.type) {
+            case 'checkout.session.completed':
+                const uid = session.client_reference_id;
+                if (uid) {
+                    const sellerRef = db.collection('sellers').doc(uid);
+                    await sellerRef.update({
+                        isVerified: true,
+                        stripeCustomerId: session.customer,
+                        stripeSubscriptionId: session.subscription,
+                        stripeSubscriptionStatus: 'active'
+                    });
+                }
                 break;
-            }
-            try {
-                const sellerRef = db.collection('sellers').doc(uid);
-                await sellerRef.update({
-                    isVerified: true,
-                    stripeCustomerId: session.customer,
-                    stripeSubscriptionId: session.subscription,
-                    stripeSubscriptionStatus: 'active'
-                });
-            }
-            catch (error) {
-                functions.logger.error(`Failed to verify seller ${uid}.`, { error });
-            }
-            break;
-        case 'customer.subscription.updated':
-        case 'customer.subscription.deleted':
-            await updateUserSubscription(session.customer, session.status);
-            break;
+            case 'customer.subscription.updated':
+            case 'customer.subscription.deleted':
+                await updateUserSubscription(session.customer, session.status);
+                break;
+        }
+    }
+    catch (error) {
+        functions.logger.error("Error processing seller webhook event:", error);
+        // Still send a 200 to Stripe to prevent retries for this logic error
     }
     response.status(200).send();
 });
@@ -238,53 +233,49 @@ buyerWebhookApp.post('/', express.raw({ type: 'application/json' }), async (requ
         functions.logger.error("Webhook signature verification failed for buyer.", { error: err.message });
         return response.status(400).send(`Webhook Error: ${err.message}`);
     }
-    const session = event.data.object;
-    const updateBuyerSubscription = async (customerId, status) => {
-        const buyersRef = db.collection('buyers');
-        const q = buyersRef.where('stripeCustomerId', '==', customerId);
-        const querySnapshot = await q.get();
-        if (querySnapshot.empty) {
-            functions.logger.warn(`Webhook received subscription update for non-existent buyer customer ID: ${customerId}`);
-            return;
-        }
-        querySnapshot.forEach(async (doc) => {
-            try {
+    try {
+        const session = event.data.object;
+        const updateBuyerSubscription = async (customerId, status) => {
+            const buyersRef = db.collection('buyers');
+            const q = buyersRef.where('stripeCustomerId', '==', customerId);
+            const querySnapshot = await q.get();
+            if (querySnapshot.empty) {
+                functions.logger.warn(`Webhook received subscription update for non-existent buyer customer ID: ${customerId}`);
+                return;
+            }
+            querySnapshot.forEach(async (doc) => {
                 await doc.ref.update({
                     stripeSubscriptionStatus: status,
                     isVerified: status === 'active'
                 });
                 functions.logger.log(`Updated buyer ${doc.id} subscription status to ${status}.`);
-            }
-            catch (error) {
-                functions.logger.error(`Failed to update buyer ${doc.id} subscription.`, { error });
-            }
-        });
-    };
-    switch (event.type) {
-        case 'checkout.session.completed':
-            const uid = session.client_reference_id;
-            if (!uid) {
-                functions.logger.error("Webhook received 'checkout.session.completed' for buyer without a client_reference_id (UID).", session);
+            });
+        };
+        switch (event.type) {
+            case 'checkout.session.completed':
+                const uid = session.client_reference_id;
+                if (uid) {
+                    const buyerRef = db.collection('buyers').doc(uid);
+                    await buyerRef.update({
+                        isVerified: true,
+                        stripeCustomerId: session.customer,
+                        stripeSubscriptionId: session.subscription,
+                        stripeSubscriptionStatus: 'active'
+                    });
+                    functions.logger.log(`Successfully verified buyer with UID: ${uid}.`);
+                }
+                else {
+                    functions.logger.error("Webhook received 'checkout.session.completed' for buyer without a client_reference_id (UID).", session);
+                }
                 break;
-            }
-            try {
-                const buyerRef = db.collection('buyers').doc(uid);
-                await buyerRef.update({
-                    isVerified: true,
-                    stripeCustomerId: session.customer,
-                    stripeSubscriptionId: session.subscription,
-                    stripeSubscriptionStatus: 'active'
-                });
-                functions.logger.log(`Successfully verified buyer with UID: ${uid}.`);
-            }
-            catch (error) {
-                functions.logger.error(`Failed to verify buyer ${uid}.`, { error });
-            }
-            break;
-        case 'customer.subscription.updated':
-        case 'customer.subscription.deleted':
-            await updateBuyerSubscription(session.customer, session.status);
-            break;
+            case 'customer.subscription.updated':
+            case 'customer.subscription.deleted':
+                await updateBuyerSubscription(session.customer, session.status);
+                break;
+        }
+    }
+    catch (error) {
+        functions.logger.error("Error processing buyer webhook event:", error);
     }
     response.status(200).send();
 });
