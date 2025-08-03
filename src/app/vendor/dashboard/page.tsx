@@ -48,7 +48,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getProductsBySeller, getSellerById, updateProduct, deleteProduct, addProduct, updateSellerProfile, getQuoteRequestsBySeller, markQuoteAsViewed } from "@/lib/data";
-import { MoreHorizontal, PlusCircle, Loader2, Mail, X, ShoppingBag, Terminal, CheckCircle, PackageOpen, Inbox, ShieldAlert, CreditCard } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Loader2, Mail, X, ShoppingBag, Terminal, CheckCircle, PackageOpen, Inbox, ShieldCheck, CreditCard } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Textarea } from "@/components/ui/textarea";
@@ -675,17 +675,17 @@ export default function VendorDashboardPage() {
       </header>
         
       {!seller.isVerified && (
-        <Card className="mb-6 bg-secondary/40">
+        <Card className="mb-6 bg-secondary/40 border-primary/20 border">
             <CardContent className="p-6 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <ShieldAlert className="h-10 w-10 text-primary/80" />
+                    <ShieldCheck className="h-10 w-10 text-primary/80" />
                     <div>
-                        <h3 className="font-headline text-xl text-primary">Account Not Verified</h3>
-                        <p className="text-muted-foreground">Become a verified seller to build trust with buyers and enhance your profile.</p>
+                        <h3 className="font-headline text-xl text-primary">Upgrade to a Verified Seller</h3>
+                        <p className="text-muted-foreground">Gain a trust badge, enhance your profile, and unlock full access to the Sourcing Marketplace.</p>
                     </div>
                 </div>
                 <Button asChild>
-                    <Link href="/vendor/verify-payment">Become a Verified Seller</Link>
+                    <Link href="/vendor/verify-payment">Get Verified Now</Link>
                 </Button>
             </CardContent>
         </Card>
