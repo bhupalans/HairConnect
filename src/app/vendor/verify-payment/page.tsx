@@ -146,6 +146,10 @@ export default function VerifyPaymentPage() {
                                 <BadgeCheck className="h-5 w-5 mr-2 text-green-600 mt-0.5 flex-shrink-0"/>
                                 <span>Get access to the <span className="font-semibold text-primary">sourcing marketplace</span> for new leads.</span>
                             </div>
+                            <div className="flex items-start">
+                                <BadgeCheck className="h-5 w-5 mr-2 text-green-600 mt-0.5 flex-shrink-0"/>
+                                <span>List <span className="font-semibold text-primary">unlimited products</span> to showcase your full inventory.</span>
+                            </div>
                         </div>
                     </div>
 
