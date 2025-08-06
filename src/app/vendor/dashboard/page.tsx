@@ -99,6 +99,8 @@ const initialProfileState: Partial<Seller> = {
     contact: { email: "", phone: "", website: "" },
 };
 
+const standardOrigins = ["Indian", "Vietnamese", "Brazilian", "Peruvian", "Malaysian", "Chinese", "Burmese", "Cambodian", "Russian"];
+
 
 export default function VendorDashboardPage() {
   const { toast } = useToast();
@@ -143,6 +145,12 @@ export default function VendorDashboardPage() {
   const [newAvatarFile, setNewAvatarFile] = React.useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = React.useState<string>('');
   const [isAvatarRemoved, setIsAvatarRemoved] = React.useState(false);
+
+  const [addFormOrigin, setAddFormOrigin] = React.useState('');
+  const [addFormCustomOrigin, setAddFormCustomOrigin] = React.useState('');
+
+  const [editFormOrigin, setEditFormOrigin] = React.useState('');
+  const [editFormCustomOrigin, setEditFormCustomOrigin] = React.useState('');
 
   const unreadQuotesCount = React.useMemo(() => {
     return quoteRequests.filter(q => q.status === 'new').length;
@@ -279,6 +287,14 @@ export default function VendorDashboardPage() {
     }
     
     const formData = new FormData(event.currentTarget);
+    const finalOrigin = addFormOrigin === 'Other' ? addFormCustomOrigin : addFormOrigin;
+    
+    if (!finalOrigin) {
+        toast({ title: "Missing Origin", description: "Please select or specify the product origin.", variant: "destructive" });
+        setIsSubmitting(false);
+        return;
+    }
+
     const productData = {
         name: formData.get('name') as string,
         description: formData.get('description') as string,
@@ -289,7 +305,7 @@ export default function VendorDashboardPage() {
             length: `${formData.get('length') as string} inches`,
             color: formData.get('color') as string,
             texture: formData.get('texture') as string,
-            origin: formData.get('origin') as string,
+            origin: finalOrigin,
         }
     };
     
@@ -301,6 +317,8 @@ export default function VendorDashboardPage() {
         (event.target as HTMLFormElement).reset();
         setImagePreviews([]);
         setNewImageFiles([]);
+        setAddFormOrigin('');
+        setAddFormCustomOrigin('');
 
     } catch (error) {
         console.error("Add product error:", error);
@@ -324,6 +342,16 @@ export default function VendorDashboardPage() {
         length: product.specs.length.replace(' inches', ''), // remove suffix for editing
       }
     });
+
+    // Set up origin state for the edit form
+    if (standardOrigins.includes(product.specs.origin)) {
+        setEditFormOrigin(product.specs.origin);
+        setEditFormCustomOrigin('');
+    } else {
+        setEditFormOrigin('Other');
+        setEditFormCustomOrigin(product.specs.origin);
+    }
+
     setEditExistingImageUrls(product.images.map(img => img.url) || []);
     setEditNewImageFiles([]);
     setEditNewImagePreviews([]);
@@ -370,6 +398,12 @@ export default function VendorDashboardPage() {
         toast({ title: "At least one image is required.", variant: "destructive" });
         return;
     }
+    
+    const finalOrigin = editFormOrigin === 'Other' ? editFormCustomOrigin : editFormOrigin;
+    if (!finalOrigin) {
+        toast({ title: "Missing Origin", description: "Please select or specify the product origin.", variant: "destructive" });
+        return;
+    }
 
     setIsSubmitting(true);
     
@@ -381,7 +415,8 @@ export default function VendorDashboardPage() {
         price: price,
         specs: {
           ...editProductData.specs,
-          length: `${editProductData.specs.length} inches`
+          length: `${editProductData.specs.length} inches`,
+          origin: finalOrigin,
         }
       };
       
@@ -672,9 +707,21 @@ export default function VendorDashboardPage() {
                               <Input id="spec-color" name="color" defaultValue="Natural Black" required/>
                               </div>
                               <div className="space-y-2">
-                              <Label htmlFor="spec-origin">Origin</Label>
-                              <Input id="spec-origin" name="origin" placeholder="e.g. Vietnamese" required/>
+                                <Label htmlFor="spec-origin">Origin</Label>
+                                <Select onValueChange={setAddFormOrigin} value={addFormOrigin}>
+                                    <SelectTrigger id="spec-origin"><SelectValue placeholder="Select an origin" /></SelectTrigger>
+                                    <SelectContent>
+                                        {standardOrigins.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                                        <SelectItem value="Other">Other</SelectItem>
+                                    </SelectContent>
+                                </Select>
                               </div>
+                                {addFormOrigin === 'Other' && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="spec-custom-origin">Custom Origin</Label>
+                                        <Input id="spec-custom-origin" name="customOrigin" value={addFormCustomOrigin} onChange={e => setAddFormCustomOrigin(e.target.value)} placeholder="e.g. Filipino" required />
+                                    </div>
+                                )}
                           </div>
                       </div>
                   </div>
@@ -1114,10 +1161,22 @@ export default function VendorDashboardPage() {
                       <Label htmlFor="edit-spec-color-vendor">Color</Label>
                       <Input id="edit-spec-color-vendor" value={editProductData.specs.color} onChange={(e) => setEditProductData(p => ({...p, specs: {...p.specs, color: e.target.value}}))} />
                   </div>
-                   <div className="space-y-2">
+                  <div className="space-y-2">
                       <Label htmlFor="edit-spec-origin-vendor">Origin</Label>
-                      <Input id="edit-spec-origin-vendor" placeholder="e.g. Vietnamese" value={editProductData.specs.origin} onChange={(e) => setEditProductData(p => ({...p, specs: {...p.specs, origin: e.target.value}}))} />
+                        <Select onValueChange={setEditFormOrigin} value={editFormOrigin}>
+                            <SelectTrigger id="edit-spec-origin-vendor"><SelectValue placeholder="Select an origin" /></SelectTrigger>
+                            <SelectContent>
+                                {standardOrigins.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                                <SelectItem value="Other">Other</SelectItem>
+                            </SelectContent>
+                        </Select>
                   </div>
+                  {editFormOrigin === 'Other' && (
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-spec-custom-origin">Custom Origin</Label>
+                            <Input id="edit-spec-custom-origin" value={editFormCustomOrigin} onChange={e => setEditFormCustomOrigin(e.target.value)} placeholder="e.g. Filipino" required />
+                        </div>
+                    )}
               </div>
             </div>
           </div>
@@ -1163,3 +1222,5 @@ export default function VendorDashboardPage() {
     </div>
   );
 }
+
+    
