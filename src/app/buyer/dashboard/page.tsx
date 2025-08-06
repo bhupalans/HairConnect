@@ -287,55 +287,98 @@ export default function BuyerDashboardPage() {
                 </CardDescription>
                 </CardHeader>
                 <CardContent>
-                <Table>
-                    <TableHeader>
-                    <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Product</TableHead>
-                        <TableHead>Vendor</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Details</TableHead>
-                    </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                    {quoteRequests.length > 0 ? (
-                        quoteRequests.map((req) => (
-                        <TableRow key={req.id}>
-                            <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                                {format(new Date(req.date), "dd MMM yyyy")}
-                            </TableCell>
-                            <TableCell>
-                               {req.productId !== 'N/A' ? (
-                                    <Link href={`/products/${req.productId}`} className="font-medium text-primary hover:underline">{req.productName}</Link>
-                                ) : (
-                                    <span className="font-medium">{req.productName}</span>
-                                )}
-                                <div className="text-xs text-muted-foreground">Qty: {req.quantity}</div>
-                            </TableCell>
-                            <TableCell>
-                                {req.sellerId !== 'N/A' ? (
-                                    <Link href={`/sellers/${req.sellerId}`} className="font-medium text-primary hover:underline">View Vendor</Link>
-                                ) : (
-                                    <span>General Inquiry</span>
-                                )}
-                            </TableCell>
-                            <TableCell>
-                                {renderStatusBadge(req.status)}
-                            </TableCell>
-                            <TableCell className="max-w-[300px] text-sm text-muted-foreground whitespace-pre-wrap">
-                                {req.details || 'N/A'}
-                            </TableCell>
-                        </TableRow>
-                        ))
-                    ) : (
+                {/* Responsive Table/Card List for Quote Requests */}
+                 <div className="hidden md:block">
+                    <Table>
+                        <TableHeader>
                         <TableRow>
-                        <TableCell colSpan={6} className="text-center h-24">
-                            You haven't sent any quote requests yet.
-                        </TableCell>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Product</TableHead>
+                            <TableHead>Vendor</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Details</TableHead>
                         </TableRow>
-                    )}
-                    </TableBody>
-                </Table>
+                        </TableHeader>
+                        <TableBody>
+                        {quoteRequests.length > 0 ? (
+                            quoteRequests.map((req) => (
+                            <TableRow key={req.id}>
+                                <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                                    {format(new Date(req.date), "dd MMM yyyy")}
+                                </TableCell>
+                                <TableCell>
+                                {req.productId !== 'N/A' ? (
+                                        <Link href={`/products/${req.productId}`} className="font-medium text-primary hover:underline">{req.productName}</Link>
+                                    ) : (
+                                        <span className="font-medium">{req.productName}</span>
+                                    )}
+                                    <div className="text-xs text-muted-foreground">Qty: {req.quantity}</div>
+                                </TableCell>
+                                <TableCell>
+                                    {req.sellerId !== 'N/A' ? (
+                                        <Link href={`/sellers/${req.sellerId}`} className="font-medium text-primary hover:underline">View Vendor</Link>
+                                    ) : (
+                                        <span>General Inquiry</span>
+                                    )}
+                                </TableCell>
+                                <TableCell>
+                                    {renderStatusBadge(req.status)}
+                                </TableCell>
+                                <TableCell className="max-w-[300px] text-sm text-muted-foreground whitespace-pre-wrap">
+                                    {req.details || 'N/A'}
+                                </TableCell>
+                            </TableRow>
+                            ))
+                        ) : (
+                            <TableRow>
+                            <TableCell colSpan={6} className="text-center h-24">
+                                You haven't sent any quote requests yet.
+                            </TableCell>
+                            </TableRow>
+                        )}
+                        </TableBody>
+                    </Table>
+                 </div>
+                 <div className="md:hidden space-y-4">
+                     {quoteRequests.length > 0 ? (
+                        quoteRequests.map((req) => (
+                           <Card key={req.id} className="p-4">
+                             <div className="flex justify-between items-start gap-4">
+                                <div>
+                                    <div className="font-semibold">
+                                        {req.productId !== 'N/A' ? (
+                                            <Link href={`/products/${req.productId}`} className="text-primary hover:underline">{req.productName}</Link>
+                                        ) : (
+                                            <span>{req.productName}</span>
+                                        )}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">
+                                        {req.sellerId !== 'N/A' ? (
+                                            <Link href={`/sellers/${req.sellerId}`} className="hover:underline">View Vendor</Link>
+                                        ) : (
+                                            <span>General Inquiry</span>
+                                        )}
+                                    </div>
+                                     <div className="text-sm text-muted-foreground">Qty: {req.quantity}</div>
+                                </div>
+                                <div className="text-right">
+                                    {renderStatusBadge(req.status)}
+                                    <div className="text-xs text-muted-foreground mt-1 whitespace-nowrap">{format(new Date(req.date), "dd MMM yyyy")}</div>
+                                </div>
+                             </div>
+                             {req.details && (
+                                <div className="mt-2 pt-2 border-t text-sm text-muted-foreground whitespace-pre-wrap">
+                                    {req.details}
+                                </div>
+                             )}
+                           </Card>
+                        ))
+                     ) : (
+                        <div className="text-center py-10">
+                            <p>You haven't sent any quote requests yet.</p>
+                        </div>
+                     )}
+                 </div>
                 </CardContent>
             </Card>
           </TabsContent>
@@ -379,11 +422,11 @@ export default function BuyerDashboardPage() {
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleUpdateProfile} className="space-y-8">
-                        <div className="flex items-start gap-6">
-                            <div className="space-y-2">
+                        <div className="flex flex-col md:flex-row items-start gap-6">
+                            <div className="space-y-2 text-center md:text-left">
                                 <Label>Avatar</Label>
-                                <Image src={avatarPreview || "https://placehold.co/100x100"} alt="Avatar preview" width={100} height={100} className="rounded-full object-cover border"/>
-                                <div className="flex gap-2 max-w-[100px]">
+                                <Image src={avatarPreview || "https://placehold.co/100x100"} alt="Avatar preview" width={100} height={100} className="rounded-full object-cover border mx-auto"/>
+                                <div className="flex gap-2 max-w-[100px] mx-auto">
                                     <Label htmlFor="avatar-upload" className="flex-grow">
                                         <div className={cn(buttonVariants({ variant: "outline", size: "sm" }), "cursor-pointer w-full")}>Change</div>
                                     </Label>
@@ -391,8 +434,8 @@ export default function BuyerDashboardPage() {
                                     <Button type="button" variant="ghost" size="sm" onClick={handleRemoveAvatar}>Remove</Button>
                                 </div>
                             </div>
-                            <div className="flex-grow space-y-6">
-                               <div className="grid md:grid-cols-2 gap-4">
+                            <div className="flex-grow space-y-6 w-full">
+                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <Label htmlFor="profile-name">Your Name</Label>
                                         <Input id="profile-name" value={profileData.name || ''} onChange={e => setProfileData(p => ({...p, name: e.target.value}))}/>
@@ -417,7 +460,7 @@ export default function BuyerDashboardPage() {
                         <Separator />
 
                         <h3 className="text-lg font-medium">Business Details</h3>
-                        <div className="grid md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="buyer-type">Type of Business</Label>
                                 <Select value={profileData.buyerType} onValueChange={(value: Buyer['buyerType']) => setProfileData(p => ({...p, buyerType: value}))}>
@@ -452,7 +495,7 @@ export default function BuyerDashboardPage() {
                         <Separator />
 
                         <h3 className="text-lg font-medium">Contact Details</h3>
-                         <div className="grid md:grid-cols-2 gap-4">
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="profile-phone">Phone Number (Optional)</Label>
                                 <Input id="profile-phone" type="tel" value={profileData.contact?.phone || ''} onChange={e => setProfileData(p => ({...p, contact: {...p.contact, phone: e.target.value}} as any))}/>
@@ -487,14 +530,14 @@ export default function BuyerDashboardPage() {
                 <CardContent>
                     {buyer.isVerified && buyer.stripeSubscriptionStatus ? (
                         <div className="space-y-4">
-                            <div className="flex justify-between items-center border p-4 rounded-md">
+                            <div className="flex flex-col md:flex-row justify-between items-center border p-4 rounded-md gap-4">
                                 <div>
                                     <p className="font-medium">Subscription Status</p>
                                     <Badge variant={buyer.stripeSubscriptionStatus === 'active' ? "default" : "destructive"} className="capitalize mt-1">
                                         {buyer.stripeSubscriptionStatus}
                                     </Badge>
                                 </div>
-                                <Button onClick={handleManageSubscription} disabled={isCreatingPortalLink}>
+                                <Button onClick={handleManageSubscription} disabled={isCreatingPortalLink} className="w-full md:w-auto">
                                     {isCreatingPortalLink && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     Manage Billing
                                 </Button>

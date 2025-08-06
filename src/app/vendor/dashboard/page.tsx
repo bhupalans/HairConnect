@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React from "react";
@@ -784,15 +785,15 @@ export default function VendorDashboardPage() {
         
       {!seller.isVerified && (
         <Card className="mb-6 bg-secondary/40 border-primary/20 border">
-            <CardContent className="p-6 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <ShieldCheck className="h-10 w-10 text-primary/80" />
+            <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-4 text-center md:text-left">
+                    <ShieldCheck className="h-10 w-10 text-primary/80 hidden md:block" />
                     <div>
                         <h3 className="font-headline text-xl text-primary">Upgrade to a Verified Seller</h3>
                         <p className="text-muted-foreground">Gain a trust badge, enhance your profile, and unlock full access to the Sourcing Marketplace.</p>
                     </div>
                 </div>
-                <Button asChild>
+                <Button asChild className="w-full md:w-auto flex-shrink-0">
                     <Link href="/vendor/verify-payment">Get Verified Now</Link>
                 </Button>
             </CardContent>
@@ -831,69 +832,104 @@ export default function VendorDashboardPage() {
                 </CardHeader>
                 <CardContent>
                 {products.length > 0 ? (
-                    <Table>
-                        <TableHeader>
-                        <TableRow>
-                            <TableHead className="hidden w-[100px] sm:table-cell">
-                            Image
-                            </TableHead>
-                            <TableHead>Name</TableHead>
-                            <TableHead>Category</TableHead>
-                            <TableHead className="hidden md:table-cell">Price</TableHead>
-                            <TableHead>
-                            <span className="sr-only">Actions</span>
-                            </TableHead>
-                        </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {products.map((product) => (
-                            <TableRow key={product.id}>
-                                <TableCell className="hidden sm:table-cell">
+                    <>
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block">
+                        <Table>
+                            <TableHeader>
+                            <TableRow>
+                                <TableHead className="hidden w-[100px] sm:table-cell">
+                                Image
+                                </TableHead>
+                                <TableHead>Name</TableHead>
+                                <TableHead>Category</TableHead>
+                                <TableHead className="hidden md:table-cell">Price</TableHead>
+                                <TableHead>
+                                <span className="sr-only">Actions</span>
+                                </TableHead>
+                            </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {products.map((product) => (
+                                <TableRow key={product.id}>
+                                    <TableCell className="hidden sm:table-cell">
+                                    <Image
+                                        src={product.images?.[0]?.url || 'https://placehold.co/64x64'}
+                                        alt={product.images?.[0]?.alt || product.name}
+                                        width={64}
+                                        height={64}
+                                        className="rounded-md object-cover"
+                                    />
+                                    </TableCell>
+                                    <TableCell className="font-medium">{product.name}</TableCell>
+                                    <TableCell>{product.category}</TableCell>
+                                    <TableCell className="hidden md:table-cell">
+                                    ${product.price.toFixed(2)}
+                                    </TableCell>
+                                    <TableCell>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                        <Button
+                                            aria-haspopup="true"
+                                            size="icon"
+                                            variant="ghost"
+                                        >
+                                            <MoreHorizontal className="h-4 w-4" />
+                                            <span className="sr-only">Toggle menu</span>
+                                        </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                        <DropdownMenuItem
+                                            onSelect={() => handleEditClick(product)}
+                                        >
+                                            Edit
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            className="text-destructive"
+                                            onSelect={() => handleDeleteClick(product)}
+                                        >
+                                            Delete
+                                        </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                    </TableCell>
+                                </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                    {/* Mobile Card View */}
+                    <div className="md:hidden space-y-4">
+                        {products.map((product) => (
+                            <Card key={product.id} className="flex gap-4 p-4">
                                 <Image
-                                    src={product.images?.[0]?.url || 'https://placehold.co/64x64'}
+                                    src={product.images?.[0]?.url || 'https://placehold.co/80x80'}
                                     alt={product.images?.[0]?.alt || product.name}
-                                    width={64}
-                                    height={64}
+                                    width={80}
+                                    height={80}
                                     className="rounded-md object-cover"
                                 />
-                                </TableCell>
-                                <TableCell className="font-medium">{product.name}</TableCell>
-                                <TableCell>{product.category}</TableCell>
-                                <TableCell className="hidden md:table-cell">
-                                ${product.price.toFixed(2)}
-                                </TableCell>
-                                <TableCell>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                    <Button
-                                        aria-haspopup="true"
-                                        size="icon"
-                                        variant="ghost"
-                                    >
-                                        <MoreHorizontal className="h-4 w-4" />
-                                        <span className="sr-only">Toggle menu</span>
-                                    </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                    <DropdownMenuItem
-                                        onSelect={() => handleEditClick(product)}
-                                    >
-                                        Edit
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        className="text-destructive"
-                                        onSelect={() => handleDeleteClick(product)}
-                                    >
-                                        Delete
-                                    </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                                </TableCell>
-                            </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                                <div className="flex-grow">
+                                    <h4 className="font-semibold">{product.name}</h4>
+                                    <p className="text-sm text-muted-foreground">{product.category}</p>
+                                    <p className="text-sm font-bold text-primary">${product.price.toFixed(2)}</p>
+                                </div>
+                                <div>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuItem onSelect={() => handleEditClick(product)}>Edit</DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => handleDeleteClick(product)} className="text-destructive">Delete</DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
+                            </Card>
+                        ))}
+                    </div>
+                    </>
                 ) : (
                     <EmptyState 
                         icon={PackageOpen}
@@ -946,45 +982,76 @@ export default function VendorDashboardPage() {
                 </CardHeader>
                 <CardContent>
                 {quoteRequests.length > 0 ? (
-                    <Table>
-                        <TableHeader>
-                        <TableRow>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Buyer</TableHead>
-                            <TableHead>Product</TableHead>
-                            <TableHead>Details</TableHead>
-                            <TableHead>Action</TableHead>
-                        </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {quoteRequests.map((req) => (
-                            <TableRow key={req.id} className={req.status === 'new' ? 'bg-secondary/60' : ''}>
-                                <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                                    {format(new Date(req.date), "dd MMM yyyy")}
-                                </TableCell>
-                                <TableCell>
-                                    <div className="font-medium">{req.buyerName}</div>
-                                    <div className="text-xs text-muted-foreground">{req.buyerEmail}</div>
-                                </TableCell>
-                                <TableCell>
-                                    <div className="font-medium">{req.productName}</div>
-                                    <div className="text-xs text-muted-foreground">Qty: {req.quantity}</div>
-                                </TableCell>
-                                <TableCell className="max-w-[300px] text-sm text-muted-foreground whitespace-pre-wrap">
-                                    {req.details || 'N/A'}
-                                </TableCell>
-                                <TableCell>
-                                   <Button asChild variant="outline" size="sm">
-                                        <a href={`mailto:${req.buyerEmail}?subject=Re: Your Quote Request for ${req.productName}`}>
-                                            <Mail className="mr-2 h-4 w-4"/>
-                                            Contact
-                                        </a>
-                                   </Button>
-                                </TableCell>
+                    <>
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block">
+                        <Table>
+                            <TableHeader>
+                            <TableRow>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Buyer</TableHead>
+                                <TableHead>Product</TableHead>
+                                <TableHead>Details</TableHead>
+                                <TableHead>Action</TableHead>
                             </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                            </TableHeader>
+                            <TableBody>
+                                {quoteRequests.map((req) => (
+                                <TableRow key={req.id} className={req.status === 'new' ? 'bg-secondary/60' : ''}>
+                                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                                        {format(new Date(req.date), "dd MMM yyyy")}
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="font-medium">{req.buyerName}</div>
+                                        <div className="text-xs text-muted-foreground">{req.buyerEmail}</div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="font-medium">{req.productName}</div>
+                                        <div className="text-xs text-muted-foreground">Qty: {req.quantity}</div>
+                                    </TableCell>
+                                    <TableCell className="max-w-[300px] text-sm text-muted-foreground whitespace-pre-wrap">
+                                        {req.details || 'N/A'}
+                                    </TableCell>
+                                    <TableCell>
+                                    <Button asChild variant="outline" size="sm">
+                                            <a href={`mailto:${req.buyerEmail}?subject=Re: Your Quote Request for ${req.productName}`}>
+                                                <Mail className="mr-2 h-4 w-4"/>
+                                                Contact
+                                            </a>
+                                    </Button>
+                                    </TableCell>
+                                </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                    {/* Mobile Card View */}
+                    <div className="space-y-4 md:hidden">
+                        {quoteRequests.map(req => (
+                            <Card key={req.id} className={cn("p-4", req.status === 'new' ? 'bg-secondary/60' : '')}>
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <div className="font-semibold">{req.productName}</div>
+                                        <div className="text-sm text-muted-foreground">from {req.buyerName}</div>
+                                        <div className="text-xs text-muted-foreground">Qty: {req.quantity}</div>
+                                    </div>
+                                    <div className="text-xs text-muted-foreground text-right whitespace-nowrap">
+                                        {format(new Date(req.date), "dd MMM yyyy")}
+                                    </div>
+                                </div>
+                                {req.details && <p className="text-sm text-muted-foreground mt-2 pt-2 border-t whitespace-pre-wrap">{req.details}</p>}
+                                <div className="mt-3">
+                                    <Button asChild variant="outline" size="sm" className="w-full">
+                                            <a href={`mailto:${req.buyerEmail}?subject=Re: Your Quote Request for ${req.productName}`}>
+                                                <Mail className="mr-2 h-4 w-4"/>
+                                                Contact {req.buyerName}
+                                            </a>
+                                    </Button>
+                                </div>
+                            </Card>
+                        ))}
+                    </div>
+                    </>
                  ) : (
                     <EmptyState 
                         icon={Inbox}
@@ -1003,11 +1070,11 @@ export default function VendorDashboardPage() {
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleUpdateProfile} className="space-y-8">
-                        <div className="flex items-start gap-6">
-                            <div className="space-y-2">
+                        <div className="flex flex-col md:flex-row items-start gap-6">
+                            <div className="space-y-2 text-center md:text-left">
                                 <Label>Avatar</Label>
-                                <Image src={avatarPreview || "https://placehold.co/100x100"} alt="Avatar preview" width={100} height={100} className="rounded-full object-cover border"/>
-                                <div className="flex gap-2 max-w-[100px]">
+                                <Image src={avatarPreview || "https://placehold.co/100x100"} alt="Avatar preview" width={100} height={100} className="rounded-full object-cover border mx-auto"/>
+                                <div className="flex gap-2 max-w-[100px] mx-auto">
                                     <Label htmlFor="avatar-upload" className="flex-grow">
                                         <div className={cn(buttonVariants({ variant: "outline", size: "sm" }), "cursor-pointer w-full")}>Change</div>
                                     </Label>
@@ -1015,8 +1082,8 @@ export default function VendorDashboardPage() {
                                     <Button type="button" variant="ghost" size="sm" onClick={handleRemoveAvatar}>Remove</Button>
                                 </div>
                             </div>
-                            <div className="flex-grow space-y-6">
-                               <div className="grid md:grid-cols-2 gap-4">
+                            <div className="flex-grow space-y-6 w-full">
+                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <Label htmlFor="profile-companyName">Company Name</Label>
                                         <Input id="profile-companyName" value={profileData.companyName || ''} onChange={e => setProfileData(p => ({...p, companyName: e.target.value}))}/>
@@ -1041,7 +1108,7 @@ export default function VendorDashboardPage() {
                         <Separator />
 
                         <h3 className="text-lg font-medium">Contact Details</h3>
-                         <div className="grid md:grid-cols-2 gap-4">
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="profile-phone">Phone Number (Optional)</Label>
                                 <Input id="profile-phone" type="tel" value={profileData.contact?.phone || ''} onChange={e => setProfileData(p => ({...p, contact: {...p.contact, phone: e.target.value}} as any))}/>
@@ -1076,14 +1143,14 @@ export default function VendorDashboardPage() {
                 <CardContent>
                     {seller.isVerified && seller.stripeSubscriptionStatus ? (
                         <div className="space-y-4">
-                            <div className="flex justify-between items-center border p-4 rounded-md">
+                            <div className="flex flex-col md:flex-row justify-between items-center border p-4 rounded-md gap-4">
                                 <div>
                                     <p className="font-medium">Subscription Status</p>
                                     <Badge variant={seller.stripeSubscriptionStatus === 'active' ? "default" : "destructive"} className="capitalize mt-1">
                                         {seller.stripeSubscriptionStatus}
                                     </Badge>
                                 </div>
-                                <Button onClick={handleManageSubscription} disabled={isCreatingPortalLink}>
+                                <Button onClick={handleManageSubscription} disabled={isCreatingPortalLink} className="w-full md:w-auto">
                                     {isCreatingPortalLink && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     Manage Billing & Invoices
                                 </Button>
@@ -1277,4 +1344,5 @@ export default function VendorDashboardPage() {
     </div>
   );
 }
+
 
