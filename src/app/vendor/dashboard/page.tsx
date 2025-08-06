@@ -100,6 +100,7 @@ const initialProfileState: Partial<Seller> = {
 };
 
 const standardOrigins = ["Indian", "Vietnamese", "Brazilian", "Peruvian", "Malaysian", "Chinese", "Burmese", "Cambodian", "Russian"];
+const standardColors = ["Natural Black", "Jet Black (#1)", "Dark Brown (#2)", "Medium Brown (#4)", "Light Brown (#6)", "Blonde (#613)", "Honey Blonde (#27)", "Auburn (#30)", "Burgundy (#99J)", "Natural Grey", "Ombre"];
 
 
 export default function VendorDashboardPage() {
@@ -146,11 +147,18 @@ export default function VendorDashboardPage() {
   const [avatarPreview, setAvatarPreview] = React.useState<string>('');
   const [isAvatarRemoved, setIsAvatarRemoved] = React.useState(false);
 
+  // State for Add Product form dropdowns
   const [addFormOrigin, setAddFormOrigin] = React.useState('');
   const [addFormCustomOrigin, setAddFormCustomOrigin] = React.useState('');
-
+  const [addFormColor, setAddFormColor] = React.useState('');
+  const [addFormCustomColor, setAddFormCustomColor] = React.useState('');
+  
+  // State for Edit Product form dropdowns
   const [editFormOrigin, setEditFormOrigin] = React.useState('');
   const [editFormCustomOrigin, setEditFormCustomOrigin] = React.useState('');
+  const [editFormColor, setEditFormColor] = React.useState('');
+  const [editFormCustomColor, setEditFormCustomColor] = React.useState('');
+
 
   const unreadQuotesCount = React.useMemo(() => {
     return quoteRequests.filter(q => q.status === 'new').length;
@@ -288,9 +296,15 @@ export default function VendorDashboardPage() {
     
     const formData = new FormData(event.currentTarget);
     const finalOrigin = addFormOrigin === 'Other' ? addFormCustomOrigin : addFormOrigin;
-    
+    const finalColor = addFormColor === 'Other' ? addFormCustomColor : addFormColor;
+
     if (!finalOrigin) {
         toast({ title: "Missing Origin", description: "Please select or specify the product origin.", variant: "destructive" });
+        setIsSubmitting(false);
+        return;
+    }
+     if (!finalColor) {
+        toast({ title: "Missing Color", description: "Please select or specify the product color.", variant: "destructive" });
         setIsSubmitting(false);
         return;
     }
@@ -303,7 +317,7 @@ export default function VendorDashboardPage() {
         specs: {
             type: formData.get('type') as string,
             length: `${formData.get('length') as string} inches`,
-            color: formData.get('color') as string,
+            color: finalColor,
             texture: formData.get('texture') as string,
             origin: finalOrigin,
         }
@@ -319,6 +333,8 @@ export default function VendorDashboardPage() {
         setNewImageFiles([]);
         setAddFormOrigin('');
         setAddFormCustomOrigin('');
+        setAddFormColor('');
+        setAddFormCustomColor('');
 
     } catch (error) {
         console.error("Add product error:", error);
@@ -343,13 +359,20 @@ export default function VendorDashboardPage() {
       }
     });
 
-    // Set up origin state for the edit form
     if (standardOrigins.includes(product.specs.origin)) {
         setEditFormOrigin(product.specs.origin);
         setEditFormCustomOrigin('');
     } else {
         setEditFormOrigin('Other');
         setEditFormCustomOrigin(product.specs.origin);
+    }
+
+    if (standardColors.includes(product.specs.color)) {
+        setEditFormColor(product.specs.color);
+        setEditFormCustomColor('');
+    } else {
+        setEditFormColor('Other');
+        setEditFormCustomColor(product.specs.color);
     }
 
     setEditExistingImageUrls(product.images.map(img => img.url) || []);
@@ -400,10 +423,17 @@ export default function VendorDashboardPage() {
     }
     
     const finalOrigin = editFormOrigin === 'Other' ? editFormCustomOrigin : editFormOrigin;
+    const finalColor = editFormColor === 'Other' ? editFormCustomColor : editFormColor;
+
     if (!finalOrigin) {
         toast({ title: "Missing Origin", description: "Please select or specify the product origin.", variant: "destructive" });
         return;
     }
+    if (!finalColor) {
+        toast({ title: "Missing Color", description: "Please select or specify the product color.", variant: "destructive" });
+        return;
+    }
+
 
     setIsSubmitting(true);
     
@@ -417,6 +447,7 @@ export default function VendorDashboardPage() {
           ...editProductData.specs,
           length: `${editProductData.specs.length} inches`,
           origin: finalOrigin,
+          color: finalColor,
         }
       };
       
@@ -703,9 +734,21 @@ export default function VendorDashboardPage() {
                               </Select>
                               </div>
                               <div className="space-y-2">
-                              <Label htmlFor="spec-color">Color</Label>
-                              <Input id="spec-color" name="color" defaultValue="Natural Black" required/>
+                                <Label htmlFor="spec-color">Color</Label>
+                                <Select onValueChange={setAddFormColor} value={addFormColor}>
+                                    <SelectTrigger id="spec-color"><SelectValue placeholder="Select a color" /></SelectTrigger>
+                                    <SelectContent>
+                                        {standardColors.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                        <SelectItem value="Other">Custom Color / Other</SelectItem>
+                                    </SelectContent>
+                                </Select>
                               </div>
+                                {addFormColor === 'Other' && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="spec-custom-color">Custom Color</Label>
+                                        <Input id="spec-custom-color" name="customColor" value={addFormCustomColor} onChange={e => setAddFormCustomColor(e.target.value)} placeholder="e.g. Ash Blonde" required />
+                                    </div>
+                                )}
                               <div className="space-y-2">
                                 <Label htmlFor="spec-origin">Origin</Label>
                                 <Select onValueChange={setAddFormOrigin} value={addFormOrigin}>
@@ -1158,9 +1201,21 @@ export default function VendorDashboardPage() {
                       </Select>
                   </div>
                   <div className="space-y-2">
-                      <Label htmlFor="edit-spec-color-vendor">Color</Label>
-                      <Input id="edit-spec-color-vendor" value={editProductData.specs.color} onChange={(e) => setEditProductData(p => ({...p, specs: {...p.specs, color: e.target.value}}))} />
-                  </div>
+                        <Label htmlFor="edit-spec-color-vendor">Color</Label>
+                        <Select onValueChange={setEditFormColor} value={editFormColor}>
+                            <SelectTrigger id="edit-spec-color-vendor"><SelectValue placeholder="Select a color" /></SelectTrigger>
+                            <SelectContent>
+                                {standardColors.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                <SelectItem value="Other">Custom Color / Other</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    {editFormColor === 'Other' && (
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-spec-custom-color">Custom Color</Label>
+                            <Input id="edit-spec-custom-color" value={editFormCustomColor} onChange={e => setEditFormCustomColor(e.target.value)} placeholder="e.g. Ash Blonde" required />
+                        </div>
+                    )}
                   <div className="space-y-2">
                       <Label htmlFor="edit-spec-origin-vendor">Origin</Label>
                         <Select onValueChange={setEditFormOrigin} value={editFormOrigin}>
@@ -1223,4 +1278,3 @@ export default function VendorDashboardPage() {
   );
 }
 
-    
