@@ -65,6 +65,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { categories } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 import type { Product, Seller, QuoteRequest, ProductImage } from "@/lib/types";
@@ -534,8 +535,14 @@ export default function VendorDashboardPage() {
     );
   }
 
+  const canAddProduct = seller.isVerified || products.length < 1;
+  const addProductTooltipContent = "Upgrade to a Verified Seller to add more products.";
+  const marketplaceTooltipContent = "Become a Verified Seller to access the marketplace and find new leads.";
+
+
   return (
     <div className="bg-secondary/20 min-h-[calc(100vh-80px)]">
+    <TooltipProvider>
     <div className="container mx-auto px-4 py-8 md:py-12">
       <header className="mb-8 flex justify-between items-start">
         <div>
@@ -547,12 +554,23 @@ export default function VendorDashboardPage() {
         <div>
         {activeTab === 'products' && (
             <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-              <DialogTrigger asChild>
-                  <Button>
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Add Product
-                  </Button>
-              </DialogTrigger>
+              <TooltipProvider>
+                <Tooltip open={!canAddProduct ? undefined : false}>
+                    <TooltipTrigger asChild>
+                      <span tabIndex={!canAddProduct ? 0 : -1}>
+                        <DialogTrigger asChild>
+                            <Button disabled={!canAddProduct}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Add Product
+                            </Button>
+                        </DialogTrigger>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{addProductTooltipContent}</p>
+                    </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <DialogContent className="sm:max-w-3xl p-0 h-[90vh] flex flex-col">
                   <form onSubmit={handleAddProduct} className="flex flex-col h-full">
                   <DialogHeader className="p-6 pb-4">
@@ -694,7 +712,16 @@ export default function VendorDashboardPage() {
       <Tabs defaultValue="products" onValueChange={handleTabChange}>
           <TabsList className="mb-4">
             <TabsTrigger value="products">My Products</TabsTrigger>
-            <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
+             <Tooltip open={!seller.isVerified ? undefined : false}>
+                <TooltipTrigger asChild>
+                  <span tabIndex={!seller.isVerified ? 0 : -1}>
+                    <TabsTrigger value="marketplace" disabled={!seller.isVerified}>Marketplace</TabsTrigger>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{marketplaceTooltipContent}</p>
+                </TooltipContent>
+            </Tooltip>
             <TabsTrigger value="quotes" className="relative">
               Quote Requests
               {unreadQuotesCount > 0 && (
@@ -782,7 +809,20 @@ export default function VendorDashboardPage() {
                         icon={PackageOpen}
                         title="No Products Yet"
                         description="You haven't added any products to your store. Add one to get started."
-                        action={<Button onClick={() => setShowAddDialog(true)}>Add Your First Product</Button>}
+                        action={
+                           <TooltipProvider>
+                                <Tooltip open={!canAddProduct ? undefined : false}>
+                                    <TooltipTrigger asChild>
+                                      <span tabIndex={!canAddProduct ? 0 : -1}>
+                                        <Button onClick={() => setShowAddDialog(true)} disabled={!canAddProduct}>Add Your First Product</Button>
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>{addProductTooltipContent}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                           </TooltipProvider>
+                        }
                     />
                 )}
                 </CardContent>
@@ -1119,8 +1159,7 @@ export default function VendorDashboardPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </TooltipProvider>
     </div>
   );
 }
-
-    
