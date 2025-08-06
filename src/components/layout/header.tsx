@@ -20,6 +20,7 @@ import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import type { Seller, Buyer } from "@/lib/types";
+import { Separator } from "../ui/separator";
 
 
 const Logo = () => (
@@ -158,10 +159,22 @@ export function Header() {
       if (isLoading) {
           return null;
       }
-      if (user && userRole) {
+      if (user && userRole && userProfile) {
           const dashboardPath = getDashboardPath();
+          const roleLabel = userRole.charAt(0).toUpperCase() + userRole.slice(1);
           return (
                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col items-center gap-3 text-center">
+                    <Avatar className="h-16 w-16">
+                        <AvatarImage src={userProfile.avatarUrl} alt={userProfile.name} />
+                        <AvatarFallback className="text-2xl">{userProfile.name?.charAt(0) || 'A'}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                        <p className="font-semibold text-lg">{userProfile.companyName || userProfile.name}</p>
+                        <p className="text-sm text-muted-foreground">{roleLabel}</p>
+                    </div>
+                  </div>
+                  <Separator className="my-2" />
                   <Button asChild size="lg" onClick={() => setSheetOpen(false)}>
                     <Link href={dashboardPath}>My Dashboard</Link>
                   </Button>
@@ -240,6 +253,7 @@ export function Header() {
                   <Button asChild size="lg" onClick={() => setSheetOpen(false)}>
                     <Link href="/quote">Request a Quote</Link>
                   </Button>
+                  <Separator className="my-2" />
                   {renderMobileAuthSection()}
                 </div>
               </div>
