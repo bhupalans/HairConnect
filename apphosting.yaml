@@ -1,7 +1,11 @@
 # Settings to manage and configure a Firebase App Hosting backend.
 # https://firebase.google.com/docs/app-hosting/configure
 
+# This configuration explicitly enables the auth handler and sets a generous
+# timeout to ensure long-running server actions can complete.
 runConfig:
-  # Increase this value if you'd like to automatically spin up
-  # more instances in response to increased traffic.
-  maxInstances: 1
+  minInstances: 0
+  maxInstances: 2
+  timeoutSeconds: 300
+# This flag is crucial for enabling the /__/auth/action endpoint handler.
+authAdmin: true
