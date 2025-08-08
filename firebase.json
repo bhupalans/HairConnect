@@ -22,6 +22,15 @@
     "frameworksBackend": {
       "region": "us-central1",
       "serviceId": "hairconnect-db"
-    }
+    },
+    "rewrites": [
+      {
+        "source": "/__/auth/**",
+        "firebase": {
+          "projectId": "hairconnect-db",
+          "function": "ssr-hairconnect-db"
+        }
+      }
+    ]
   }
 }
