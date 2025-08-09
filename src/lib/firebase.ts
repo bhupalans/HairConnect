@@ -9,8 +9,8 @@ import { getFunctions, httpsCallable, connectFunctionsEmulator } from "firebase/
 // Go to Project settings > General > Your apps > Web app > SDK setup and configuration
 export const firebaseConfig: FirebaseOptions = {
   apiKey: "AIzaSyD0F3XPTpYuwYauK_yRu2q597js3QDmqlU",
-  //authDomain: "hairconnect-db.firebaseapp.com",
-  authDomain: "stage.veloglobal.in",
+  authDomain: "hairconnect-db.firebaseapp.com",
+  //authDomain: "stage.veloglobal.in",
   projectId: "hairconnect-db",
   storageBucket: "hairconnect-db.firebasestorage.app",
   messagingSenderId: "727090333408",
