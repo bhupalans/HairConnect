@@ -50,6 +50,26 @@ HairBuySell is a comprehensive B2B marketplace built with Next.js and Firebase. 
 └── next.config.ts            # Next.js configuration
 ```
 
+## Preview Environment & How It Works
+
+This application utilizes a modern, two-project architecture for enhanced security and scalability.
+
+*   **Frontend Project (ID: `hairconnect-coz53`)**
+    *   This project uses **Firebase App Hosting** to serve the Next.js user interface.
+    *   The live preview URL is **https://stage.veloglobal.in**. This is the primary URL that should be used for all testing and demos.
+*   **Backend Project (ID: `hairconnect-db`)**
+    *   This project contains all backend services: **Firebase Authentication**, **Firestore Database**, and **Cloud Functions**.
+    *   Users and partners **do not** interact with this project directly. It is the secure "engine" of the application.
+
+### How They Connect
+
+The frontend application at `stage.veloglobal.in` is configured to securely communicate with the `hairconnect-db` backend project. This connection allows the user interface to fetch data, log users in, and process payments without ever exposing sensitive credentials or logic on the client-side. This separation is a best practice for building robust web applications.
+
+### Testing Workflow
+
+1.  All code changes, once published, will be reflected on the **https://stage.veloglobal.in** URL.
+2.  All user actions (signing up, logging in, verifying an email, etc.) initiated from the preview URL will make secure requests to the `hairconnect-db` backend.
+
 ## Getting Started
 
 To run this project locally, you will need Node.js, npm, and the Firebase CLI installed.
