@@ -1,6 +1,6 @@
 
 
-import type { Product, Seller, Buyer, QuoteRequest, ContactMessage, ProductImage } from './types';
+import type { Product, Seller, Buyer, QuoteRequest, ContactMessage, ProductImage, BuyerRegistrationData } from './types';
 import { unstable_noStore as noStore } from 'next/cache';
 import { db, auth } from './firebase';
 import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp, query, orderBy, Timestamp, updateDoc, where, setDoc, deleteDoc, writeBatch, arrayUnion, arrayRemove, getCountFromServer, runTransaction, increment } from 'firebase/firestore';
@@ -507,25 +507,13 @@ export async function deleteVendor(vendorId: string) {
     }
 }
 
-export async function addBuyer(
-  values: {
-    name: string;
-    companyName?: string;
-    email: string;
-    password: string;
-    country: string;
-    city: string;
-    phoneCode?: string;
-    localPhone?: string;
-    bio: string;
-  }
-) {
-  const location = values.city && values.country ? `${values.city}, ${values.country}` : values.city || values.country;
-  const fullPhoneNumber = values.phoneCode && values.localPhone ? `${values.phoneCode}${values.localPhone.replace(/\D/g, '')}` : "";
+export async function addBuyer(data: BuyerRegistrationData) {
+  const location = data.city && data.country ? `${data.city}, ${data.country}` : data.city || data.country;
+  const fullPhoneNumber = data.phoneCode && data.localPhone ? `${data.phoneCode}${data.localPhone.replace(/\D/g, '')}` : "";
   
   try {
     // Step 1: Create user in Firebase Authentication
-    const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+    const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
     const user = userCredential.user;
     
     // Step 2: Send verification email
@@ -534,12 +522,12 @@ export async function addBuyer(
     // Step 3: Create a corresponding buyer document in Firestore
     const memberSince = new Date().toISOString();
     await setDoc(doc(db, "buyers", user.uid), {
-      name: values.name,
-      companyName: values.companyName || '',
+      name: data.name,
+      companyName: data.companyName || '',
       location: location,
-      bio: values.bio,
+      bio: data.bio,
       isVerified: false, // Buyers start as unverified
-      avatarUrl: `https://placehold.co/100x100?text=${values.name.charAt(0)}`,
+      avatarUrl: `https://placehold.co/100x100?text=${data.name.charAt(0)}`,
       memberSince: memberSince,
       lastActivity: memberSince,
       quoteRequestCount: 0, // Initialize count to 0
@@ -548,6 +536,8 @@ export async function addBuyer(
         phone: fullPhoneNumber,
         website: '', // Website is not in the form, so default to empty
       },
+      buyerType: null, // Initialize as null
+      yearsInBusiness: null, // Initialize as null
     });
 
   } catch (error) {
@@ -565,6 +555,17 @@ export async function updateBuyerProfile(
   const buyerRef = doc(db, "buyers", buyerId);
   const storage = getStorage();
   
+  // Create a mutable copy to sanitize
+  const sanitizedData = { ...data };
+
+  // Convert undefined optional fields to null to prevent Firestore errors
+  if (sanitizedData.buyerType === undefined) {
+    sanitizedData.buyerType = null;
+  }
+  if (sanitizedData.yearsInBusiness === undefined) {
+    sanitizedData.yearsInBusiness = null;
+  }
+  
   // Exclude fields that should not be editable by the user to prevent security rule violations
   const { 
       isVerified, 
@@ -572,7 +573,7 @@ export async function updateBuyerProfile(
       stripeSubscriptionId, 
       stripeSubscriptionStatus,
       ...filteredData
-  } = data;
+  } = sanitizedData;
 
   const dataToUpdate: any = { ...filteredData };
 
