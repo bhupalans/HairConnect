@@ -564,7 +564,17 @@ export async function updateBuyerProfile(
 ) {
   const buyerRef = doc(db, "buyers", buyerId);
   const storage = getStorage();
-  const dataToUpdate: any = { ...data };
+  
+  // Exclude fields that should not be editable by the user to prevent security rule violations
+  const { 
+      isVerified, 
+      stripeCustomerId, 
+      stripeSubscriptionId, 
+      stripeSubscriptionStatus,
+      ...filteredData
+  } = data;
+
+  const dataToUpdate: any = { ...filteredData };
 
   try {
     const existingBuyerSnap = await getDoc(buyerRef);
