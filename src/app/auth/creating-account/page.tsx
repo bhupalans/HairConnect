@@ -48,7 +48,7 @@ export default function CreatingAccountPage() {
         // Clean up sessionStorage
         sessionStorage.removeItem('buyerRegistrationData');
 
-        // Redirect to the verification page
+        // Redirect to the unified email verification instructions page
         router.push('/auth/verify-email');
 
       } catch (error: any) {
