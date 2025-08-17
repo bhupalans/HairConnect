@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { applyActionCode } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
@@ -14,7 +14,7 @@ import { doc, getDoc } from "firebase/firestore";
 
 type VerificationStatus = 'verifying' | 'success' | 'error';
 
-export default function VerifyPage() {
+function VerifyPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -145,3 +145,26 @@ export default function VerifyPage() {
   );
 }
 
+function LoadingFallback() {
+    return (
+        <div className="flex min-h-[calc(100vh-12rem)] items-center justify-center bg-secondary/20 p-4">
+            <Card className="w-full max-w-md shadow-xl">
+                <CardHeader />
+                <CardContent>
+                    <div className="text-center space-y-4">
+                        <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+                        <p className="text-muted-foreground">Loading verification page...</p>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    );
+}
+
+export default function VerifyPage() {
+    return (
+        <Suspense fallback={<LoadingFallback />}>
+            <VerifyPageContent />
+        </Suspense>
+    );
+}
