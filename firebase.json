@@ -11,18 +11,5 @@
     "runtime": "nodejs20",
     "codebase": "default"
   },
-  "hosting": {
-    "source": ".",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-    "appAssociation": "AUTO",
-    "rewrites": [
-      {
-        "source": "**",
-        "apphosting": {
-          "backendId": "hairconnect-coz53",
-          "region": "us-central1"
-        }
-      }
-    ]
-  }
+
 }
