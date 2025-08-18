@@ -1,14 +1,19 @@
 
+"use client";
 
 import { getBuyerById } from "@/lib/data";
-import { notFound } from "next/navigation";
+import { notFound, usePathname } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Mail, MapPin, CalendarDays, BarChart3, Clock, Bookmark, Building, User, Briefcase, ShoppingBag, BadgeCheck } from "lucide-react";
+import { Mail, MapPin, CalendarDays, BarChart3, Clock, Briefcase, BadgeCheck, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import type { Buyer } from "@/lib/types";
 import { Separator } from "@/components/ui/separator";
+import { useEffect, useState } from "react";
+import { onAuthStateChanged, type User } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import Link from "next/link";
 
 const buyerTypeLabels: Record<NonNullable<Buyer['buyerType']>, string> = {
     salon: "Salon Owner",
@@ -18,14 +23,68 @@ const buyerTypeLabels: Record<NonNullable<Buyer['buyerType']>, string> = {
     other: "Other"
 }
 
-export default async function BuyerProfilePage({ params }: { params: { id: string } }) {
-  const buyer = await getBuyerById(params.id);
+export default function BuyerProfilePage({ params }: { params: { id: string } }) {
+  const [buyer, setBuyer] = useState<Buyer | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const pathname = usePathname();
 
-  if (!buyer) {
-    notFound();
+
+  useEffect(() => {
+    async function fetchBuyer() {
+        try {
+            const fetchedBuyer = await getBuyerById(params.id);
+            if (!fetchedBuyer) {
+                notFound();
+            }
+            setBuyer(fetchedBuyer);
+        } catch (error) {
+            console.error("Failed to fetch buyer", error);
+        }
+    }
+    fetchBuyer();
+  }, [params.id]);
+  
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+        setCurrentUser(user);
+        setIsLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+  
+
+  if (isLoading || !buyer) {
+    return (
+        <div className="flex h-[calc(100vh-12rem)] items-center justify-center">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        </div>
+    );
   }
   
   const websiteLink = buyer.contact?.website ? (buyer.contact.website.startsWith('http') ? buyer.contact.website : `https://${buyer.contact.website}`) : null;
+
+  const renderContactButton = () => {
+    if (isLoading) {
+        return <Button disabled><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading...</Button>;
+    }
+
+    if (currentUser) {
+        return (
+            <Button asChild>
+                <a href={`mailto:${buyer.contact.email}`}><Mail className="mr-2 h-4 w-4" /> Contact Buyer</a>
+            </Button>
+        );
+    }
+
+    return (
+        <Button asChild>
+             <Link href={`/login?redirect=${pathname}`}>
+                <Mail className="mr-2 h-4 w-4" /> Login to Contact Buyer
+            </Link>
+        </Button>
+    );
+  }
 
   return (
     <div className="bg-secondary/20">
@@ -66,9 +125,7 @@ export default async function BuyerProfilePage({ params }: { params: { id: strin
                  <h2 className="text-2xl font-headline text-primary mb-4">About {buyer.companyName || buyer.name}</h2>
                  <p className="text-base max-w-3xl whitespace-pre-wrap">{buyer.bio}</p>
                  <div className="mt-6">
-                    <Button asChild>
-                        <a href={`mailto:${buyer.contact.email}`}><Mail className="mr-2 h-4 w-4" /> Contact Buyer</a>
-                    </Button>
+                    {renderContactButton()}
                 </div>
               </CardContent>
             </Card>
@@ -136,5 +193,3 @@ export default async function BuyerProfilePage({ params }: { params: { id: strin
     </div>
   );
 }
-
-    

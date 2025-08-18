@@ -85,15 +85,21 @@ export function SellerProfileClientPage({ seller, sellerProducts }: SellerProfil
   };
   
   const renderActionButtons = () => {
-    // Not logged in or still loading
-    if (isLoading || !currentUser) {
+    if (isLoading) {
+       return <div className="h-10 w-64 bg-muted rounded-md animate-pulse" />;
+    }
+    
+    // Not logged in
+    if (!currentUser) {
        return (
             <div className="flex items-center gap-4">
                  <Button asChild>
-                    <a href={`mailto:${seller.contact.email}`}><Mail className="mr-2 h-4 w-4" /> Contact Seller</a>
+                    <Link href={`/login?redirect=${pathname}`}>
+                        <Mail className="mr-2 h-4 w-4" /> Login to Contact Seller
+                    </Link>
                 </Button>
                 <Button asChild variant="secondary">
-                    <Link href={`/login?redirect=${pathname}`}><Bookmark className="mr-2 h-4 w-4" /> Login to Save Vendor</Link>
+                    <Link href={`/login?redirect=${pathname}`}><Bookmark className="mr-2 h-4 w-4" /> Login to Save</Link>
                 </Button>
             </div>
        )
@@ -185,12 +191,18 @@ export function SellerProfileClientPage({ seller, sellerProducts }: SellerProfil
           </div>
 
           <div>
-            {currentUser ? (
-              <Card>
-                  <CardHeader>
-                      <CardTitle className="font-headline text-2xl">Contact Information</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle className="font-headline text-2xl">Contact Information</CardTitle>
+                </CardHeader>
+                <CardContent>
+                {isLoading ? (
+                    <div className="space-y-4">
+                        <div className="h-5 w-3/4 bg-muted rounded animate-pulse" />
+                        <div className="h-5 w-1/2 bg-muted rounded animate-pulse" />
+                    </div>
+                ) : currentUser ? (
+                  <div className="space-y-4">
                       <div className="flex items-center gap-3">
                           <Mail className="h-5 w-5 text-muted-foreground" />
                           <a href={`mailto:${seller.contact.email}`} className="text-primary hover:underline">{seller.contact.email}</a>
@@ -207,18 +219,15 @@ export function SellerProfileClientPage({ seller, sellerProducts }: SellerProfil
                               <a href={`https://${seller.contact.website}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{seller.contact.website}</a>
                           </div>
                       )}
-                  </CardContent>
-              </Card>
-            ) : (
-               <Card>
-                  <CardHeader>
-                      <CardTitle className="font-headline text-2xl">Contact Information</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground">Please <Link href={`/login?redirect=${pathname}`} className="text-primary underline">login</Link> or <Link href="/register" className="text-primary underline">register</Link> to view the seller's contact details.</p>
-                  </CardContent>
-              </Card>
-            )}
+                  </div>
+                ) : (
+                    <div className="text-center text-muted-foreground bg-secondary/40 p-4 rounded-md">
+                        <LogIn className="h-8 w-8 mx-auto mb-2 text-primary" />
+                        <p>Please <Link href={`/login?redirect=${pathname}`} className="text-primary underline font-semibold">login</Link> or <Link href="/register" className="text-primary underline font-semibold">register</Link> to view the seller's contact details.</p>
+                    </div>
+                )}
+                </CardContent>
+            </Card>
           </div>
         </div>
       </div>
