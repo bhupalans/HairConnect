@@ -2,7 +2,7 @@
 "use client";
 
 import { getBuyerById } from "@/lib/data";
-import { notFound, usePathname } from "next/navigation";
+import { notFound, usePathname, useParams } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,37 +23,48 @@ const buyerTypeLabels: Record<NonNullable<Buyer['buyerType']>, string> = {
     other: "Other"
 }
 
-export default function BuyerProfilePage({ params }: { params: { id: string } }) {
+export default function BuyerProfilePage() {
+  const params = useParams();
   const [buyer, setBuyer] = useState<Buyer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const pathname = usePathname();
 
-
   useEffect(() => {
+    const id = params.id as string;
+    if (!id) {
+        setIsLoading(false);
+        return;
+    };
+
     async function fetchBuyer() {
         try {
-            const fetchedBuyer = await getBuyerById(params.id);
+            const fetchedBuyer = await getBuyerById(id);
             if (!fetchedBuyer) {
                 notFound();
             }
             setBuyer(fetchedBuyer);
         } catch (error) {
             console.error("Failed to fetch buyer", error);
+        } finally {
+            // This now happens in the main useEffect's finally block
         }
     }
-    fetchBuyer();
+    
+    async function checkAuthAndFetch() {
+        setIsLoading(true);
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            setCurrentUser(user);
+        });
+        await fetchBuyer();
+        setIsLoading(false);
+        return () => unsubscribe();
+    }
+    
+    checkAuthAndFetch();
+
   }, [params.id]);
   
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-        setCurrentUser(user);
-        setIsLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-  
-
   if (isLoading || !buyer) {
     return (
         <div className="flex h-[calc(100vh-12rem)] items-center justify-center">
